@@ -1,0 +1,6 @@
+export(buildGmapDbSNPIndex)
+export(buildGmapIndex)
+export(installGmap)
+export(consolidateGmapFiles)
+export(getGsnapFileCounts)
+export(parallelized_gsnap)

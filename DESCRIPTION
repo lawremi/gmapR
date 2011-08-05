@@ -1,0 +1,18 @@
+Package: gmapR
+Maintainer: <barr.cory@gene.com>
+License: Artistic-2.0
+Title: Provides convenience methods to work with GMAP and GSNAP from
+    within R
+Type: Package
+LazyLoad: yes
+Author: Cory Barr
+Description: GSNAP and GMAP are a pair of tools to align short-read
+    data written by Tom Wu.  This package provides convenience methods
+    to work with GMAP and GSNAP from within R
+Version: 1.0
+Date: 2011-08-01
+Depends: R (>= 2.14.0), HTSeqGenieBase (>= 1.0.22)
+Collate: 'buildGmapDbSNPIndex.R' 'buildGmapGenomeIndex.R' 'buildGmap.R'
+    'buildGsnapSNPIIT.R' 'consolidateGmapFiles.R'
+    'consolidateGsnapFiles.R' 'getGsnapFileCounts.R'
+    'parallelized_gsnap.R'
