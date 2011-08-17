@@ -38,36 +38,6 @@ buildGmapIndex <- function(genome) {
   }
 
   genome_fa <- retrieveGenomeFasta(genome)
-
-  buildGmapIITFromFasta <- function(genome, fasta) {
-
-    ##currently, hg19 for the Genie pipelines is names hg19_ucsc to
-    ##distinguish origin. This will be phased out
-    genome <- 'hg19_ucsc'
-    
-    gmap_setup <- file.path(globals()['gmap_bin'],
-                              "gmap_setup")  
-    sys_command <- paste(gmap_setup,
-                         "-d",
-                         genome,
-                         fasta)
-    system(sys_command)
-      
-    sys_command <- paste("make -f",
-                         paste('Makefile.', genome, sep=''),
-                         "coords")
-    system(sys_command)
-      
-    sys_command <- paste("make -f",
-                         paste('Makefile.', genome, sep=''),
-                         "gmapdb")
-    system(sys_command)
-      
-    sys_command <- paste("make -f",
-                         paste('Makefile.', genome, sep=''),
-                         "install")
-    system(sys_command)
-  }
   
   buildGmapIITFromFasta(genome, genome_fa)
   return(0)
