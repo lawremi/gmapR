@@ -14,6 +14,7 @@
 ##' value. identical to 'intern' argument to the system() function
 ##' @param multifile_out tells gsnap to write to 3 output files for
 ##' single-end data, or 7 output files for paired-end data
+##' @param record_sys_call_dir If a directory is supplied, will record the system call made to gsnap here
 ##' @return a list of the return values of the system function for
 ##' each parallelized piece
 ##' @author Cory Barr

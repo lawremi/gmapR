@@ -7,6 +7,7 @@
 ##' @param gmap_data_dir The location to save the GMAP/GSNAP index into
 ##' @return 0 if successful
 ##' @author Cory Barr
+##' @export
 buildGmapIITFromFasta <- function(genome, fasta, gmap_data_dir=NULL) {
 
   if(!file.exists(gmap_data_dir))

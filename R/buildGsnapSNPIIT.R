@@ -14,6 +14,7 @@
 ##' argument to call via gsnap's -v option for snp-tolerant alignment. For example, if snp_name
 ##' is db131, then gsnap will align via gsnap will incorporate your injected snps through the command 'gsnap -d genome -v db131'
 ##' @return 0
+##' @export
 ##` @author Cory Barr
 ##` rdname buildGsnapSNPIIT
 

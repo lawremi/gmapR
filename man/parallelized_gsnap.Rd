@@ -21,4 +21,5 @@ each parallelized piece}
 \item{intern}{indicates whether to have STDOUT the return
 value. identical to 'intern' argument to the system() function}
 \item{multifile_out}{tells gsnap to write to 3 output files for
-single-end data, or 7 output files for paired-end data}}
+single-end data, or 7 output files for paired-end data}
+\item{record_sys_call_dir}{If a directory is supplied, will record the system call made to gsnap here}}

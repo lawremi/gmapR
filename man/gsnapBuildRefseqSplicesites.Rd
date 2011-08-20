@@ -6,6 +6,6 @@
 \details{downloads refSeq table from UCSC, parses out splice site donors
 and acceptors, creates IIT for gsnap, then copies IIT to genome's
 shared gsnap dir}
-\value{1}
+\value{0}
 \author{Cory Barr}
 \arguments{\item{genome}{Genome to construct split sites for (only hg19 supported at the moment)}}

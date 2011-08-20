@@ -9,6 +9,7 @@
 ##' @param remove_merged remove the individual pieces after they are merged
 ##' @return list of the names of the files created from consolidation
 ##' @author Cory Barr
+##' @export
 consolidateGsnapFiles <- function(sam_file_dir,
                                   remove_merged=FALSE,
                                   parallelized=TRUE) {
