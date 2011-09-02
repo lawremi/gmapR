@@ -31,67 +31,67 @@
 ## parallelize_gsnap would also need to take this object,
 ## overriding the 'part' parameter.
 
-.valid_GmapParam_part <- function(x) {
+.valid_GsnapParam_part <- function(x) {
   ## validate the part string (i/n)
 }
-.valid_GmapParam_batch <- function(x) {
+.valid_GsnapParam_batch <- function(x) {
   ## one of 0, 1, 2, 3, 4
 }
-.valid_GmapParam_max_mismatches <- function(x) {
+.valid_GsnapParam_max_mismatches <- function(x) {
   ## non-negative number or NULL
 }
-.valid_GmapParam_use_snps <- function(x) {
+.valid_GsnapParam_use_snps <- function(x) {
   ## a file that exists (not sure)
 }
-.valid_GmapParam_mode <- function(x) {
+.valid_GsnapParam_mode <- function(x) {
   ## one of standard, cmet, atoi
 }
-.valid_GmapParam_nthreads <- function(x) {
+.valid_GsnapParam_nthreads <- function(x) {
   ## positive number
 }
-.valid_GmapParam_novelsplicing <- function(x) {
+.valid_GsnapParam_novelsplicing <- function(x) {
   ## TRUE or FALSE
 }
-.valid_GmapParam_splicing <- function(x) {
+.valid_GsnapParam_splicing <- function(x) {
   ## a file that exists (not sure) or NULL
 }
-.valid_GmapParam_npaths <- function(x) {
+.valid_GsnapParam_npaths <- function(x) {
   ## positive number
 }
-.valid_GmapParam_quiet_if_excessive <- function(x) {
+.valid_GsnapParam_quiet_if_excessive <- function(x) {
   ## TRUE or FALSE
 }
-.valid_GmapParam_nofails <- function(x) {
+.valid_GsnapParam_nofails <- function(x) {
   ## TRUE or FALSE
 }
-.valid_GmapParam_format <- function(x) {
+.valid_GsnapParam_format <- function(x) {
   ## sam or NULL (this is a low-level check!)
 }
-.valid_GmapParam_split_output <- function(x) {
+.valid_GsnapParam_split_output <- function(x) {
   ## TRUE or FALSE
 }
-.valid_GmapParam_read_group_id <- function(x) {
+.valid_GsnapParam_read_group_id <- function(x) {
   ## single string (any character constraints?) or NULL
 }
-.valid_GmapParam_read_group_name  <- function(x) {
+.valid_GsnapParam_read_group_name  <- function(x) {
   ## single string or NULL
 }
 
 .valid_gmap_parameter <- function(name, params) {
-  validator <- get(paste(".valid_GmapParam_", name, sep = ""))
+  validator <- get(paste(".valid_GsnapParam_", name, sep = ""))
   if (!is.null(validator))
     validator(params)
   else NULL
 }
 
-.valid_GmapParam <- function(x) {
+.valid_GsnapParam <- function(x) {
   x <- as.list(x) # converts to low-level parameter list
   do.call(c, lapply(names(x), .valid_gmap_parameter, x))
 }
 
 setClassUnion("IntegerORNULL", c("integer", "NULL"))
 
-setClass("GmapParam",
+setClass("GsnapParam",
          representation(part = "characterORNULL", # used by parallelized_gsnap
                         batch = "character", # weird "0", "1", ... 
                         max_mismatches = "integerORNULL",
@@ -110,7 +110,7 @@ setClass("GmapParam",
          prototype = list(batch = "2", mode = "standard", npaths = 100L,
            quiet_if_excessive = FALSE, nofails = FALSE, format = "bam",
            split_output = FALSE),
-         validity = .valid_GmapParam)
+         validity = .valid_GsnapParam)
 
 setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
            standardGeneric("gsnap"))
