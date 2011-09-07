@@ -112,11 +112,12 @@ setClass("GsnapParam",
          validity = .valid_GsnapParam)
 
 GsnapParam <- function(unique_only = FALSE, max_mismatches = NULL,
-                       suboptimal_levels = 0L, mode = "standard", 
+                       suboptimal_levels = 0L, mode = "standard",
+                       use_snps = NULL,
                        npaths = if (unique_only) 1L else 100L,
                        quiet_if_excessive = unique_only, nofails = unique_only,
                        format = "bam", split_output = !unique_only,
-                       novelsplicing = FALSE, splicing = NULL, use_snps = NULL,
+                       novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2", ...)
 {
   params <- formals(sys.function())
