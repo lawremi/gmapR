@@ -11,6 +11,7 @@
 ## --part, so people can use multiple nodes
 ## --batch, so people can take advantage of their memory
 ## --max_mismatches, default is reasonable, but people will want to change this
+## --suboptimal_levels, same reason for max_mismatches
 ## --use_snps, for SNP tolerance
 ## --mode, for methylation and RNA editing support
 ## --nthreads, so people can use their cores
@@ -20,10 +21,8 @@
 ## --quiet-if-excessive, to limit multi-mappers
 ## --nofails, to ignore non-mappers
 ## --format, to get BAM
-## --split_output, to organize the output
-## --read_group_id, read_group_name for identifying the reads
 
-## So that is 14 parameters. We definitely need a class to hold
+## So that is 13 parameters. We definitely need a class to hold
 ## those. Accessors for 'format' and 'mode' will collide with
 ## fundamental methods in R. What to do about that? Probably by
 ## prefixing gsnap on to all of them.
@@ -38,6 +37,9 @@
   ## one of 0, 1, 2, 3, 4
 }
 .valid_GsnapParam_max_mismatches <- function(x) {
+  ## non-negative number or NULL
+}
+.valid_GsnapParam_suboptimal_levels <- function(x) {
   ## non-negative number or NULL
 }
 .valid_GsnapParam_use_snps <- function(x) {
@@ -68,7 +70,7 @@
   ## sam or NULL (this is a low-level check!)
 }
 .valid_GsnapParam_split_output <- function(x) {
-  ## TRUE or FALSE
+  ## single string or NULL
 }
 .valid_GsnapParam_read_group_id <- function(x) {
   ## single string (any character constraints?) or NULL
@@ -95,6 +97,7 @@ setClass("GsnapParam",
          representation(part = "characterORNULL", # used by parallelized_gsnap
                         batch = "character", # weird "0", "1", ... 
                         max_mismatches = "integerORNULL",
+                        suboptimal_levels = "integer",
                         use_snps = "characterORNULL",
                         mode = "character",
                         nthreads = "integer",
@@ -105,21 +108,48 @@ setClass("GsnapParam",
                         nofails = "logical", 
                         format = "character", # bam, sam, gsnap
                         split_output = "logical",
-                        read_group_id = "characterORNULL",
-                        read_group_name = "characterORNULL"),
-         prototype = list(batch = "2", mode = "standard", npaths = 100L,
-           quiet_if_excessive = FALSE, nofails = FALSE, format = "bam",
-           split_output = FALSE),
+                        extra = "list"),
          validity = .valid_GsnapParam)
+
+GsnapParam <- function(unique_only = FALSE, max_mismatches = NULL,
+                       suboptimal_levels = 0L, mode = "standard", 
+                       npaths = if (unique_only) 1L else 100L,
+                       quiet_if_excessive = unique_only, nofails = unique_only,
+                       format = "bam", split_output = !unique_only,
+                       novelsplicing = FALSE, splicing = NULL, use_snps = NULL,
+                       nthreads = 1L, part = NULL, batch = "2", ...)
+{
+  params <- formals(sys.function())
+  mc <- as.list(match.call(expand.dots = FALSE))[-1L]
+  params[names(mc)] <- mc
+  params$unique_only <- NULL
+  params$extra <- params$...
+  params$... <- NULL
+  do.call(new, c("GsnapParam", params))
+}
+
+setAs("GsnapParam", "list", function(from) {
+  to <- lapply(slotNames(from), slot, x = from)
+  to$format <- if (to$format == "gsnap") NULL else "sam" # bam or sam
+  to$split_output <- if (to$split_output) "gsnap" else NULL
+  to
+})
+
+setMethod("as.list", "GsnapParam", function(x) as(x, "list"))
+
+
 
 setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
            standardGeneric("gsnap"))
 
 setMethod("gsnap", c("character", "character", "GsnapParams"),
-          function(input_a, input_b, params, ...) {
-### TODO: vectorize over input_a and input_b, with recycling
+          function(input_a, input_b, params, output = input_a, ...) {
+### TODO: Vectorize over input_a and input_b, with recycling
+### TODO: If split_output is TRUE, we use 'output' as the prefix,
+###       otherwise 'output' is used in .redirect, with format appended.
+###       Make sure the 'mkdir -p' the dirname of 'output'.
             params <- as.list(initialize(params, ...))
-            do.call(.gsnap, c(input_a = input_a, input_b = input_b, params))
+            do.call(.gsnap, c(.input_a = input_a, .input_b = input_b, params))
 ### We will end up with a character vector of BAM files
 ### (or CharacterList when splitting output)
           })
@@ -155,14 +185,15 @@ setMethod("gsnap", c("character", "character", "GsnapParams"),
                    nofails = FALSE, fails_as_input = FALSE,
                    format = NULL, split_output = NULL, no_sam_headers = FALSE,
                    sam_headers_batch = NULL, read_group_id = NULL,
-                   read_group_name = NULL, input_a = NULL, input_b = NULL)
+                   read_group_name = NULL, .input_a = NULL, .input_b = NULL,
+                   .redirect = NULL # e.g., > gsnap.sam
+                   )
 {
   formals <- formals(sys.function())
   problems <-
     do.call(c, lapply(names(formals), .valid_gmap_parameter, formals))
   if (!is.null(problems))
-    stop("validation failed:\n  ", paste(problems, collapse = "\n  "))
-  
+    stop("validation failed:\n  ", paste(problems, collapse = "\n  "))  
 ### TODO: if input_a is NULL, return a pipe()
   .system(commandLine("gsnap"))
 ### TODO: return the bam file path as character vector
