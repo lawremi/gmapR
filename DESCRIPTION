@@ -9,13 +9,14 @@ Author: Cory Barr
 Description: GSNAP and GMAP are a pair of tools to align short-read
     data written by Tom Wu.  This package provides convenience methods
     to work with GMAP and GSNAP from within R
-Version: 1.01
-Date: 2011-08-19
-Depends: R (>= 2.14.0), HTSeqGenieBase (>= 1.0.22), tools, rtracklayer
-Collate: 'buildGmapDbSNPIndex.R' 'buildGmapGenomeIndex.R'
-    'buildGmapIITFromFasta.R' 'buildGmap.R' 'buildGmapSpliceSites.R'
-    'buildGsnapSNPIIT.R' 'buildRefseqSlicesites.R'
-    'consolidateBAMFiles.R' 'consolidateGmapFiles.R'
-    'consolidateGsnapFiles.R' 'consolidateSAMFiles.R'
-    'exonsToGmapSpliceSites.R' 'getGsnapFileCounts.R'
-    'parallelized_gsnap.R' 'test_gmapR_package.R'
+Version: 0.10
+Date: 2011-09-14
+Depends: R (>= 2.14.0), tools, rtracklayer
+Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
+    'buildGmapGenomeIndex.R' 'buildGmapIITFromFasta.R' 'buildGmap.R'
+    'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
+    'buildRefseqSlicesites.R' 'consolidateBAMFiles.R'
+    'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
+    'consolidateSAMFiles.R' 'exonsToGmapSpliceSites.R'
+    'getGsnapFileCounts.R' 'gsnap.R' 'parallelized_gsnap.R'
+    'test_gmapR_package.R'
