@@ -33,14 +33,12 @@ installGmap <- function(install_dir, samtools_dir=NULL) {
   setwd(gmap_src_dir)
   
   gsnap_dir <- file.path(install_dir, "gmap")
-  gsnap_genomes_dir <- file.path(install_dir, "gmap", "genomes")
+  gsnap_genomes_dir <- file.path(install_dir, "genomes")
   dir.create(gsnap_genomes_dir, recursive=TRUE)
 
-
-  stop("account for samtools")
   sys_call <- paste("./configure",
-                    paste("prefix=", gsnap_dir, sep=''),
-                    paste("with_gmapdb=", gsnap_genomes_dir, sep=''))
+                    paste("prefix=", install_dir, sep=''))#,
+                    ##paste("with_gmapdb=", gsnap_genomes_dir, sep=''))
   if (!is.null(samtools_dir))
     sys_call <- paste(sys_call,
                       paste("with_samtools=", samtools_dir, sep=""))
