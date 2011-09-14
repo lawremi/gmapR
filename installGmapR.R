@@ -5,7 +5,7 @@ samtools_dir <- '/gne/home/coryba/source/samtools/samtools-0.1.16/samtools'
 
 ##HTSeqGenieBase used to find location of gsnap binary. gmapR package should know its own location
 library(HTSeqGenieBase)
-##gmap_install_dir <- basename(HTSeqGenieBase::globals()$gsnap_bin_dir)
+gmap_install_dir <- basename(HTSeqGenieBase::globals()$gsnap_bin_dir)
 
 ##for testing
 ##gmap_install_dir <- '/gne/home/coryba/sandbox/gmapTestInstallDir'
@@ -13,7 +13,7 @@ library(HTSeqGenieBase)
 ##build gmap. Not needed if gmap already built at gmap_install_dir
 installGmap(gmap_install_dir, samtools_dir)
 
-##NOTE: gmap/bin gets appended to gmap_install_dir, need to fix so it
+##NOTE: bin gets appended to gmap_install_dir, need to fix so it
 ##actually installs where it's supposed to. That's why basename is
 ##called on globals()$gnap_bin_dir.
 
