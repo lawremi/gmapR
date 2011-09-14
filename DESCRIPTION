@@ -13,10 +13,10 @@ Version: 0.10
 Date: 2011-09-14
 Depends: R (>= 2.14.0), tools, rtracklayer
 Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
-    'buildGmapGenomeIndex.R' 'buildGmapIITFromFasta.R' 'buildGmap.R'
+    'buildGmapGenomeIndex.R' 'buildGmapIITFromFasta.R'
     'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
     'buildRefseqSlicesites.R' 'consolidateBAMFiles.R'
     'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
     'consolidateSAMFiles.R' 'exonsToGmapSpliceSites.R'
-    'getGsnapFileCounts.R' 'gsnap.R' 'parallelized_gsnap.R'
-    'test_gmapR_package.R'
+    'getGsnapFileCounts.R' 'gsnap.R' 'installGmap.R'
+    'parallelized_gsnap.R' 'test_gmapR_package.R'
