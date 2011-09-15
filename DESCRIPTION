@@ -11,9 +11,9 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
     to work with GMAP and GSNAP from within R
 Version: 0.10
 Date: 2011-09-14
-Depends: R (>= 2.14.0), tools, rtracklayer
+Depends: R (>= 2.14.0), tools, rtracklayer, HTSeqGenieBase (>= 1.0.26)
 Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
-    'buildGmapGenomeIndex.R' 'buildGmapIITFromFasta.R'
+    'buildGmapIITFromFasta.R' 'buildGmapIndex.R'
     'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
     'buildRefseqSlicesites.R' 'consolidateBAMFiles.R'
     'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
