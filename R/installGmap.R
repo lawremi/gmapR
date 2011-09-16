@@ -16,12 +16,12 @@ installGmap <- function(install_dir, samtools_dir=NULL) {
     dir.create(install_dir, recursive=TRUE)
   install_dir <- file_path_as_absolute(install_dir)
   
-  temp_dir <- tempdir()
-  if(file.exists(temp_dir))
-    unlink(temp_dir, recursive=TRUE)
-  dir.create(temp_dir)
-  on.exit(unlink(temp_dir, recursive=TRUE))
-  setwd(temp_dir)
+  gmap_temp_dir <- file.path(tempdir(), "gmap_temp_dir")
+  if(file.exists(gmap_temp_dir))
+    unlink(gmap_temp_dir, recursive=TRUE)
+  dir.create(gmap_temp_dir)
+  on.exit(unlink(gmap_temp_dir, recursive=TRUE))
+  setwd(gmap_temp_dir)
 
   gmap_zip <- 'gmap-gsnap-2011-09-09.tar.gz'
   system(paste('wget',
@@ -46,6 +46,6 @@ installGmap <- function(install_dir, samtools_dir=NULL) {
   system('make')
   system('make install')
 
-  unlink(temp_dir, recursive=TRUE)
+  unlink(gmap_temp_dir, recursive=TRUE)
   return(0)
 }
