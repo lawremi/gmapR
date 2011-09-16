@@ -9,7 +9,7 @@
 ##' @export
 buildGmapIndex <- function(genome) {
   
-  retriveGenomeFasta <- function(genome) {
+  retrieveGenomeFasta <- function(genome) {
     if(genome != 'hg19')
       stop("only hg19 supported at the moment")
 
