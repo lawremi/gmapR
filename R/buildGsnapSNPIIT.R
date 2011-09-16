@@ -38,13 +38,13 @@ buildGsnapSNPIIT <- function(snp_file,
   if(!file.exists(full_genome_dir))
     stop(paste("The genome", genome, "is not installed in", gsnap_data_dir))
     
-  tmp_dir <- tempdir()
-  dir.create(tmp_dir)
-  on.exit(unlink(tmp_dir, recursive=TRUE))
+  gsnap_snp_itt_tmp_dir <- file.path(tempdir(), "gsnap_snp_itt_tmp_dir")
+  dir.create(gsnap_snp_itt_tmp_dir)
+  on.exit(unlink(gsnap_snp_itt_tmp_dir, recursive=TRUE))
 
   iit_store <- file.path(globals()$gsnap_bin_dir, "iit_store")
 
-  iit_file <- file.path(tmp_dir, snps_name)
+  iit_file <- file.path(gsnap_snp_itt_tmp_dir, snps_name)
   iit_file <- paste(iit_file, ".iit", sep="")
   
   ##ex: cat snp131.converted | iit_store -o snp131

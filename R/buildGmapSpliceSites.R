@@ -2,7 +2,7 @@ buildGmapSpliceSites <- function(splice_sites,
                                  gsnap_data_dir,
                                  genome,
                                  splices_name) {
-  scratch_dir <- tempdir()
+  scratch_dir <- file.path(tempdir(), "scratch_dir")
   cur_dir <- getwd()
   on.exit({unlink(scratch_dir, recursive=TRUE)
            setwd(cur_dir)})

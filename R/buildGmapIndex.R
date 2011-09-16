@@ -13,13 +13,13 @@ buildGmapIndex <- function(genome) {
     if(genome != 'hg19')
       stop("only hg19 supported at the moment")
 
-    tmp_dir <- tempdir()
-    if(file.exists(tmp_dir))
-      unlink(tmp_dir, recursive=TRUE)
-    dir.create(tmp_dir)
+    gmap_index_tmp_dir <- file.path(tempdir(), "gmap_index_tmp_dir")
+    if(file.exists(gmap_index_tmp_dir))
+      unlink(gmap_index_tmp_dir, recursive=TRUE)
+    dir.create(gmap_index_tmp_dir)
 
     on.exit(setwd(file_path_as_absolute(getwd())))
-    setwd(tmp_dir)
+    setwd(gmap_index_tmp_dir)
     sys_command <- paste('wget http://hgdownload.cse.ucsc.edu/goldenPath/',
                          genome,
                          '/bigZips/chromFa.tar.gz',

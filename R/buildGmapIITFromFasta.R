@@ -13,12 +13,12 @@ buildGmapIITFromFasta <- function(genome, fasta, gmap_data_dir=NULL) {
   if(!file.exists(gmap_data_dir))
     dir.create(gmap_data_dir, recursive=TRUE)
   if(!is.null(gmap_data_dir))  gmap_data_dir <- file_path_as_absolute(gmap_data_dir)
-  tmp_dir <- tempdir()
-  dir.create(tmp_dir)
+  gmap_iit_tmp_dir <- file.path(tempdir(), "gmap_iit_tmp_dir")
+  dir.create(gmap_iit_tmp_dir)
   cur_wd <- getwd()
-  on.exit({unlink(tmp_dir, recursive=TRUE)
+  on.exit({unlink(gmap_iit_tmp_dir, recursive=TRUE)
           setwd(cur_wd)})
-  setwd(tmp_dir)
+  setwd(gmap_iit_tmp_dir)
   
   gmap_setup <- file.path(globals()['gmap_bin'],
                           "gmap_setup")  

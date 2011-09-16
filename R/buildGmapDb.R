@@ -7,12 +7,12 @@ gmapMake <- function(suffix, rule) {
 ## there could be a 'build' method on GmapDb
 ## this would then become a convenience wrapper
 buildGmapDb <- function(x, db = deparse(substitute(x)), dir = NULL) {
-  tmp_dir <- tempdir()
-  dir.create(tmp_dir, recursive=TRUE)
+  gmap_db_tmp_dir <- file.path(tempdir(), "gmap_db_tmp_dir")
+  dir.create(gmap_db_tmp_dir, recursive=TRUE)
   cur_wd <- getwd()
-  on.exit({unlink(tmp_dir, recursive=TRUE)
+  on.exit({unlink(gmap_db_tmp_dir, recursive=TRUE)
            setwd(cur_wd)})
-  setwd(tmp_dir)
+  setwd(gmap_db_tmp_dir)
 
   db <- gmap_setup(x, db = db, dir = dir)
     
