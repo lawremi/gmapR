@@ -28,6 +28,6 @@ installGmap(gmap_install_dir, samtools_dir)
 ##build hg19 IIT
 buildGmapIndex('hg19', gmap_data_dir=globals()[['gsnap_save_dir']])
 ##build dnsnp131
-buildGmapDbSNPIndex('hg19')
+buildGmapDbSNPIndex('snp131')
 ##build splice sites
 buildRefseqSpliceSite('hg19')
