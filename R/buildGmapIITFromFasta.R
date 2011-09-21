@@ -10,6 +10,9 @@
 ##' @export
 buildGmapIITFromFasta <- function(genome, fasta, gmap_data_dir=NULL) {
 
+  ##TODO: use globals to get default
+  if (is.null(gmap_data_dir)) stop("Must specify directory to create Gmap IIT in")
+  
   if(!file.exists(gmap_data_dir))
     dir.create(gmap_data_dir, recursive=TRUE)
   if(!is.null(gmap_data_dir))  gmap_data_dir <- file_path_as_absolute(gmap_data_dir)
@@ -20,7 +23,7 @@ buildGmapIITFromFasta <- function(genome, fasta, gmap_data_dir=NULL) {
           setwd(cur_wd)})
   setwd(gmap_iit_tmp_dir)
   
-  gmap_setup <- file.path(globals()['gmap_bin'],
+  gmap_setup <- file.path(globals()['gsnap_bin_dir'],
                           "gmap_setup")  
   sys_command <- paste(gmap_setup,
                        "-d",

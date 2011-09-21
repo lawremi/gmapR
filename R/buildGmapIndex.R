@@ -3,11 +3,12 @@
 ##'Incorporate a reference genome into gmap/gsnap by downloading a
 ##' genome and constructing an IIT. Currently only hg19 is supported.
 ##' @title Create Gmap Reference Genome Index
-##' @param genome 
+##' @param genome The name of the genome, often an assembly (e.g., hg19)
+##' @param gmap_data_dir The directory to store the Gmap IIT
 ##' @return 0
 ##' @author Cory Barr
 ##' @export
-buildGmapIndex <- function(genome) {
+buildGmapIndex <- function(genome, gmap_data_dir) {
   
   retrieveGenomeFasta <- function(genome) {
     if(genome != 'hg19')
@@ -25,8 +26,10 @@ buildGmapIndex <- function(genome) {
                          '/bigZips/chromFa.tar.gz',
                          sep='')
     system(sys_command)
+    print("unzipping downloaded fasta...")
     system('tar xzf chromFa.tar.gz')
-
+    print("...done")
+    
     genome_fasta_file <- paste(genome, 'fa', sep='.')
     ##excluding haplotypes, cat genome seqs together into one fasta:
     sys_call <- paste('ls *fa | grep -v "_gl" | grep -v "_hap" | xargs -i cat {} > ',
@@ -39,6 +42,6 @@ buildGmapIndex <- function(genome) {
 
   genome_fa <- retrieveGenomeFasta(genome)
   
-  buildGmapIITFromFasta(genome, genome_fa)
+  buildGmapIITFromFasta(genome, genome_fa, gmap_data_dir)
   return(0)
 }
