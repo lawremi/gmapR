@@ -4,8 +4,7 @@ buildGmapSpliceSites <- function(splice_sites,
                                  splices_name) {
   scratch_dir <- file.path(tempdir(), "scratch_dir")
   cur_dir <- getwd()
-  on.exit({unlink(scratch_dir, recursive=TRUE)
-           setwd(cur_dir)})
+  on.exit(setwd(cur_dir))
   if(!file.exists(scratch_dir)) dir.create(scratch_dir)
 
   splice_file <- file.path(scratch_dir, "splice_file.txt")
@@ -15,16 +14,8 @@ buildGmapSpliceSites <- function(splice_sites,
   splice_site_file <- paste(splices_name, ".splices", sep="")
   setwd(scratch_dir)
   sys_command <- paste("cat", splice_file, "|", iit_store, "-o", splice_site_file)
-  system(sys_command)
-
-  ##TODO: move this to the setup script for HTSeqGenieBase
-  ##if (genome=='hg19') {
-  ##  iit_dest_dir <- file.path(globals()$gsnap_save_dir, "hg19_ucsc", "hg19_ucsc.maps")
-  ##} else if (genome=='mm9') {
-  ##    iit_dest_dir <- file.path(globals()$gsnap_save_dir, "mm9", "mm9.maps") }
-  ##else {
-  ##  stop("genome not supported")
-  ##}
+  if(system(sys_command) != 0)
+    stop(paste("Error executing system command:", sys_command))
 
   iit_dest_dir <- file.path(gsnap_data_dir,
                             genome,
@@ -33,7 +24,8 @@ buildGmapSpliceSites <- function(splice_sites,
   iit_file <- paste(splices_name, '.splices.iit', sep="")
   
   sys_command <- paste("cp", iit_file, iit_dest_dir)
-  system(sys_command)
-  
+  res <- system(sys_command)
+  if(res != 0)
+    stop(paste("Error executing system command:", sys_command))
   return(0)
 }

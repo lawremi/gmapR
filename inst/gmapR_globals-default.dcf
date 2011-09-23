@@ -7,9 +7,6 @@
 ### backward compatibility with the original globals() function).
 ### TODO: Maybe define more sensible default settings.
     
-gsnap_parser: /gne/home/coryba/projects/HTSeq/HTSeq/src/parse_gsnap_output.pl
-gsnap_parser_col.names: c("chr", "start", "end", "strand", "insert_len", "pair_id", "seq")
-gsnap_parser_colClasses: c("factor", "integer", "integer", "factor", "NULL", "NULL", "factor")
 samtools: /gne/home/coryba/bin/samtools
 gsnap_save_dir: /gne/home/coryba/tools/gsnap/share
 gsnap_bin_dir: /gne/home/coryba/bin

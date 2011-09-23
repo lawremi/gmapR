@@ -15,7 +15,7 @@ Depends: R (>= 2.14.0), tools, rtracklayer, IRanges
 Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
     'buildGmapIITFromFasta.R' 'buildGmapIndex.R'
     'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
-    'buildRefseqSlicesites.R' 'consolidateBAMFiles.R'
+    'buildRefseqSpliceSites.R' 'consolidateBAMFiles.R'
     'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
     'consolidateSAMFiles.R' 'exonsToGmapSpliceSites.R'
     'getGsnapFileCounts.R' 'globals.R' 'gsnap.R' 'installGmap.R'
