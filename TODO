@@ -1,0 +1,14 @@
+*use BSGenome and Bioc dbSNP objects instead of downloading from UCSC.
+
+*globals function needs to set elements in the list returned by
+ options() instead of using the globals() fun. Other wise
+ HTSeqGenieBase and gmapR will both have exported globals() functions
+
+*HTSeqGenieBase needs to depend on gmapR and not contain now-redundant
+ code. To to this, HTSeqGenieBase::globals() needs to have entries
+ removed now in gmapR::globals()
+
+*configureGmapR.R calls buildGmapIndex, buildGmapDbSNPIndex, and
+buildRefseqSpliceSites. These are high-level functions that obtain
+hg19 data and call more generalized functions. These high-level
+functions belong in HTSeqGenieBase.
