@@ -1,3 +1,11 @@
+importFrom(Rsamtools, bamPaths, path)
+importFrom(tools, list_files_with_exts)
+importFrom(IRanges, isSingleString)
+
+export(GsnapOutput)
+exportClasses(GsnapOutput)
+exportMethods(bamPaths, path)
+
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
 export(buildGmapIndex)
@@ -10,4 +18,3 @@ export(getGsnapFileCounts)
 export(globals)
 export(installGmap)
 export(parallelized_gsnap)
-importFrom(IRanges, isSingleString)

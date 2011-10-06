@@ -12,11 +12,13 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
 Version: 0.11
 Date: 2011-09-21
 Depends: R (>= 2.14.0), tools, rtracklayer, IRanges
-Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
+Imports: Rsamtools
+Collate: 'atoiindex.R' 'buildGmapDb.R'
+    'buildGmapDbSNPIndex.R'
     'buildGmapIITFromFasta.R' 'buildGmapIndex.R'
     'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
     'buildRefseqSpliceSites.R' 'consolidateBAMFiles.R'
     'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
     'consolidateSAMFiles.R' 'exonsToGmapSpliceSites.R'
     'getGsnapFileCounts.R' 'globals.R' 'gsnap.R' 'installGmap.R'
-    'parallelized_gsnap.R' 'test_gmapR_package.R'
+    'parallelized_gsnap.R' 'test_gmapR_package.R' 'GsnapOutput-class.R' 

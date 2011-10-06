@@ -59,6 +59,14 @@ setMethod("gmap_setup", "DNAStringSet",
             gmap_setup(tmp_file, db = db, dir = dir)
           })
 
+### TODO: add a gmap_setup method on BSgenome that uses this:
+write.BSgenome.to.fasta <- function(x, file) {
+  unlink(file)
+  for (seqname in seqnames(x))
+    writeFASTA(list(x[[seqname]]), file, desc = list(seqname), append = TRUE)
+  file
+}
+
 setMethod("gmap_setup", "character",
           function(x, db = deparse(substitute(x)), dir = NULL)
           {

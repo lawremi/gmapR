@@ -86,12 +86,12 @@
   else NULL
 }
 
-.valid_GsnapParam <- function(x) {
-  x <- as.list(x) # converts to low-level parameter list
+.valid_GsnapParam <- function(object) {
+  x <- as.list(object) # converts to low-level parameter list
   do.call(c, lapply(names(x), .valid_gmap_parameter, x))
 }
 
-setClassUnion("IntegerORNULL", c("integer", "NULL"))
+setClassUnion("integerORNULL", c("integer", "NULL"))
 
 setClass("GsnapParam",
          representation(part = "characterORNULL", # used by parallelized_gsnap
@@ -139,11 +139,10 @@ setAs("GsnapParam", "list", function(from) {
 setMethod("as.list", "GsnapParam", function(x) as(x, "list"))
 
 
-
 setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
            standardGeneric("gsnap"))
 
-setMethod("gsnap", c("character", "character", "GsnapParams"),
+setMethod("gsnap", c("character", "character", "GsnapParam"),
           function(input_a, input_b, params, output = input_a, ...) {
 ### TODO: Vectorize over input_a and input_b, with recycling
 ### TODO: If split_output is TRUE, we use 'output' as the prefix,
@@ -151,8 +150,7 @@ setMethod("gsnap", c("character", "character", "GsnapParams"),
 ###       Make sure the 'mkdir -p' the dirname of 'output'.
             params <- as.list(initialize(params, ...))
             do.call(.gsnap, c(.input_a = input_a, .input_b = input_b, params))
-### We will end up with a character vector of BAM files
-### (or CharacterList when splitting output)
+### would return a GsnapOutput
           })
 
 ## Low-level interface to gnsap, with all the params
@@ -200,3 +198,4 @@ setMethod("gsnap", c("character", "character", "GsnapParams"),
 ### TODO: return the bam file path as character vector
 ### This means interpreting split_output correctly
 }
+
