@@ -1,18 +1,16 @@
 Package: gmapR
-Maintainer: <barr.cory@gene.com>
-License: Artistic-2.0
+Type: Package
 Title: Provides convenience methods to work with GMAP and GSNAP from
     within R
-Type: Package
-LazyLoad: yes
-Author: Cory Barr
+Maintainer: <barr.cory@gene.com>
+Author: Cory Barr, Michael Lawrence
 Description: GSNAP and GMAP are a pair of tools to align short-read
     data written by Tom Wu.  This package provides convenience methods
     to work with GMAP and GSNAP from within R
-Version: 0.11
-Date: 2011-09-21
+Version: 0.12.0
 Depends: R (>= 2.14.0), tools, rtracklayer, IRanges
 Imports: Rsamtools
+License: Artistic-2.0
 Collate: 'atoiindex.R' 'buildGmapDb.R'
     'buildGmapDbSNPIndex.R'
     'buildGmapIITFromFasta.R' 'buildGmapIndex.R'
