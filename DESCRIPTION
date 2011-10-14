@@ -10,6 +10,7 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
 Version: 0.12.0
 Depends: R (>= 2.14.0), tools, rtracklayer, IRanges
 Imports: Rsamtools
+Suggests: RUnit
 License: Artistic-2.0
 Collate: 'atoiindex.R' 'buildGmapDb.R'
     'buildGmapDbSNPIndex.R'
