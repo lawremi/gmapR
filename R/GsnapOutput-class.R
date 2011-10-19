@@ -20,9 +20,19 @@ setClass("GsnapOutput",
 
 setMethod("path", "GsnapOutput", function(object) object@path)
 
+## should contain any category ever known to be used by gsnap
+.ALIGNMENT_CATEGORIES <- c("concordant_uniq", "concordant_mult",
+                           "concordant_transloc", "paired_mult",
+                           "paired_uniq_inv", "paired_uniq_long",
+                           "paired_uniq_scr", "unpaired_uniq", "unpaired_mult",
+                           "unpaired_transloc",  "halfmapping_uniq",
+                           "halfmapping_mult", "halfmapping_transloc",
+                           "nomapping")
+
 setMethod("bamPaths", "GsnapOutput", function(x) {
   paths <- list_files_with_exts(path(x), "bam", full.names = TRUE)
   names(paths) <- sub(".*\\.([^.]*)\\.bam$", "\\1", paths)
+  paths <- paths[names(paths) %in% .ALIGNMENT_CATEGORIES]
   paths
 })
 
