@@ -1,24 +1,23 @@
 Package: gmapR
-Type: Package
+Imports: Rsamtools (>= 1.7.4)
+Maintainer: <barr.cory@gene.com>
+License: Artistic-2.0
 Title: Provides convenience methods to work with GMAP and GSNAP from
     within R
-Maintainer: <barr.cory@gene.com>
+Type: Package
 Author: Cory Barr, Michael Lawrence
 Description: GSNAP and GMAP are a pair of tools to align short-read
     data written by Tom Wu.  This package provides convenience methods
     to work with GMAP and GSNAP from within R
 Version: 0.12.1
-Depends: R (>= 2.14.0), tools, BiocGenerics (>= 0.1.3), IRanges (>= 1.13.8),
-    rtracklayer (>= 1.15.3)
-Imports: Rsamtools (>= 1.7.4)
+Depends: R (>= 2.14.0), tools, BiocGenerics (>= 0.1.3), IRanges (>=
+    1.13.8), rtracklayer (>= 1.15.3)
 Suggests: RUnit
-License: Artistic-2.0
-Collate: 'atoiindex.R' 'buildGmapDb.R'
-    'buildGmapDbSNPIndex.R'
+Collate: 'atoiindex.R' 'buildGmapDb.R' 'buildGmapDbSNPIndex.R'
     'buildGmapIITFromFasta.R' 'buildGmapIndex.R'
     'buildGmapSpliceSites.R' 'buildGsnapSNPIIT.R'
     'buildRefseqSpliceSites.R' 'consolidateBAMFiles.R'
     'consolidateGmapFiles.R' 'consolidateGsnapFiles.R'
     'consolidateSAMFiles.R' 'exonsToGmapSpliceSites.R'
-    'getGsnapFileCounts.R' 'globals.R' 'gsnap.R' 'installGmap.R'
-    'parallelized_gsnap.R' 'test_gmapR_package.R' 'GsnapOutput-class.R' 
+    'getGsnapFileCounts.R' 'globals.R' 'GsnapOutput-class.R' 'gsnap.R'
+    'installGmap.R' 'parallelized_gsnap.R' 'test_gmapR_package.R'

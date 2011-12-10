@@ -56,7 +56,6 @@ parallelized_gsnap <- function(num_machines,
 
     ##library calls needed so slaves have access
     library("multicore")
-    library("HTSeqGenieBase")
     
     gsnap_parts <-
       (i - 1) * procs_per_machine + (seq_len(procs_per_machine) - 1)

@@ -29,8 +29,8 @@ buildGmapIITFromFasta <- function(genome, fasta, gmap_data_dir=NULL) {
                        "-d",
                        genome)
   if(!is.null(gmap_data_dir))
-    sys_command <- paste(sys_command, paste("-D",
-                                            file.path(gmap_data_dir, genome)))
+    sys_command <- paste(sys_command,
+                         paste("-D", file.path(gmap_data_dir, genome)))
   sys_command <- paste(sys_command, fasta)
   system(sys_command)
   

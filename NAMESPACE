@@ -1,12 +1,3 @@
-importFrom(tools, list_files_with_exts)
-import(BiocGenerics)
-importFrom(IRanges, isSingleString)
-importFrom(Rsamtools, bamPaths, path)
-
-export(GsnapOutput)
-exportClasses(GsnapOutput)
-exportMethods(bamPaths, path)
-
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
 export(buildGmapIndex)

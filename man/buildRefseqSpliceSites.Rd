@@ -1,7 +1,7 @@
-\name{gsnapBuildRefseqSplicesites}
-\alias{gsnapBuildRefseqSplicesites}
+\name{buildRefseqSpliceSites}
+\alias{buildRefseqSpliceSites}
 \title{Build RefSeq Splice Site IIT for gsnap}
-\usage{gsnapBuildRefseqSplicesites(genome)}
+\usage{buildRefseqSpliceSites(genome)}
 \description{add refSeq splice sites to gsnap}
 \details{downloads refSeq table from UCSC, parses out splice site donors
 and acceptors, creates IIT for gsnap, then copies IIT to genome's
