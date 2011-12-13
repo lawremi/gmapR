@@ -28,6 +28,7 @@ setClass("GmapDb", representation(name = "character", directory = "character"))
 directory <- function(x) x@directory ## 'dir' is already taken
 name <- function(x) x@name
 
+##' @nord
 GmapDb <- function(name, directory) {
   if (!file.exists(directory)) {
     message("Creating directory ", directory)

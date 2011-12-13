@@ -1,3 +1,5 @@
+importFrom(Rsamtools, path, bamPaths)
+
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
 export(buildGmapIndex)
