@@ -9,7 +9,7 @@ Author: Cory Barr, Michael Lawrence
 Description: GSNAP and GMAP are a pair of tools to align short-read
     data written by Tom Wu.  This package provides convenience methods
     to work with GMAP and GSNAP from within R
-Version: 0.12.1
+Version: 0.12.2
 Depends: R (>= 2.14.0), tools, BiocGenerics (>= 0.1.3), IRanges (>=
     1.13.8), rtracklayer (>= 1.15.3)
 Imports: Rsamtools
