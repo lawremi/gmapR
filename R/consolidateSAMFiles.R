@@ -51,7 +51,7 @@ consolidateSAMFiles <- function(sam_files, outfile, remove_merged) {
                             "-b >",
                             sam_files_converted
                          )
-  apply_func(convert_commands, system)
+  apply_func(convert_commands, system, intern=TRUE)
   consolidated_BAM_file <-
     consolidateBAMFiles(sam_files_converted,
                         outfile=outfile)

@@ -57,18 +57,26 @@
 ##' @return a named list
 ##' @author Cory Barr
 ##' @export
-globals <- function()
-{
-    default_file <- system.file("gmapR_globals-default.dcf",
-                                package="gmapR")
-    ans <- .read.globals(default_file)
-    user_file <- "~/.gmapR_globals.dcf"
-    if (file.exists(user_file)) {
-        user_globals <- .read.globals(user_file)
-        ans[names(user_globals)] <- user_globals
-    }
-    gmap_tools <- c("gmap", "gsnap", "gmap_setup")
-    gmap_tools_list <- as.list(paste(ans$gsnap_bin_dir, gmap_tools, sep="/"))
-    names(gmap_tools_list) <- gmap_tools
-    append(ans, gmap_tools_list)
+globals <- function() {
+  ## gp: Calling globals() too often caused a "cannot open connection" error!
+  ## gp: ex: z = mclapply(1:100, function(i) gmapR::globals())
+  ## gp: I fixed it using a gmapR_globals global variable, loaded during .onLoad()
+  ## gp: This is ugly but the globals() framework has to be rewritten (we must share these variables with HTSeqGenie and RNASeq!)
+  gmapR_globals 
 }
+
+set.gmapR_globals <- function() {
+  default_file <- system.file("gmapR_globals-default.dcf",
+                              package="gmapR")
+  ans <- .read.globals(default_file)
+  user_file <- "~/.gmapR_globals.dcf"
+  if (file.exists(user_file)) {
+    user_globals <- .read.globals(user_file)
+    ans[names(user_globals)] <- user_globals
+  }
+  gmap_tools <- c("gmap", "gsnap", "gmap_setup")
+  gmap_tools_list <- as.list(paste(ans$gsnap_bin_dir, gmap_tools, sep="/"))
+  names(gmap_tools_list) <- gmap_tools
+  gmapR_globals <<- append(ans, gmap_tools_list)
+}
+
