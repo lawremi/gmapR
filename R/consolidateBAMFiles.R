@@ -18,12 +18,6 @@ consolidateBAMFiles <- function(bam_files, outfile) {
   
   output_dir <- sub("/[^/]*$", "", bam_files[1])
 
-  if(is.loaded("mc_fork", PACKAGE = "multicore")) {
-    apply_func <- mclapply
-  } else {
-    apply_func <- lapply
-  }  
-
   ##sort
   bam_files_sorted <- paste(bam_files,
                             ".samtools_sorted",
@@ -33,7 +27,7 @@ consolidateBAMFiles <- function(bam_files, outfile) {
                     bam_files,
                     bam_files_sorted
                     )
-  apply_func(commands, system)
+  lapply(commands, system, ignore.stderr=TRUE)
   bam_files_sorted <- paste(bam_files_sorted,
                             ".bam",
                             sep="")
@@ -56,7 +50,7 @@ consolidateBAMFiles <- function(bam_files, outfile) {
                      "merge",
                      outfile,
                      paste(bam_files_sorted, collapse=" "))
-    system(command)
+    system(command, ignore.stderr=TRUE)
   } else {
     file.copy(bam_files_sorted, outfile)
   }

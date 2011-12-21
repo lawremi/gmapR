@@ -31,12 +31,6 @@ consolidateSAMFiles <- function(sam_files, outfile, remove_merged) {
                        sep="/")
     }
   }
-  
-  if(is.loaded("mc_fork", PACKAGE = "multicore")) {
-    apply_func <- mclapply
-  } else {
-    apply_func <- lapply
-  }  
 
   ##convert to bam first
   ##Example sys call:
@@ -51,7 +45,7 @@ consolidateSAMFiles <- function(sam_files, outfile, remove_merged) {
                             "-b >",
                             sam_files_converted
                          )
-  apply_func(convert_commands, system)
+  lapply(convert_commands, system, ignore.stderr=TRUE)
   consolidated_BAM_file <-
     consolidateBAMFiles(sam_files_converted,
                         outfile=outfile)
