@@ -1,4 +1,5 @@
 importFrom(Rsamtools, path, bamPaths)
+importFrom(IRanges, isSingleString)
 
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
