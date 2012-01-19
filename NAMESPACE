@@ -1,5 +1,7 @@
 importFrom(Rsamtools, path, bamPaths)
-importFrom(IRanges, isSingleString)
+import(IRanges)
+import(GenomicRanges)
+import(Biostrings)
 
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
