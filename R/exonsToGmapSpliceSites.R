@@ -1,8 +1,9 @@
 ##' Convert a data frame of exon information into input to build a splice site index for Gmap/Gsnap
 ##'
 ##' the input data frame needs to have columns named "chrom,"
-##' "strand," "exonStarts", "exonEnds", and "name."  A common way to
-##' obtain this is from UCSC via rtracklayer:
+##' "strand," "exonStarts", "exonEnds", and "name."  Note that "name"
+##' is the name of the gene the exon is in. A common way to obtain
+##' this is from UCSC via rtracklayer:
 ##'
 ##' library(rtracklayer)
 ##' session <- browserSession()
@@ -25,15 +26,31 @@ exonsToGmapSpliceSites <- function(exons) {
   if(class(exons) != "data.frame")
     stop("input is not a data.frame")
   
+  if(is.loaded("mc_fork", PACKAGE = "multicore")) {
+    apply_func <- mclapply
+  } else {
+    apply_func <- lapply
+  } 
+  
   gene_names <- as.character(exons$name)
   chroms <- as.character(exons$chrom)
   strands <- as.character(exons$strand)
-  exon_lcoords <- as.character(exons$exonStarts)
-  exon_rcoords <- as.character(exons$exonEnds)
+  exon_lcoords <- as.integer(exons$exonStarts)
+  exon_rcoords <- as.integer(exons$exonEnds)
+
+  ##make sure exons are sorted and grouped per gene
+  exon_lcoords <- split(exon_lcoords, gene_names)
+  exon_rcoords <- split(exon_rcoords, gene_names)
+  exon_lcoords <- apply_func(exon_lcoords, sort)
+  exon_rcoords <- apply_func(exon_rcoords, sort)
+  matches <- match(names(exon_lcoords), gene_names)
+  gene_names <- gene_names[matches]
+  chroms <- chroms[matches]
+  strands <- strands[matches]
   
-  .positions_to_int <- function(x) {
-    as.integer(unlist(strsplit(x, ",")))
-  }
+  ##.positions_to_int <- function(x) {
+  ##  as.integer(unlist(strsplit(x, ",")))
+  ##}
 
   .int_to_half_open <- function(x, strand) {
     if (strand == '+') {
@@ -43,8 +60,8 @@ exonsToGmapSpliceSites <- function(exons) {
     }
   }
   
-  exon_lcoords <- lapply(exon_lcoords, .positions_to_int)
-  exon_rcoords <- lapply(exon_rcoords, .positions_to_int)
+  ##exon_lcoords <- lapply(exon_lcoords, .positions_to_int)
+  ##exon_rcoords <- lapply(exon_rcoords, .positions_to_int)
   if(any(elementLengths(exon_lcoords) != elementLengths(exon_rcoords)))
     stop("not the same number of exon starts and stops")
 
@@ -95,11 +112,6 @@ exonsToGmapSpliceSites <- function(exons) {
     return(ret_val)
   }
 
-  if(is.loaded("mc_fork", PACKAGE = "multicore")) {
-    apply_func <- mclapply
-  } else {
-    apply_func <- lapply
-  } 
   gmapInputStrings <- apply_func(seq_len(length(exon_lcoords)), .getGmapInputStrings)
   
   .pairUpResults <- function(l) {      
