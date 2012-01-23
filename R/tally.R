@@ -201,12 +201,14 @@ tally2GR<- function(bamfiles,
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
   list_of_gr <- lapply(chr_ids, function(chr_name){
-    tally <- pipe(paste("bam_tally -B 0 -C -X ", variant_strand, " -n ", min_cov, " -T -d", genome, "-D", genome_dir, 
-                        bamfiles, paste("'", chr_name, ":'", sep = "")))
+    tally <- pipe(paste("bam_tally -B 0 -C -X ", variant_strand, " -n ",
+                        min_cov, " -T -d", genome, "-D", genome_dir, bamfiles,
+                        paste("'", chr_name, ":' 2> /dev/null", sep = "")))
     tab <- read.table(tally, colClasses = c("character", "integer", "integer",
-                               "character"), sep = "\t", col.names = c("chrom", "position", "count", "cycles"))
+                               "character"), sep = "\t",
+                      col.names = c("chrom", "position", "count", "cycles"))
     if(dim(tab)[1] <1){
-      return(GRanges())
+      gr <- GRanges()
     } else {      
       counts <- strsplit(tab[[4]], " ", fixed=TRUE)
       
@@ -297,9 +299,10 @@ tally2GR<- function(bamfiles,
         values(gr)$read[rc] <- reverseComplement(values(gr)$read[rc])
       }
       values(gr)$location <- paste(values(gr)$location, strand(gr), sep = ":")
-      return(gr)
     }
     message(paste("finished chr ", chr_name))
+    seqlevels(gr) <- chr_ids
+    gr
   })
   GR_full <- do.call(c, list_of_gr)
   return(GR_full)
