@@ -18,4 +18,4 @@ export(parallelized_gsnap)
 export(tally2GR)
 
 exportClasses(GsnapOutput)
-export(GsnapOutput)
+export(GsnapOutput, bamPaths)
