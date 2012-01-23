@@ -301,7 +301,7 @@ tally2GR<- function(bamfiles,
       values(gr)$location <- paste(values(gr)$location, strand(gr), sep = ":")
     }
     message(paste("finished chr ", chr_name))
-    seqlevels(gr) <- chr_ids
+    seqlevels(gr) <- levels(chr_ids)
     gr
   })
   GR_full <- do.call(c, list_of_gr)
