@@ -36,6 +36,15 @@ setMethod("bamPaths", "GsnapOutput", function(x) {
   paths
 })
 
+##' Constructor for GsnapOutput class, which represents the output
+##' (directory) of a gsnap run.
+##'
+##' 
+##' @title GsnapOutput constructor
+##' @param path Path to the gsnap output directory
+##' @return New instance
+##' @author Michael Lawrence
+##' @export
 GsnapOutput <- function(path) {
   if (!is.character(path) || any(is.na(path)))
     stop("'path' must be a character vector without any NA's")
