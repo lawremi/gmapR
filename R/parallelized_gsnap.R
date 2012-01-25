@@ -51,11 +51,7 @@ parallelized_gsnap <- function(num_machines,
                                  total_gsnap_parts,
                                  multifile_out,
                                  record_sys_call_dir,
-                                 syscall.logfun) {
-
-    ##library calls needed so slaves have access
-    library("multicore")
-    
+                                 syscall.logfun) {    
     gsnap_parts <-
       (i - 1) * procs_per_machine + (seq_len(procs_per_machine) - 1)
     gsnap_part_params <- paste("--part=",

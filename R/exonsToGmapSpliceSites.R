@@ -26,11 +26,7 @@ exonsToGmapSpliceSites <- function(exons) {
   if(class(exons) != "data.frame")
     stop("input is not a data.frame")
   
-  if(is.loaded("mc_fork", PACKAGE = "multicore")) {
-    apply_func <- mclapply
-  } else {
-    apply_func <- lapply
-  } 
+  apply_func <- mclapply
   
   gene_names <- as.character(exons$name)
   chroms <- as.character(exons$chrom)
