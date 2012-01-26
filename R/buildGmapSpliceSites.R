@@ -21,7 +21,7 @@ buildGmapSpliceSites <- function(splice_sites,
                             genome,
                             paste(genome, ".maps", sep=""))
 
-  iit_file <- paste(splices_name, '.splices.iit', sep="")
+  iit_file <- paste(splices_name, '.iit', sep="")
   
   sys_command <- paste("cp", iit_file, iit_dest_dir)
   res <- system(sys_command)
