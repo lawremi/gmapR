@@ -196,12 +196,15 @@ tally2GR<- function(bamfiles,
                     regions,
                     variant_strand=1,
                     min_cov =1,
-                    breaks=NULL)
+                    breaks=NULL,
+                    bqual_thresh=0,
+                    map_qual=0,
+                    mc.cores =detectCores())
 {
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
-  list_of_gr <- lapply(chr_ids, function(chr_name){
-    tally <- pipe(paste("bam_tally -B 0 -C -X ", variant_strand, " -n ",
+  list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){
+    tally <- pipe(paste("bam_tally -B 0 -C -Q -q", map_qual, " -X ", variant_strand, " -n ",
                         min_cov, " -T -d", genome, "-D", genome_dir, bamfiles,
                         paste("'", chr_name, ":' 2> /dev/null", sep = "")))
     tab <- read.table(tally, colClasses = c("character", "integer", "integer",
@@ -279,10 +282,24 @@ tally2GR<- function(bamfiles,
       count.pos.ref <- rep(count.pos[ref_rows], width(counts_part))
       count.neg[zero_count] <- 0L
       count.neg.ref <- rep(count.neg[ref_rows], width(counts_part))
+      ##parcing the quality info from the tally out put
+      quals <- strsplit(sub(".*\\)\\((.*?)\\).*", "\\1", counts_flat), ",", 
+                        fixed=TRUE)
+      nquals <- elementLengths(quals)
+
+      count_above_thresh <- lapply(quals, function(x){
+        mat <-matrix(unlist(strsplit(x, "Q", fixed=TRUE), 
+                      use.names=FALSE), nrow=2)
+        logical <- (as.numeric(mat[2,]))>bqual_thresh
+        sum(as.numeric(mat[1,logical]), na.rm=T)
+      })
+      high_qual <- unlist(count_above_thresh)      
+      high_qual_ref <- rep(high_qual[ref_rows], width(counts_part))
       gr <- GRanges(chr, IRanges(pos, width=1L), strand, location, 
                     ref = DNAStringSet(ref), read = DNAStringSet(bases),
                     ncycles, ncycles.ref,
                     count = base_counts, count.ref, count.total,
+                    high.quality = high_qual,high.quality.ref=high_qual_ref,
                     count.pos, count.pos.ref, count.neg, count.neg.ref,
                     cycleCount = unclass(cycle_tab))
       
