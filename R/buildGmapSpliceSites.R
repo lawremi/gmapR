@@ -11,7 +11,7 @@ buildGmapSpliceSites <- function(splice_sites,
   writeLines(splice_sites, con=splice_file)
 
   iit_store <- file.path(globals()$gsnap_bin_dir, "iit_store")
-  splice_site_file <- paste(splices_name, ".splices", sep="")
+  splice_site_file <- paste(splices_name, sep="")
   setwd(scratch_dir)
   sys_command <- paste("cat", splice_file, "|", iit_store, "-o", splice_site_file)
   if(system(sys_command) != 0)
