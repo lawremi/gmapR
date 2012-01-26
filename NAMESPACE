@@ -2,6 +2,7 @@ importFrom(Rsamtools, path, bamPaths)
 import(IRanges)
 import(GenomicRanges)
 import(Biostrings)
+import(parallel)
 
 export(buildGmapDbSNPIndex)
 export(buildGmapIITFromFasta)
