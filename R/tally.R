@@ -237,7 +237,7 @@ tally2GR<- function(bamfiles,
       ref <- rep(bases[ref_rows], width(counts_part))
       zero_count <- !grepl("(", counts_flat, fixed=TRUE)
 ### FIXME: obscene hack to simplify code
-      counts_flat[zero_count] <- paste(counts_flat[zero_count], "(0@NA)", sep="")
+      counts_flat[zero_count] <- paste(counts_flat[zero_count], "(0@NA)(0Q-1)", sep="")
       cycles <- strsplit(sub(".*\\((.*?)\\).*", "\\1", counts_flat), ",", 
                          fixed=TRUE)
       ncycles <- elementLengths(cycles)
