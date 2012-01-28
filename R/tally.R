@@ -260,7 +260,7 @@ tally2GR<- function(bamfiles,
         strand_count[which(!neg_cycle_uniq)]
       count.neg[coord_ind_uniq[which(neg_cycle_uniq)]] <-
         strand_count[which(neg_cycle_uniq)]
-      message("working on breaks") 
+      ##message("working on breaks") 
       if (!is.null(breaks)) {
 ### NOTE: overuse of rep() here might lead to over-long vectors            
         cycle_bins <- cut(rep(abs(cycles_mat[2,]), cycles_mat[1,]), breaks)      
@@ -273,7 +273,7 @@ tally2GR<- function(bamfiles,
         colnames(ref_cycle_tab) <- paste(colnames(cycle_tab), "ref", sep = ".")
         cycle_tab <- cbind(cycle_tab, ref_cycle_tab)
       } else  cycle_tab <- matrix(nrow = length(pos), ncol = 0)
-      message("completed breaks")
+      ##message("completed breaks")
       base_counts <- as.integer(sub("\\D(\\d+).*", "\\1", counts_flat))
       ncycles[zero_count] <- 0L # otherwise 1 due to our obscene hack above
       ncycles.ref <- rep(ncycles[ref_rows], width(counts_part))
