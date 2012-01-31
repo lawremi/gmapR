@@ -7,6 +7,6 @@
 ### backward compatibility with the original globals() function).
 ### TODO: Maybe define more sensible default settings.
     
-samtools: /gne/home/coryba/bin/samtools
+samtools: samtools
 gsnap_save_dir: /gne/home/coryba/tools/gsnap/share
 gsnap_bin_dir: /gne/home/coryba/bin
