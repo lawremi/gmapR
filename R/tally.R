@@ -199,14 +199,15 @@ tally2GR<- function(bamfiles,
                     breaks=NULL,
                     bqual_thresh=0,
                     map_qual=0,
-                    mc.cores =detectCores())
+                    mc.cores =1)
 {
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
   list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){
-    tally <- pipe(paste("bam_tally -B 0 -C -Q -q", map_qual, " -X ", variant_strand, " -n ",
-                        min_cov, " -T -d", genome, "-D", genome_dir, bamfiles,
-                        paste("'", chr_name, ":' 2> /dev/null", sep = "")))
+    tally <- pipe(paste("bam_tally --block-format=0 --cycles --quality-scores -q", map_qual,
+                        " --variants=", variant_strand, " --min-depth=", min_cov,
+                        " --totals --db=", genome, " --dir=", genome_dir, " ", bamfiles,
+                        paste(" '", chr_name, ":' 2> /dev/null", sep = ""), sep =""))
     tab <- read.table(tally, colClasses = c("character", "integer", "integer",
                                "character"), sep = "\t",
                       col.names = c("chrom", "position", "count", "cycles"))
@@ -293,13 +294,23 @@ tally2GR<- function(bamfiles,
         logical <- (as.numeric(mat[2,]))>bqual_thresh
         sum(as.numeric(mat[1,logical]), na.rm=T)
       })
+      mean_qual <- lapply(quals, function(x){
+        mat <-matrix(unlist(strsplit(x, "Q", fixed=TRUE),
+                            use.names=FALSE), nrow=2)
+        logical <- (as.numeric(mat[2,]))>bqual_thresh
+        sum((as.numeric(mat[2,logical])*as.numeric(mat[1,logical])), na.rm=T) / sum(as.numeric(mat[1,logical]), na.rm=T)
+      }) 
       high_qual <- unlist(count_above_thresh)      
       high_qual_ref <- rep(high_qual[ref_rows], width(counts_part))
+      mean_qual <- unlist(mean_qual)
+      mean_qual_ref <- rep(mean_qual[ref_rows], width(counts_part))
+      
       gr <- GRanges(chr, IRanges(pos, width=1L), strand, location, 
                     ref = DNAStringSet(ref), read = DNAStringSet(bases),
                     ncycles, ncycles.ref,
                     count = base_counts, count.ref, count.total,
                     high.quality = high_qual,high.quality.ref=high_qual_ref,
+                    mean.quality = mean_qual,mean.quality.ref=mean_qual_ref,
                     count.pos, count.pos.ref, count.neg, count.neg.ref,
                     cycleCount = unclass(cycle_tab))
       
