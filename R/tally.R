@@ -204,13 +204,20 @@ tally2GR<- function(bamfiles,
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
   list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){
+    tmp <- tempfile(file = chr_name)
+    on.exit(unlink(tmp))
     tally <- pipe(paste("bam_tally --block-format=0 --cycles --quality-scores -q", map_qual,
                         " --variants=", variant_strand, " --min-depth=", min_cov,
                         " --totals --db=", genome, " --dir=", genome_dir, " ", bamfiles,
-                        paste(" '", chr_name, ":' 2> /dev/null", sep = ""), sep =""))
+                        paste(" '", chr_name, ":' 2> /dev/null; echo $? >", tmp, sep = ""), sep =""))
     tab <- read.table(tally, colClasses = c("character", "integer", "integer",
                                "character"), sep = "\t",
                       col.names = c("chrom", "position", "count", "cycles"))
+
+    if(readLines(tmp) == '139'){
+      cat(paste("bam_tally returned Segmentation fault on chromosome:", chr_name, "\n", sep =""))
+      stop(paste("bam_tally returned Segmentation fault on chromosome:", chr_name))
+    }
     if(dim(tab)[1] <1){
       gr <- GRanges()
     } else {      
