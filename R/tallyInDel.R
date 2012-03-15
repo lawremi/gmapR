@@ -21,7 +21,7 @@ tallyInDel <- function(bamfiles,
                        mc.cores =1)
 {
   options(scipen=500)
-  chr_ga <-  readBamGappedAlignments(bam_file)
+  chr_ga <-  readBamGappedAlignments(bamfiles)
   chr_grl <- grglist(chr_ga, drop.D.ranges=TRUE)
   chr_ids <- as.list(as.character(seqnames(genomeGR)))
   list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){

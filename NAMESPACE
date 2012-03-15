@@ -1,4 +1,4 @@
-importFrom(Rsamtools, path, bamPaths)
+importFrom(Rsamtools, path, bamPaths, readBamGappedAlignments)
 import(IRanges)
 import(GenomicRanges)
 import(Biostrings)
