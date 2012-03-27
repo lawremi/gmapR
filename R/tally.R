@@ -192,7 +192,7 @@ readTally <- function(x, regions, breaks, cycleDetails = FALSE,
 tally2GR<- function(bamfiles,
                     genome = "hg19_ucsc",
                     genome_dir = "/gnet/is2/data/bioinfo/gmap/data/genomes",
-                    chr_ids = gsnapChromosomes(genome, genome_dir),
+                    chr_gr = getChrGRangesFromGmap(genome, genome_dir),
                     regions,
                     variant_strand=1,
                     min_cov =1,
@@ -201,6 +201,7 @@ tally2GR<- function(bamfiles,
                     map_qual=0,
                     mc.cores =1)
 {
+  chr_ids <-paste(seqnames(chr_gr), ":", start(chr_gr), "-", end(chr_gr), sep = "")
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
   list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){
@@ -209,7 +210,7 @@ tally2GR<- function(bamfiles,
     tally <- pipe(paste("bam_tally --block-format=0 --cycles --quality-scores -q", map_qual,
                         " --variants=", variant_strand, " --min-depth=", min_cov,
                         " --totals --db=", genome, " --dir=", genome_dir, " ", bamfiles,
-                        paste(" '", chr_name, ":' 2> /dev/null; echo $? >", tmp, sep = ""), sep =""))
+                        paste(" '", chr_name, "' 2> /dev/null; echo $? >", tmp, sep = ""), sep =""))
     tab <- read.table(tally, colClasses = c("character", "integer", "integer",
                                "character"), sep = "\t",
                       col.names = c("chrom", "position", "count", "cycles"))
@@ -270,7 +271,7 @@ tally2GR<- function(bamfiles,
         strand_count[which(neg_cycle_uniq)]
       ##message("working on breaks") 
       if (!is.null(breaks)) {
-### NOTE: overuse of rep() here might lead to over-long vectors            
+        ## NOTE: overuse of rep() here might lead to over-long vectors            
         cycle_bins <- cut(rep(abs(cycles_mat[2,]), cycles_mat[1,]), breaks)      
         cycle_i <- factor(rep(rep(seq(length(cycles)), ncycles), cycles_mat[1,]),
                           seq(length(cycles)))
@@ -336,10 +337,9 @@ tally2GR<- function(bamfiles,
       values(gr)$location <- paste(values(gr)$location, strand(gr), sep = ":")
     }
     message(paste("finished chr ", chr_name))
-    seqlevels(gr) <- unlist(chr_ids)
-    gr
+    seqlevels(gr) <- seqlevels(chr_gr)
+    return(gr)
   })
   GR_full <- do.call(c, list_of_gr)
   return(GR_full)
 }
-

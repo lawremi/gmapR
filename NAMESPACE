@@ -18,6 +18,7 @@ export(installGmap)
 export(parallelized_gsnap)
 export(tally2GR)
 export(tallyInDel)
+export(getChrGRangesFromGmap)
 
 exportClasses(GsnapOutput)
 export(GsnapOutput, bamPaths)
