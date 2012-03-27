@@ -30,10 +30,21 @@ parallelized_gsnap <- function(num_machines,
                                multifile_out=TRUE,
                                record_sys_call_dir=NA,
                                syscall.logfun=NULL) {
-  
+  ## check split-output
   if (length(grep("split-output ", gsnap_params) > 0))
     stop("This function cannot handle gsnap parameters with the --split-output switch enabled")
 
+  ## check that input_files exists 
+  if (!file.exists(input_file)) stop("parallelized_gsnap: cannot open input file=", input_file)
+      
+  ## empty input file? create a temporary fake FASTQ file to not fail gsnap
+  input_file_size <- file.info(input_file)$size
+  if (input_file_size==0) {
+    fakeread <- "@fakeread\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n+\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n"
+    cat(fakeread, file=input_file)
+    if (paired_end) cat(fakeread, file=input_file_2)
+  }
+  
   if(procs_per_machine == 1) {
     apply_func <- lapply
   } else {
@@ -165,7 +176,21 @@ parallelized_gsnap <- function(num_machines,
                             record_sys_call_dir=record_sys_call_dir,
                             syscall.logfun=syscall.logfun)
     }
-  }  
+  }
+
+  ## empty input files? restore empty files and remove the fakeread
+  if (input_file_size==0) {
+    cat("", file=input_file)
+    if (paired_end) cat("", file=input_file_2)
+    
+    ## remove the fake read
+    gsnap_outputs <- grep("gsnap", dir(output_dir, full.names=TRUE), value=TRUE)
+    for (filename in gsnap_outputs) {
+      a <- readLines(filename)
+      z <- grep("^fakeread", a)
+      if (length(z)>0) writeLines(a[-z], filename)
+    }
+  }
   
   return(results)
 }
