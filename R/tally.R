@@ -205,7 +205,7 @@ tally2GR<- function(bamfiles,
   chr_ids <- as.list(as.character(chr_ids))
   has_regions <- !missing(regions)
   list_of_gr <- mclapply(chr_ids, mc.cores = mc.cores, function(chr_name){
-    tmp <- tempfile(file = chr_name)
+    tmp <- tempfile(file = paste("l", round(runif(n=1, 100,100000000)),sep=""))
     on.exit(unlink(tmp))
     tally <- pipe(paste("bam_tally --block-format=0 --cycles --quality-scores -q", map_qual,
                         " --variants=", variant_strand, " --min-depth=", min_cov,
