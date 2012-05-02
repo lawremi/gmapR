@@ -16,6 +16,10 @@ tally2iit <- function(bamfiles, iitfiles = sub("\\.bam$", "", bamfiles),
                       genome_dir = "/gnet/is2/data/bioinfo/gmap/data/genomes",
                       positions = c("all", "variant", "both-strands"))
 {
+  if (system("which bam_tally >/dev/null") != 0) {
+    stop("Error: the bam_tally binary could not be found in the system path. Aborting")
+  }
+  
   positions <- match(positions, eval(formals(sys.function())$positions)) - 1L
   bam_tally <- paste("bam_tally -C -X", positions, "-T -d", genome,
                      "-D", genome_dir, bamfiles,
