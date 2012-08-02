@@ -1,0 +1,165 @@
+/* $Id: bamread.h 55603 2012-01-10 01:40:54Z twu $ */
+#ifndef BAMREAD_INCLUDED
+#define BAMREAD_INCLUDED
+/* Cannot use bool, since it appears to conflict with samtools */
+#include <stdio.h>
+#include "genomicpos.h"
+#include "intlist.h"
+#include "uintlist.h"
+#include "genome.h"
+#include "iit-read.h"
+
+#include "table.h"
+#include "uinttable.h"
+#include "chrom.h"
+#include "list.h"
+
+
+#define T Bamreader_T
+typedef struct T *T;
+
+extern void
+Bamread_free (T *old);
+
+extern T
+Bamread_new (char *filename);
+
+extern void
+Bamread_write_header (T this);
+
+extern Genomicpos_T
+Bamread_chrlength (T this, char *chr);
+
+extern void
+Bamread_limit_region (T this, char *chr, Genomicpos_T chrstart, Genomicpos_T chrend);
+
+extern void
+Bamread_unlimit_region (T this);
+
+extern int
+Bamread_nreads (int *npositions, T this, char *chr, Genomicpos_T chrpos1, Genomicpos_T chrpos2);
+
+extern int
+Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
+		   char **mate_chr, Genomicpos_T *mate_chrpos,
+		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
+		   int *readlength, char **read, char **quality_string);
+
+
+typedef struct Bamline_T *Bamline_T;
+
+extern char *
+Bamline_acc (Bamline_T this);
+extern unsigned int
+Bamline_flag (Bamline_T this);
+extern int
+Bamline_concordantp (Bamline_T this);
+extern int
+Bamline_lowend_p (Bamline_T this);
+extern int
+Bamline_firstend_p (Bamline_T this);
+extern int
+Bamline_nhits (Bamline_T this);
+extern bool
+Bamline_good_unique_p (Bamline_T this);
+extern int
+Bamline_mapq (Bamline_T this);
+extern char *
+Bamline_chr (Bamline_T this);
+extern Genomicpos_T
+Bamline_chrpos_low (Bamline_T this);
+extern char *
+Bamline_mate_chr (Bamline_T this);
+extern Genomicpos_T
+Bamline_mate_chrpos_low (Bamline_T this);
+extern int
+Bamline_insert_length (Bamline_T this);
+extern Intlist_T
+Bamline_cigar_types (Bamline_T this);
+extern Uintlist_T
+Bamline_cigar_npositions (Bamline_T this);
+extern int
+Bamline_cigar_querylength (Bamline_T this);
+extern void
+Bamread_print_cigar (Bamline_T this);
+extern int
+Bamline_readlength (Bamline_T this);
+extern char *
+Bamline_read (Bamline_T this);
+extern char *
+Bamline_quality_string (Bamline_T this);
+extern void
+Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag);
+
+extern char
+Bamline_splice_strand (Bamline_T this);
+extern char
+Bamline_strand (Bamline_T this, Genome_T genome, IIT_T chromosome_iit);
+extern Genomicpos_T
+Bamline_chrpos_high (Bamline_T this);
+
+
+extern void
+Bamline_free (Bamline_T *old);
+extern Bamline_T
+Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+		      bool need_unique_p, bool need_primary_p, bool need_concordant_p);
+
+
+typedef struct Bamstore_T *Bamstore_T;
+
+extern void
+Bamstore_free (Bamstore_T *old);
+
+extern Bamstore_T
+Bamstore_new (Genomicpos_T chrpos);
+
+extern Bamline_T
+Bamstore_get (Table_T bamstore_chrtable, char *chr, Genomicpos_T low, char *acc,
+	      Genomicpos_T mate_low);
+
+extern void
+Bamstore_add_at_low (Table_T bamstore_chrtable, char *chr, Genomicpos_T low,
+		     Bamline_T bamline);
+
+extern void
+Bamstore_table_free (Uinttable_T *bamstore_table);
+
+
+typedef struct Bampair_T *Bampair_T;
+
+extern Genomicpos_T
+Bampair_chrpos_low (Bampair_T this);
+extern Genomicpos_T
+Bampair_chrpos_high (Bampair_T this);
+extern int
+Bampair_level (Bampair_T this);
+extern bool
+Bampair_good_unique_p (Bampair_T this);
+extern bool
+Bampair_uniquep (Bampair_T this);
+extern bool
+Bampair_primaryp (Bampair_T this);
+
+extern void
+Bampair_free (Bampair_T *old);
+extern void
+Bampair_print (FILE *fp, Bampair_T this);
+extern void
+Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
+		 Uintlist_T *splice_lows, Uintlist_T *splice_highs, Intlist_T *splice_signs,
+		 Bampair_T this);
+
+extern List_T
+Bamread_all_pairs (T bamreader, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+		   bool need_unique_p, bool need_primary_p, bool need_concordant_p);
+
+extern int
+Bampair_compute_levels (List_T bampairs, Genomicpos_T mincoord,
+			Genomicpos_T maxcoord, int max_allowed_levels,
+			double xfactor, Genomicpos_T min_pairlength);
+
+
+#undef T
+#endif
+

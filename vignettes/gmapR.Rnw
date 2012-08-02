@@ -1,0 +1,301 @@
+% \VignetteIndexEntry{gmapR}
+% \VignetteKeywords{gmap,gsnap}
+% \VignettePackage{gmapR}
+\documentclass[10pt]{article}
+
+\usepackage{times}
+\usepackage{hyperref}
+\usepackage{Sweave}
+
+\textwidth=6.5in
+\textheight=8.5in
+% \parskip=.3cm
+\oddsidemargin=-.1in
+\evensidemargin=-.1in
+\headheight=-.3in
+
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textit{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rfunarg}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+\newcommand{\Rcode}[1]{{\texttt{#1}}}
+
+\newcommand{\software}[1]{\textsf{#1}}
+\newcommand{\R}{\software{R}}
+
+\title{gmapR: Use the GMAP Suite of Tools in R}
+\author{Michael Lawrence, Cory Barr}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \Rpackage{gmapR} packages provides users with a way to access
+\software{GSNAP}, \software{bam\_tally}, and other utilities from the
+\software{GMAP} suite of tools within an R session. In this vignette,
+we briefly look at the \software{GMAP} suite of tools available
+through the \Rpackage{gmapR} package and work through an example.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{What is \software{GMAP}, \software{GSNAP}, and \software{bam\_tally}?}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \software{GMAP} suite offers useful tools for the following:
+
+\begin{itemize}
+
+  \item Genomic mapping: Given a cDNA, find where it best aligns to
+    an entire genome
+
+  \item Genomic alignment: Given a cDNA and a genomic segment,
+    provide a nucleotide-level correspondence for the exons of the
+    cDNA to the genomic segment
+
+  \item Summarization via coverage plus reference and allele
+    nucleotide polymorphism counts for an aligned set of sequencing
+    reads over a given genomic location
+
+\end{itemize}
+
+\software{GMAP} (Genomic Mapping and Alignment Program) is
+particularly suited to relatively long mRNA and EST sequences such as
+those that are obtained from Roche 454 or Pacific Biosciences
+sequencing technologies. (At present, only \software{GSNAP} is
+available through the \Rpackage{gmapR}. \software{GMAP} integration is
+scheduled for the near future.)
+
+\software{GSNAP} (Genomic Short-read Nucleotide Alignment Program)
+also provides users with genomic mapping and alignment capabilities,
+but is optimized to handle issues that arise when dealing with the
+alignment of short reads generated from sequencing technologies such
+as those from Illumina/Solexa or ABI/SOLiD. \software{GSNAP} offers
+the following functionality, as mentioned in
+\href{http://bioinformatics.oxfordjournals.org/content/26/7/873.full}{Fast
+  and SNP-tolerant detection of complex variants and splicing in short
+  reads} by Thomas D. Wu and Serban Nacu:
+
+\begin{itemize}
+  
+  \item fast detection of complex variants and splicing in short
+    reads, based on a successively constrained search process of
+    merging and filtering position lists from a genomic index
+
+  \item alignment of both single- and paired-end reads as short as 14
+    nt and of arbitrarily long length
+    
+  \item detection of short- and long-distance splicing, including
+    interchromosomal splicing, in individual reads, using
+    probabilistic models or a database of known splice sites
+    
+  \item SNP-tolerant alignment to a reference space of all possible
+    combinations of major and minor alleles
+
+  \item alignment of reads from bisulfite-treated DNA for the study of
+    methylation state
+    
+\end{itemize}
+    
+\software{bam\_tally} provides users with the coverage as well as
+counts of both reference alleles, alternative alleles, and indels over
+a genomic region.
+
+For more detailed information on the \software{GMAP} suite of tools
+including a detailed explication of algorithmic specifics, see
+\url{http://research-pub.gene.com/gmap/}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Create a \Rclass{GmapGenome} Object}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To align reads with \software{GMAP} or \software{GSNAP}, or to use
+\software{bam\_tally}, you will need to either obtain or create a
+\Rclass{GmapGenome} object. \Rclass{GmapGenome} objects can be created
+from FASTA files or \Rclass{BSgenome} objects, as the following
+example demonstrates:
+
+<<create_GmapGenome, eval=FALSE>>=
+library(gmapR)
+
+if (!suppressWarnings(require(BSgenome.Dmelanogaster.UCSC.dm3))) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite("BSgenome.Dmelanogaster.UCSC.dm3")
+  library(BSgenome.Dmelanogaster.UCSC.dm3)
+}
+
+gmapGenomePath <- file.path(getwd(), "testGenome")
+gmapGenomeDirectory <- GmapGenomeDirectory(gmapGenomePath, create = TRUE)
+##> gmapGenomeDirectory
+##GmapGenomeDirectory object
+##path: /reshpcfs/home/coryba/projects/gmapR2/testGenome 
+
+gmapGenome <- GmapGenome(genome=Dmelanogaster,
+                         directory = gmapGenomeDirectory,
+                         name = "dm3",
+                         create = TRUE)
+##> gmapGenome
+##GmapGenome object
+##genome: dm3 
+##directory: /reshpcfs/home/coryba/projects/gmapR2/testGenome 
+@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Aligning with \software{GSNAP}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The \software{GSNAP} algorithm incorporates biological knowledge to
+provide accurate alignments, particularly for RNA-seq data. The
+following example synthesizes some input reads and aligns them using
+\software{GSNAP}.
+
+If you've created the D. melanogaster \Rclass{GmapGenome} package as detailed above and installed
+it, you can begin this section as follows:
+
+<<<load_GmapGenome, eval=FALSE>>=
+library("GmapGenome.Dmelanogaster.UCSC.dm3")
+gmapGenome <- GmapGenome.Dmelanogaster.UCSC.dm3
+@ 
+
+Otherwise, you can create the \Rcode{gmapGenome} object as detailed in the
+initial section of this vignette.
+
+<<align_with_gsnap, eval=FALSE>>=
+##synthesize paired-end FASTA input to align against the genome
+library("BSgenome.Dmelanogaster.UCSC.dm3")
+dnaStringSet <- Dmelanogaster$chr4
+makeTestFasta <- function(seqStarts, pairNum) {
+  seqEnds <- seqStarts + 74
+  nucleotides <- sapply(seq_along(seqStarts),
+                        function(i) as.character(subseq(dnaStringSet, seqStarts[i], seqEnds[i]))
+                        )
+  fastaHeaders <- paste0(">", "fakeRead", seq_along(nucleotides), "#0/", pairNum)
+  fastaLines <- paste(fastaHeaders, nucleotides, sep="\n")
+  tmpFasta <- paste0(tempfile(), ".", pairNum, ".fa")
+  writeLines(fastaLines, con=tmpFasta)
+  tmpFasta
+}
+seqStarts <- seq(1, 100000, by = 10000) + length(dnaStringSet) * 2 / 3
+tmpFasta1 <- makeTestFasta(seqStarts, '1')
+tmpFasta2 <- makeTestFasta(seqStarts + 125, '2')
+
+##specify how GSNAP should behave using a GsnapParam object
+gsnapParam <- GsnapParam(genome = gmapGenome,
+                         unique_only = FALSE,
+                         max_mismatches = NULL,
+                         suboptimal_levels = 0L, mode = "standard",
+                         npaths = 10L,
+                         novelsplicing = FALSE, splicing = NULL, 
+                         nthreads = 1L,
+                         batch = "2")
+
+gsnapOutput <- gsnap(input_a=tmpFasta1,
+                     input_b=tmpFasta2,
+                     params=gsnapParam)
+##gsnapOutput
+##An object of class "GsnapOutput"
+##Slot "path":
+##[1] "/local/Rtmporwsvr"
+##
+##Slot "param":
+##A GsnapParams object
+##genome: dm3 (/reshpcfs/home/coryba/projects/gmapR2/testGenome)
+##part: NULL
+##batch: 2
+##max_mismatches: NULL
+##suboptimal_levels: 0
+##snps: NULL
+##mode: standard
+##nthreads: 1
+##novelsplicing: FALSE
+##splicing: NULL
+##npaths: 10
+##quiet_if_excessive: FALSE
+##nofails: FALSE
+##split_output: TRUE
+##extra: list()
+##
+##Slot "version":
+## [1] NA NA NA NA NA NA NA NA NA NA NA NA
+##
+@ 
+
+The \Rcode{gsnapOutput} object will be of the class
+\Rclass{GsnapOutput}. It will provide access to the BAM files of
+alignments that \software{GSNAP} outputs along with other utilities.
+
+<<get_gsnap_bam_files, eval=FALSE>>=
+##> dir(path(gsnapOutput), full.names=TRUE, pattern="\\.bam$")
+##[1] "/local/Rtmporwsvr/file1cbc73503e9.1.nomapping.bam"        
+##[2] "/local/Rtmporwsvr/file1cbc73503e9.1.unpaired_mult.bam"    
+##[3] "/local/Rtmporwsvr/file1cbc73503e9.1.unpaired_transloc.bam"
+##[4] "/local/Rtmporwsvr/file1cbc73503e9.1.unpaired_uniq.bam"    
+@ 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Using \Rmethod{bam\_tally}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Running the \Rmethod{bam\_tally} method will return a \Rclass{GRanges}
+of information per nucleotide. Below is a basic example. See the
+documentation for the \Rmethod{bam\_tally} method for details.
+
+<<run_bamtally, eval=FALSE>>=
+library(gmapR)
+library(GmapGenome.Hsapiens.UCSC.hg19)
+genome <- GmapGenome.Hsapiens.UCSC.hg19
+
+bam_file <- file.path(system.file(package = "gmapR", mustWork=TRUE),
+                      "extdata/bam_tally_test.bam")
+
+breaks <- c(0L, 15L, 60L, 75L)
+bqual <- 56L
+mapq <- 13L
+param <- BamTallyParam(cycle_breaks = as.integer(breaks),
+                       high_quality_cutoff = as.integer(bqual),
+                       minimum_mapq = as.integer(mapq),
+                       concordant_only = FALSE, unique_only = FALSE,
+                       primary_only = FALSE,
+                       min_depth = 0L, variant_strand = 1L,
+                       ignore_query_Ns = TRUE,
+                       indels = FALSE)
+
+tallies <-bam_tally(bam_file,
+                    genome,
+                    param)
+@ 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Creating a \Rclass{GmapGenome} Package}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+After creating a \Rclass{GmapGenome} object, you might want to
+distribute it for collaboration or version it for reproducible
+research. The function \Rcode{makeGmapGenomePackage} allows you to do
+this. Continuing on with the D. melanogaster example from above, here
+is how to archive the D. melanogaster \Rclass{GmapGenome} object in a
+\Rclass{GmapGenome} package:
+
+<<create_GmapGenomePackge, eval=FALSE>>=
+makeGmapGenomePackage(gmapGenome=gmapGenome,
+                      version="1.0.0",
+                      maintainer="<your.name@somewhere.com>",
+                      author="Your Name",
+                      destDir="myDestDir",
+                      license="Artistic-2.0",
+                      pkgName="GmapGenome.Dmelanogaster.UCSC.dm3")
+@ 
+
+After creating the package, you can run \Rcode{R CMD INSTALL
+  myDestDir} to install it, or run \Rcode{R CMD build myDestDir} to
+create a distribution of the package.
+
+<<SessionInfo>>=
+sessionInfo()
+@ 
+\end{document}

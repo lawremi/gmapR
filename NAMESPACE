@@ -1,25 +1,31 @@
-importFrom(Rsamtools, path, bamPaths, readBamGappedAlignments)
-importFrom(tools, list_files_with_exts)
+useDynLib(gmapR, .registration = TRUE)
+
+importFrom(Rsamtools, path, bamPaths, readBamGappedAlignments, "bamWhich<-",
+           BamFile)
+importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext)
+importFrom(Biobase, createPackage)
 import(IRanges)
 import(GenomicRanges)
 import(Biostrings)
 import(parallel)
+importFrom(GenomicRanges, genome, seqinfo)
+importMethodsFrom(GenomicRanges, seqnames, strand)
+importMethodsFrom(Rsamtools, asBam)
+importClassesFrom(GenomicFeatures, TranscriptDb)
+importClassesFrom(rtracklayer, RTLFile, FastaFile)
+importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
+importMethodsFrom(rtracklayer, export)
+importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed)
+importClassesFrom(VariantAnnotation, "VCF")
 
-export(buildGmapDbSNPIndex)
-export(buildGmapIITFromFasta)
-export(buildGmapIndex)
-export(buildGsnapSNPIIT)
-export(buildRefseqSpliceSites)
-export(consolidateGmapFiles)
-export(consolidateGsnapFiles)
-export(exonsToGmapSpliceSites)
-export(getGsnapFileCounts)
-export(globals)
-export(installGmap)
-export(parallelized_gsnap)
-export(tally2GR)
-export(tallyInDel)
-export(getChrGRangesFromGmap)
+## public API
 
-exportClasses(GsnapOutput)
-export(GsnapOutput, bamPaths)
+export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
+       directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput)
+exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
+              GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
+exportMethods(bamPaths, path, genome, seqinfo, gsnap)
+
+## gsnap API
+
+## export("snps<-", getDefaultGmapGenomePath)

@@ -1,14 +1,29 @@
-*use BSGenome and Bioc dbSNP objects instead of downloading from UCSC.
+*GmapGenome doesn't yet have a method for DNAStringSet genomes
 
-*globals function needs to set elements in the list returned by
- options() instead of using the globals() fun. Other wise
- HTSeqGenieBase and gmapR will both have exported globals() functions
+*genome param for GmapGenome class isn't making it into the
+object. not in representation?
 
-*HTSeqGenieBase needs to depend on gmapR and not contain now-redundant
- code. To to this, HTSeqGenieBase::globals() needs to have entries
- removed now in gmapR::globals()
+*passing use_snps=NULL as an arg to GsnapParam constructor breaks it
 
-*configureGmapR.R calls buildGmapIndex, buildGmapDbSNPIndex, and
-buildRefseqSpliceSites. These are high-level functions that obtain
-hg19 data and call more generalized functions. These high-level
-functions belong in HTSeqGenieBase.
+*fix extra() arg in gsnap method
+
+*Vignette 
+**remove all eval=FALSE. This means rolling some GmapGenome packages
+
+*cannot overwrite files from gsnap. In other words, can only run gsnap
+ function once.
+
+*make sure mapping in gsnap command-line too (short form args) are
+ clearly linked to in the R docs (Greg request)
+
+*get NGS seq pipeline tests working
+
+*gsnap said the distant_splice_identity args is not supported, but
+ it's in the gsnap --help documention
+
+*bam_tally segfaults if the BAM file used is not indexed
+
+*cannot get seqinfo(GmapGenome) if genome created with
+ DNAStringSet. Also, R issues warnings during creation about
+ contigs. Currently, the unity test for seqinfo(GmapGenome) does not
+ exist because of this.
