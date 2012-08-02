@@ -1,9 +1,6 @@
 /* src/config.h.  Generated from config.h.in by configure.  */
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define if building universal (internal helper macro) */
-/* #undef AC_APPLE_UNIVERSAL_BUILD */
-
 /* Define to 1 if the system has the type `caddr_t'. */
 #define HAVE_CADDR_T 1
 
@@ -120,7 +117,7 @@
 #define HAVE_STRTOUL 1
 
 /* have struct stat64 */
-/* #undef HAVE_STRUCT_STAT64 */
+#define HAVE_STRUCT_STAT64 1
 
 /* Define to 1 if you have the `sysconf' function. */
 #define HAVE_SYSCONF 1
@@ -149,7 +146,7 @@
 #define HAVE_ZLIB 1
 
 /* Define to 1 if your zlib library has a gzbuffer function. */
-/* #undef HAVE_ZLIB_GZBUFFER */
+#define HAVE_ZLIB_GZBUFFER 1
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
@@ -183,7 +180,7 @@
 #define PAGESIZE_VIA_SYSCONF 1
 
 /* pagesize is available via sysctl */
-/* #undef PAGESIZE_VIA_SYSCTL */
+#define PAGESIZE_VIA_SYSCTL 1
 
 /* The size of `unsigned long', as computed by sizeof. */
 #define SIZEOF_UNSIGNED_LONG 8
@@ -203,17 +200,9 @@
 /* Version number of package */
 #define VERSION "2012-07-06"
 
-/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
-   significant byte first (like Motorola and SPARC, unlike Intel). */
-#if defined AC_APPLE_UNIVERSAL_BUILD
-# if defined __BIG_ENDIAN__
-#  define WORDS_BIGENDIAN 1
-# endif
-#else
-# ifndef WORDS_BIGENDIAN
-/* #  undef WORDS_BIGENDIAN */
-# endif
-#endif
+/* Define to 1 if your processor stores words with the most significant byte
+   first (like Motorola and SPARC, unlike Intel and VAX). */
+/* #undef WORDS_BIGENDIAN */
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
