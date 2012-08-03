@@ -1,5 +1,5 @@
 Package: gmapR
-Maintainer: <barr.cory@gene.com>
+Maintainer: Cory Barr <barr.cory@gene.com>
 License: Artistic-2.0
 Title: Provides convenience methods to work with GMAP and GSNAP from
     within R
