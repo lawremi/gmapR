@@ -8,7 +8,7 @@ R_SRC_DIR = ${CURDIR}
 PREFIX = ${R_SRC_DIR}/../inst/usr
 INCLUDE_DIR = $(PREFIX)/include
 
-GSTRUCT_LIB = $(PREFIX)/lib/libgstruct-1.0.a
+GSTRUCT_LIB = $(PREFIX)/$(LIBnn)/libgstruct-1.0.a
 GSTRUCT_INCLUDE_DIR = $(INCLUDE_DIR)/gstruct
 
 SAMTOOLS_LIB = samtools/libbam.a
