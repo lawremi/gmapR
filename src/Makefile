@@ -47,6 +47,7 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 	cd $(dir $@); \
 	./configure --enable-static --disable-shared \
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
+	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools=${R_SRC_DIR}/samtools \
 		    --disable-binaries #\
 ## does not appear to be a true dependency yet
@@ -54,7 +55,8 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 
 gmap/Makefile: gmap/configure
 	cd $(dir $@); \
-	./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX}
+	./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
+	            --libdir=${PREFIX}/${LIBnn}
 
 clean:
 	for dir in $(SUBDIRS); do \
