@@ -34,6 +34,9 @@ BamTallyParam <- function(which = RangesList(), cycle_breaks = NULL,
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$which <- as(which, "RangesList")
+  integer_params <- c("high_quality_cutoff", "minimum_mapq", "min_depth",
+                      "variant_strand")
+  params[integer_params] <- lapply(params[integer_params], as.integer)
   do.call(new, c("BamTallyParam", params))  
 }
 
