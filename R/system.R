@@ -7,30 +7,43 @@ getDefaultGmapPath <- function() {
   system.file("usr", "bin", package = "gmapR")
 }
 
+.commandLine.handleNameArgs <- function(defaultArgs, args) {
+  ##arguments with no default need to be handled explicity, since
+  ##objects of class "missing" cannot be eval'ed.
+  classes <- sapply(defaultArgs, class)
+  handledArgs <- defaultArgs
+  handledArgs[classes == "name"] <- "NoT_pRoViDeD"
+
+  ##verify function calling commandLine provided values for any
+  ##argument with no default
+  callerMustSupply <- names(classes[classes == "name"])
+  if (any(class(args[callerMustSupply]) == "name")) {
+    stop("An argument with a required value was not passed to commandLine()")
+  }
+
+  return(handledArgs)
+}
+
 ## gathers command line from non-NULL args to parent frame
 commandLine <- function(binary = "gsnap",
                         path = getOption("gmap.path", getDefaultGmapPath()))
 {
-
-  #Some args cannot be passed simultaneously to gsnap. Remove arg if
-  #it is the default.
-  defaultArgs <- formals(sys.function(sys.parent()))
-  ##some args have a default vector with more than one element (for
-  ##use with match.args). Taking first element:
-  multis <- which(elementLengths(defaultArgs) > 1)
-  multiVals <- lapply(defaultArgs[multis],
-                      function(x) {
-                        retval <- switch(class(x),
-                                         list=unlist(x)[1],
-                                         call=eval(x)[1],
-                                    stop("Cannot get default value for an object of class",
-                                         class(x)))                                                
-                        return(retval)
-                      })
-  defaultArgs[multis] <- multiVals
-  
+  ##get values of arguments of function that called this function
   args <- mget(names(formals(sys.function(sys.parent()))), parent.frame())
 
+  ##Some args cannot be passed simultaneously to gsnap. Remove arg if
+  ##it is the default.
+  defaultArgs <- formals(sys.function(sys.parent()))
+  ##objects of class "name" must be handled specially since they
+  ##cannot be eval'ed
+  defaultArgs <- .commandLine.handleNameArgs(defaultArgs, args)
+  parentEnv <- sys.parent()
+  defaultArgs <- lapply(defaultArgs, eval, envir=parentEnv)  
+  ##some args have a default vector with more than one element (for
+  ##use with match.args). Taking first element:
+  defaultArgs <- lapply(defaultArgs,
+                        function(x) {if (length(x) > 1L) x[[1L]] else x}
+                        )
   ##remove defaults
   isDefault <- mapply(identical, args, defaultArgs)
   if (sum(!isDefault > 0L)) {
