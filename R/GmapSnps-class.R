@@ -33,15 +33,15 @@ GmapSnps <- function(snps, directory, name = snps, create = FALSE, ...)
     stop("'create' must be TRUE or FALSE")
   if (isSingleString(directory) || is(directory, "GmapGenome"))
     directory <- GmapSnpDirectory(directory, create = create)
-  if (!is(directory, "GmapSnpsDirectory"))
-    stop("'directory' must be a GmapSnpsDirectory or a path to one")
+  if (!is(directory, "GmapSnpDirectory"))
+    stop("'directory' must be a GmapSnpDirectory or a path to one")
   if (!isSingleString(name))
     stop("'name' must be a single, non-NA string")
   db <- new("GmapSnps", name = name, directory = directory)
   if (create) {
     if (name %in% names(directory))
       message("NOTE: snps db '", name, "' already exists, not overwriting")
-    else snps(db, ...) <- snps
+    else snps(directory, ...) <- snps
   }
   db
 }
