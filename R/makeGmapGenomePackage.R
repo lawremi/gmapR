@@ -49,11 +49,22 @@ makeGmapGenomePackage <- function(gmapGenome,
   ## then copy the contents of the GmapGenome into the extdata dir
   iit_from_path <- path(gmapGenome)
   iit_dest_path <- file.path(destDir, pkgName, "inst", "extdata")
-  if (!file.exists(iit_dest_path)) dir.create(iit_dest_path, recursive=TRUE)
+  ##used because if file.copy(iit_from_path, iit_tmp_path) is used, an
+  ##extra unwanted directory is added
+  iit_tmp_path <- file.path(destDir, basename(tempdir()))
+  if (file.exists(iit_tmp_path)) unlink(iit_tmp_path, recursive=TRUE)
+  dir.create(iit_tmp_path, recursive=TRUE)
+  on.exit(unlink(iit_tmp_path, recursive=TRUE),
+          add=TRUE)
   success <- file.copy(from=iit_from_path,
-                       to=iit_dest_path, recursive=TRUE)
+                       to=iit_tmp_path, recursive=TRUE)
   if (!success) stop("Could not create package.",
-                     "IIT files would not copy from source to destination")
-  
+                     "IIT files would not copy from source to temp directory")
+  dirToMoveFrom <- dir(iit_tmp_path, full.names=TRUE)
+  if (file.exists(iit_dest_path)) unlink(iit_dest_path, recursive=TRUE)
+  if (!file.exists(dirname(iit_dest_path))) dir.create(dirname(iit_dest_path),
+                                                       recursive=TRUE)
+  success <- file.rename(dirToMoveFrom, iit_dest_path)
+  if (!success) stop("Could not copy genome from temp directory to final directory")
   invisible(TRUE)
 }
