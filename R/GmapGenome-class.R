@@ -126,6 +126,12 @@ setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
                  })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Coerce
+###
+
+setAs("ANY", "GmapGenome", function(from) GmapGenome(from))
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Show
 ###
 
