@@ -117,7 +117,7 @@
 #define HAVE_STRTOUL 1
 
 /* have struct stat64 */
-#define HAVE_STRUCT_STAT64 1
+/* #undef HAVE_STRUCT_STAT64 */
 
 /* Define to 1 if you have the `sysconf' function. */
 #define HAVE_SYSCONF 1
@@ -173,6 +173,9 @@
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "gstruct"
 
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
+
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "2012-07-06"
 
@@ -180,7 +183,7 @@
 #define PAGESIZE_VIA_SYSCONF 1
 
 /* pagesize is available via sysctl */
-#define PAGESIZE_VIA_SYSCTL 1
+/* #undef PAGESIZE_VIA_SYSCTL */
 
 /* The size of `unsigned long', as computed by sizeof. */
 #define SIZEOF_UNSIGNED_LONG 8
@@ -203,6 +206,11 @@
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
 /* #undef WORDS_BIGENDIAN */
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
