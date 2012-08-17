@@ -1,3 +1,4 @@
+
 % \VignetteIndexEntry{gmapR}
 % \VignetteKeywords{gmap,gsnap}
 % \VignettePackage{gmapR}
@@ -256,9 +257,9 @@ bam_file <- file.path(system.file(package = "gmapR", mustWork=TRUE),
 breaks <- c(0L, 15L, 60L, 75L)
 bqual <- 56L
 mapq <- 13L
-param <- BamTallyParam(cycle_breaks = as.integer(breaks),
-                       high_quality_cutoff = as.integer(bqual),
-                       minimum_mapq = as.integer(mapq),
+param <- BamTallyParam(genome, cycle_breaks = breaks,
+                       high_quality_cutoff = bqual,
+                       minimum_mapq = mapq,
                        concordant_only = FALSE, unique_only = FALSE,
                        primary_only = FALSE,
                        min_depth = 0L, variant_strand = 1L,
@@ -266,7 +267,6 @@ param <- BamTallyParam(cycle_breaks = as.integer(breaks),
                        indels = FALSE)
 
 tallies <-bam_tally(bam_file,
-                    genome,
                     param)
 @ 
 
