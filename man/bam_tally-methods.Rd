@@ -6,8 +6,8 @@
 \alias{bam_tally,GmapBamReader-method}
 \alias{bam_tally}
 
-\title{Create a Summarization of the Read Sequences and Qualities for Each
-  Genomic Position}
+\title{Per-position Alignment Summaries}
+
 \description{
   Given a set of alignments, for each position in the genome output
   counts for the reference allele and all alternate alleles. Often used
@@ -15,15 +15,13 @@
 }
 
 \usage{
-\S4method{bam_tally}{BamFile}(x, genome, param = BamTallyParam(), ...)
-\S4method{bam_tally}{character}(x, genome, param = BamTallyParam(), ...)
+\S4method{bam_tally}{BamFile}(x, param, ...)
+\S4method{bam_tally}{character}(x, param, ...)
 }
 
 \arguments{
   \item{x}{a \code{BamFile} object or string path to a BAM file to read}
-  \item{genome}{the \code{GmapGenome} object corresponding to the
-    alignments in the BAM file}
-  \item{param}{The \code{\linkS4class{BamTallyParam}} object with extra
+  \item{param}{The \code{\linkS4class{BamTallyParam}} object with
     parameters for the tally operation. }
   \item{...}{Arguments that override settings in \code{param}.}
 }

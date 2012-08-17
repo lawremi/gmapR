@@ -14,8 +14,8 @@
 }
 
 \usage{
-  BamTallyParam(which = RangesList(), cycle_breaks = NULL,
-                high_quality_cutoff = 0L,
+  BamTallyParam(genome, which = RangesList(), cycle_breaks = NULL,
+                high_base_quality = 0L,
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
                 primary_only = FALSE,
@@ -24,6 +24,7 @@
                 indels = FALSE)
 }
 \arguments{
+  \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
   \item{which}{A \code{RangesList} or something coercible to
     one that limits the tally to that range or set of ranges. By
     default, the entire genome is processed.
@@ -31,7 +32,7 @@
   \item{cycle_breaks}{The breaks, like those passed to \code{\link{cut}}
     for aggregating the per-cycle counts. If \code{NULL}, no per-cycle
     counts are returned.}
-  \item{high_quality_cutoff}{The minimum mapping quality for a
+  \item{high_base_quality}{The minimum mapping quality for a
     read to be counted as high quality.}
   \item{minimum_mapq}{Minimum mapping quality for a read to be counted
     at all.}

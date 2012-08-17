@@ -6,9 +6,10 @@
 ###
 
 setClass("BamTallyParam",
-         representation(which = "RangesList",
+         representation(genome = "GmapGenome",
+                        which = "RangesList",
                         cycle_breaks = "integerORNULL",
-                        high_quality_cutoff = "integer",
+                        high_base_quality = "integer",
                         minimum_mapq = "integer",
                         concordant_only = "logical",
                         unique_only = "logical",
@@ -22,8 +23,9 @@ setClass("BamTallyParam",
 ### Constructor
 ###
 
-BamTallyParam <- function(which = RangesList(), cycle_breaks = NULL,
-                          high_quality_cutoff = 0L,
+BamTallyParam <- function(genome, which = RangesList(),
+                          cycle_breaks = NULL,
+                          high_base_quality = 0L,
                           minimum_mapq = 0L,
                           concordant_only = FALSE, unique_only = FALSE,
                           primary_only = FALSE,
@@ -33,8 +35,9 @@ BamTallyParam <- function(which = RangesList(), cycle_breaks = NULL,
 {
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
+  params$genome <- as(genome, "GmapGenome")
   params$which <- as(which, "RangesList")
-  integer_params <- c("high_quality_cutoff", "minimum_mapq", "min_depth",
+  integer_params <- c("high_base_quality", "minimum_mapq", "min_depth",
                       "variant_strand")
   params[integer_params] <- lapply(params[integer_params], as.integer)
   do.call(new, c("BamTallyParam", params))  
@@ -49,3 +52,17 @@ setAs("BamTallyParam", "list", function(from) {
 })
 
 setMethod("as.list", "BamTallyParam", function(x) as(x, "list"))
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Utilities
+###
+
+flankingCycleBreaks <- function(read_length, width = 10L) {
+  if (is.na(read_length))
+    return(NULL)
+  if (read_length < 1)
+    stop("'read_length' must be >= 1 or NA")
+  if (width < 0)
+    stop("'width' must be non-negative")
+  c(0L, width, read_length - width, read_length)
+}

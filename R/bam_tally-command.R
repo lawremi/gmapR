@@ -8,30 +8,31 @@
 ###
 
 setGeneric("bam_tally",
-           function(x, genome, param = BamTallyParam(), ...)
+           function(x, param, ...)
            standardGeneric("bam_tally"),
            signature = "x")
 
 setMethod("bam_tally", "BamFile",
-          function(x, genome, param, ...)
+          function(x, param, ...)
           {
             x <- GmapBamReader(x)
             callGeneric()
           })
 
 setMethod("bam_tally", "character",
-          function(x, genome, param, ...)
+          function(x, param, ...)
           {
             x <- BamFile(x)
             callGeneric()
           })
 
 setMethod("bam_tally", "GmapBamReader",
-          function(x, genome, param, ...)
+          function(x, param, ...)
           {
             param_list <- as.list(param)
             args <- list(...)
             param_list[names(args)] <- args
+            genome <- param_list$genome
             param_list$db <- genome(genome)
             param_list$genome_dir <- path(directory(genome))
             tally <- do.call(.bam_tally_C, c(list(x), param_list))
@@ -85,7 +86,7 @@ normArgTRUEorFALSE <- function(x) {
 
 .bam_tally_C <- function(bamreader, genome_dir = NULL, db = NULL,
                          which = NULL, cycle_breaks = NULL,
-                         high_quality_cutoff = 0L, alloclength = 200000L,
+                         high_base_quality = 0L, alloclength = 200000L,
                          minimum_mapq = 0L, good_unique_mapq = 35L,
                          maximum_nhits = 1000000L,
                          concordant_only = FALSE, unique_only = FALSE,
@@ -120,7 +121,7 @@ normArgTRUEorFALSE <- function(x) {
   }
   .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
         cycle_breaks,
-        normArgSingleInteger(high_quality_cutoff),
+        normArgSingleInteger(high_base_quality),
         normArgSingleInteger(alloclength),
         normArgSingleInteger(minimum_mapq),
         normArgSingleInteger(good_unique_mapq),
