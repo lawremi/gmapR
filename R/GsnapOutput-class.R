@@ -51,11 +51,31 @@ setMethod("bamPath", "GsnapOutput", function(x) {
   paths
 })
 
+## file_ext does not allow '_'
+file_ext2 <- function(x) {
+  gsub(".*\\.", "", x)
+}
+
+samPaths <- function(x) {
+  if (!is_dir(x)) {
+    if (file_ext(path(x)) == "sam")
+      return(path(x))
+    return(character())
+  }
+  paths <- list_files_with_exts(path(x), .ALIGNMENT_CATEGORIES,
+                                full.names = TRUE)
+  names(paths) <- file_ext2(paths)
+  paths
+}
+
 setMethod("bamPaths", "GsnapOutput", function(x) {
-  if (!is_dir(x))
-    return(path(x))
+  if (!is_dir(x)) {
+    if (file_ext(path(x)) == "bam")
+      return(path(x))
+    return(character())
+  }
   paths <- list_files_with_exts(path(x), "bam", full.names = TRUE)
-  names(paths) <- sub(".*\\.([^.]*)\\.bam$", "\\1", paths)
+  names(paths) <- file_ext2(file_path_sans_ext(paths))
   paths <- paths[names(paths) %in% .ALIGNMENT_CATEGORIES]
   paths
 })
@@ -101,37 +121,22 @@ setGeneric("consolidate", function(x, ...) standardGeneric("consolidate"))
 
 setMethod("consolidate", "GsnapOutput", function(x) {
 ### TODO: this should produce the pipeline's analyzed BAM
-### TODO: the 'gsnap' function should probably consolidate by default.
 })
 
 ##converts all gsnap SAM files to BAM files and creates the .bai index files
 setMethod("asBam", "GsnapOutput",
           function(file) {
-            gsp <- file ##the input is not a file. It is a GsnapOutput, but param name is enforced
+            ## the input is not a file. It is a GsnapOutput,
+            ## but param name is enforced
+            gsp <- file 
 
             ##files other than those produced by gsnap maybe be in the
-            ##output directory. Only take those produced by gsnap
-            samFiles <- dir(path(gsp), full.names=TRUE)
-            isFromGsnap <- sapply(samFiles,
-                                  function(fileName) {
-                                    any(sapply(.GSNAP_OUTPUT_FILE_STRINGS,
-                                           function(pat) grepl(pat, fileName)))
-                                  })
-            samFiles <- samFiles[isFromGsnap]
-            sapply(samFiles,
-                   function(samFile) {
-                     ##.bam will the added to the string supplied via
-                     ##dest param
-                     asBam(samFile, dest=samFile, indexDestination=TRUE)
-                   })
-
+            ##output directory. Only take those produced by gsnap.
+            samFiles <- samPaths(gsp)
+            mapply(asBam, file = samFiles, dest = samFiles, overwrite = TRUE)
+            
             unlink(samFiles)            
 })
-
-.GSNAP_OUTPUT_FILE_STRINGS <- c("\\.nomapping$",
-                                "\\.unpaired_mult$",
-                                "\\.unpaired_transloc$",
-                                "\\.unpaired_uniq$")
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### List class
@@ -151,3 +156,11 @@ setClass("GsnapOutputList",
 
 setClass("SimpleGsnapOutputList",
          contains = c("GsnapOutputList", "SimpleList"))
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Show
+###
+
+setMethod("show", "GsnapOutput", function(object) {
+  cat("A GsnapOutput Object\n", "path: ", path(object), "\n", sep = "")
+})
