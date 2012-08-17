@@ -1,8 +1,9 @@
 useDynLib(gmapR, .registration = TRUE)
 
 importFrom(Rsamtools, path, bamPaths, readBamGappedAlignments, "bamWhich<-",
-           BamFile)
-importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext)
+           BamFile, BamFileList)
+importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
+           list_files_with_exts)
 importFrom(Biobase, createPackage)
 import(IRanges)
 import(GenomicRanges)
@@ -21,7 +22,8 @@ importClassesFrom(VariantAnnotation, "VCF")
 ## public API
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
-       directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput)
+       directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
+       flankingCycleBreaks)
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
 exportMethods(bamPaths, path, genome, seqinfo, gsnap)
