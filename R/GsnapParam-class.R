@@ -152,7 +152,7 @@ GsnapParam <- function(genome, unique_only = FALSE,
                        npaths = if (unique_only) 1L else 100L,
                        quiet_if_excessive = unique_only, nofails = unique_only,
                        split_output = !unique_only,
-                       novelsplicing = 0L, splicing = NULL, 
+                       novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2", ...) {
   params <- formals(sys.function())
   mc <- as.list(match.call(expand.dots = FALSE))[-1L]
