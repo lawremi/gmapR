@@ -14,20 +14,24 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
                    output = file_path_sans_ext(input_a, TRUE),
                    consolidate = TRUE, ...)
           {
+            output_dir <- dirname(output)
+            if (!file.exists(output_dir))
+              dir.create(output_dir, recursive = TRUE)
+
             params <- initialize(params, ...)
             params_list <- as.list(params)
             if (gsnap_split_output(params)) {
               params_list$split_output <- output
+              output_path <- output_dir
             } else {
-              params_list$.redirect <- paste0("> ", output, ".sam")
+              output_path <- paste0("> ", output, ".sam")
+              params_list$.redirect <- output_path
             }
-            output_dir <- dirname(output)
-            if (!file.exists(output_dir))
-              dir.create(output_dir, recursive = TRUE)
             
             do.call(.gsnap, c(.input_a = input_a, .input_b = input_b,
                               format = "sam", params_list))
-            gsnap_output <- GsnapOutput(path = output_dir, version = gsnapVersion(),
+            gsnap_output <- GsnapOutput(path = output_path,
+                                        version = gsnapVersion(),
                                         param = params)
             asBam(gsnap_output)
             if (consolidate)
@@ -71,8 +75,8 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
                    sam_headers_batch = NULL, read_group_id = NULL,
                    read_group_name = NULL, version = FALSE,
                    .input_a = NULL, .input_b = NULL,
-                   .redirect = NULL, ## e.g., > gsnap.sam
-                   extra = NULL)
+                   .redirect = NULL ## e.g., > gsnap.sam
+                   )
 {
   formals <- formals(sys.function())
   problems <- do.call(c, lapply(names(formals), .valid_gmap_parameter, formals))
@@ -84,8 +88,6 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
   batch <- match.arg(batch)
   mode <- match.arg(mode)
   quality_protocol <- match.arg(quality_protocol)
-    
-  if (identical(extra, list())) extra <- NULL
   
 ### TODO: if input_a is NULL, or split_output and .redirect are NULL:
 ###       return a pipe()
