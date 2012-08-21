@@ -77,6 +77,12 @@ flyGG <- GmapGenome(Dmelanogaster, create = TRUE)
 ## access system-wide genome using a key
 flyGG <- GmapGenome(genome = "dm3",
                     directory = path.expand("/usr/share/gmap"))
+
+##create a GmapGenome from a FASTA file
+fa <- system.file("extdata/hg19.MT.fasta", package="gmapR")
+fastaFile <- rtracklayer::FastaFile(fa)
+gmapGenome <- GmapGenome(fastaFile, create=TRUE)
 }
+
 }
 \keyword{classes}

@@ -1,6 +1,9 @@
 /* src/config.h.  Generated from config.h.in by configure.  */
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define if building universal (internal helper macro) */
+/* #undef AC_APPLE_UNIVERSAL_BUILD */
+
 /* Define to 1 if the system has the type `caddr_t'. */
 #define HAVE_CADDR_T 1
 
@@ -146,7 +149,7 @@
 #define HAVE_ZLIB 1
 
 /* Define to 1 if your zlib library has a gzbuffer function. */
-#define HAVE_ZLIB_GZBUFFER 1
+/* #undef HAVE_ZLIB_GZBUFFER */
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
@@ -203,9 +206,17 @@
 /* Version number of package */
 #define VERSION "2012-07-06"
 
-/* Define to 1 if your processor stores words with the most significant byte
-   first (like Motorola and SPARC, unlike Intel and VAX). */
-/* #undef WORDS_BIGENDIAN */
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+/* #  undef WORDS_BIGENDIAN */
+# endif
+#endif
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE

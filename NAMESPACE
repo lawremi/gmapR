@@ -23,11 +23,9 @@ importClassesFrom(VariantAnnotation, "VCF")
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
        directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
-       flankingCycleBreaks)
+       GmapSnps, GmapSnpDirectory)
+
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
-exportMethods(bamPaths, path, genome, seqinfo, gsnap)
 
-## gsnap API
-
-## export("snps<-", getDefaultGmapGenomePath)
+exportMethods(bamPaths, path, genome, seqinfo, gsnap, "snps<-")

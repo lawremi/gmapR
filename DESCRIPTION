@@ -15,7 +15,7 @@ Depends: R (>= 2.15.0), methods, GenomicRanges
 Imports: IRanges, Rsamtools (>= 1.7.4), rtracklayer (>= 1.17.15), GenomicRanges,
          GenomicFeatures, Biostrings, VariantAnnotation, tools, Biobase
 Suggests: RUnit, BSgenome.Dmelanogaster.UCSC.dm3, pasillaBamSubset, 
-	  BSgenome.Scerevisiae.UCSC.sacCer3
+	  BSgenome.Scerevisiae.UCSC.sacCer3, VariantAnnotation
 License: Artistic-2.0
 Collate: GmapBamReader-class.R
          GmapGenomeDirectory-class.R

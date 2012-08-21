@@ -295,6 +295,61 @@ After creating the package, you can run \Rcode{R CMD INSTALL
   myDestDir} to install it, or run \Rcode{R CMD build myDestDir} to
 create a distribution of the package.
 
+Many users with be working with the human genome. Many of the examples
+used in \software{gmapR} make use of a particular build of the human
+genome. As such, creating a \Rclass{GmapGenome} of hg19 is
+recommended. Here is one way to create it, using a \Rclass{BSgenome}
+object:
+
+<<create_hg19_GmapGenome, eval=FALSE>>=
+if (!suppressWarnings(require(BSgenome.Hsapiens.UCSC.hg19))) {
+  source("http://bioconductor.org/biocLite.R")
+  biocLite("BSgenome.Hsapiens.UCSC.hg19")
+  library(BSgenome.Hsapiens.UCSC.hg19)
+}
+gmapGenome <- GmapGenome(genome=Hsapiens,
+                         directory = "Hsapiens",
+                         name = "hg19",
+                         create = TRUE)
+destDir <- "HsapiensGmapGenome"
+pkgName <- "GmapGenome.Hsapiens.UCSC.hg19"
+makeGmapGenomePackage(gmapGenome=gmapGenome,
+                      version="1.0.0",
+                      maintainer="<your.name@somewhere.com>",
+                      author="Your Name",
+                      destDir=destDir,
+                      license="Artistic-2.0",
+                      pkgName="GmapGenome.Hsapiens.UCSC.hg19")
+@ 
+
+After running the above code, you should be able to run \Rcode{R CMD
+  INSTALL GmapGenome.Hsapiens.UCSC.hg19} in the appropriate directory
+from the command line, submit GmapGenome.Hsapiens.UCSC.hg19 to a
+repository, etc. After installation,
+\Rcode{library("GmapGenome.Hsapiens.UCSC.hg19")} will load a
+\Rclass{GmapGenome} object that has the same name as the package.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Aligning with SNP Tolerance}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Both \software{GSNAP} and \software{GMAP} have the ability to perform
+alignment without penalizing against a set of known SNPs. In this
+section, we work through an example of aligning with this SNP
+tolerance. By using SNP-tolerance, we'll perform alignments without
+penalizing reads that match SNPs contained in the provided SNPs. In
+this case, we'll use dbSNP to provide the SNPs.
+
+This example will use hg19. If you have not installed
+\Rcode{GmapGenome.Hsapiens.UCSC.hg19}, please refer to the section
+\ref{create_hg19_GmapGenome}.
+
+First we load the Hsapiens \Rclass{GmapGenome} object:
+
+<<<load_GmapGenomeHsapiens>>=
+library("GmapGenome.Hsapiens.UCSC.hg19")
+@ 
+
 <<SessionInfo>>=
 sessionInfo()
 @ 

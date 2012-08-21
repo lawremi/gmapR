@@ -28,6 +28,13 @@ test_GmapGenome_constructor_BSgenome_create <- function() {
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
+testGmapGenome_constructor_FastaFile_create <- function() {
+  fa <- system.file("extdata/hg19.p53.fasta", package="gmapR", mustWork=TRUE)
+  fastaFile <- rtracklayer::FastaFile(fa)
+  gmapGenome <- GmapGenome(fastaFile, create=TRUE)
+  checkTrue(is(gmapGenome, "GmapGenome"))
+}
+
 test_GmapGenome_accessors <- function() {
   genomeName <- "testGenome"
   dna <- Biostrings::DNAStringSet("ACTGTGTCAG")

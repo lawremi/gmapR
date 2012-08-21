@@ -38,7 +38,6 @@ destDir = ".", license = "Artistic-2.0", pkgName)
 
 \examples{
 \dontrun{
-
 library(gmapR)
 
 if (!require(BSgenome.Dmelanogaster.UCSC.dm3)) {
