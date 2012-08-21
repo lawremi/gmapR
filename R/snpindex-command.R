@@ -21,5 +21,9 @@ snpindex <- function(name, genome, destdir = NULL,
 .snpindex <- function(sourcedir = NULL, db, destdir = NULL, snpsdb,
                       .iitfile = NULL)
 {
+  if (is.null(destdir) && !file.exists(destdir)) {
+    stop("The destination directory for the SNPs has not been created.",
+         " Perhaps run GmapSnpDirectory with the \"create\" arg set to TRUE.")
+  }
   .system(commandLine("snpindex"))
 }
