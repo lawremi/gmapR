@@ -47,6 +47,10 @@ setReplaceMethod("snps", c("GmapSnpDirectory", "VCF"),
 setReplaceMethod("snps", c("GmapSnpDirectory", "character"),
                  function(x, name, genome, which, ..., value)
                  {
+                   if (missing(genome)) {
+                     stop("Please supply the \"genome\" argument")
+                   }
+
                    param <- ScanVcfParam(fixed = "ALT", info = NA, geno = NA)
                    if (!missing(which)) # FIXME: waiting for vcfWhich<-
                      param@which <- as(which, "RangesList")
