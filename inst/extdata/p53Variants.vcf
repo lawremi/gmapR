@@ -1,0 +1,8 @@
+##fileformat=VCFv4.1
+##fileDate=20120821
+##source=manualTestCaseCreation
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of Samples With Data">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr17:p53	624	10648	G	A	29	PASS	NS=1
+chr17:p53	843	10662	G	A	3	PASS	NS=1
+chr17:p53	918	10779	G	T	47	PASS	NS=1
