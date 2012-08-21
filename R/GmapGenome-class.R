@@ -96,7 +96,7 @@ setReplaceMethod("referenceSequence",
 setGeneric("snps<-", function(x, ..., value) standardGeneric("snps<-"))
 
 setReplaceMethod("snps", c("GmapGenome", "ANY"),
-                 function(x, ..., value) {
+                 function(x, name, ..., value) {
                    snpDir <- GmapSnpDirectory(x)
                    snps(snpDir, name = name, genome = x,
                         iitPath = mapsDirectory(x), ...) <- value
