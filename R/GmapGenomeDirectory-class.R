@@ -38,6 +38,10 @@ GmapGenomeDirectory <- function(path = getDefaultGmapGenomePath(),
     message("Creating directory ", path)
     dir.create(path, recursive=TRUE)
   }
+  if (!create && !file.exists(path)) {
+    stop(paste("If the file path pointed to by the GmapGenomeDirectory",
+               "does not exist, the \"create\" argument must be set to TRUE"))
+  }
   new("GmapGenomeDirectory", path = file_path_as_absolute(path))
 }
 
