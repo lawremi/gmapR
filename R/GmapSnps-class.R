@@ -41,7 +41,7 @@ GmapSnps <- function(snps, directory, name = snps, create = FALSE, ...)
   if (create) {
     if (name %in% names(directory))
       message("NOTE: snps db '", name, "' already exists, not overwriting")
-    else snps(directory, ...) <- snps
+    else snps(directory, name = name, ...) <- snps
   }
   db
 }
