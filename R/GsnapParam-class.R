@@ -163,9 +163,9 @@ GsnapParam <- function(genome, unique_only = FALSE,
       params$snps <- GmapSnps(snps, genome)
     }
   }
-  extra <- params$...
+  dots <- list(...)
   ##TODO: this breaks if ... has anything in it
-  if (!missing(extra) && !is.null(names(extra))) {
+  if (length(dots) > 0) {
     params$extra <- params$...
   }
   params$... <- NULL
@@ -190,6 +190,11 @@ setAs("GsnapParam", "list", function(from) {
   }
   to$snpsdir <- path(directory(to$snps))
   to$snps <- NULL
+
+  extras <- to$extra
+  to <- c(to, extras)
+  to$extra <- NULL
+  
   to
 })
 
