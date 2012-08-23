@@ -55,6 +55,14 @@ commandLine <- function(binary = "gsnap",
   if (sum(!isDefault > 0L)) {
     userArgs <- userArgs[!isDefault]
   }
+
+  ##handle the case where element of userArgs is missing
+  userArgMissing <- rep(FALSE, length(userArgs))
+  for (i in seq_along(userArgMissing)) {
+    x <- userArgs[[i]]
+    if (missing(x)) { userArgMissing[[i]] <- TRUE }
+  }
+  if (sum(userArgMissing > 0)) userArgs <- userArgs[!userArgMissing]
   
   userArgs <- Filter(Negate(is.null), userArgs)
   userArgs <- Filter(function(x) !identical(x, FALSE), userArgs)
