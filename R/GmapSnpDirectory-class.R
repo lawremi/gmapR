@@ -22,7 +22,7 @@ setMethod("length", "GmapSnpDirectory", function(x) {
   length(names(x))
 })
 
-setReplaceMethod("snps", c("GmapSnpDirectory", "VCF"),
+setReplaceMethod("snps", c("GmapSnpDirectory", "character", "VCF"),
                  function(x, name, genome = GmapGenome(genome(x)),
                           iitPath = tempdir(), ..., value)
                  {
@@ -44,7 +44,7 @@ setReplaceMethod("snps", c("GmapSnpDirectory", "VCF"),
                    x
                  })
 
-setReplaceMethod("snps", c("GmapSnpDirectory", "character"),
+setReplaceMethod("snps", c("GmapSnpDirectory", "character", "character"),
                  function(x, name, genome, which, ..., value)
                  {
                    if (missing(genome)) {
@@ -54,6 +54,7 @@ setReplaceMethod("snps", c("GmapSnpDirectory", "character"),
                    param <- ScanVcfParam(fixed = "ALT", info = NA, geno = NA)
                    if (!missing(which)) # FIXME: waiting for vcfWhich<-
                      param@which <- as(which, "RangesList")
+                   
                    snps(x, name = name, genome = genome, ...) <-
                      readVcf(value, genome(genome), param)
                    x

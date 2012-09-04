@@ -289,7 +289,7 @@ makeGmapGenomePackage(gmapGenome=gmapGenome,
                       destDir="myDestDir",
                       license="Artistic-2.0",
                       pkgName="GmapGenome.Dmelanogaster.UCSC.dm3")
-@ 
+@
 
 After creating the package, you can run \Rcode{R CMD INSTALL
   myDestDir} to install it, or run \Rcode{R CMD build myDestDir} to
