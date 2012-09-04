@@ -93,7 +93,7 @@ setReplaceMethod("referenceSequence",
                    db
                  })
 
-setGeneric("snps<-", function(x, ..., value) standardGeneric("snps<-"))
+setGeneric("snps<-", function(x, name, ..., value) standardGeneric("snps<-"))
 
 setReplaceMethod("snps", c("GmapGenome", "ANY"),
                  function(x, name, ..., value) {
