@@ -19,7 +19,7 @@ GsnapParam(genome, unique_only = FALSE,
    npaths = if (unique_only) 1L else 100L,
    quiet_if_excessive = unique_only, nofails = unique_only,
    split_output = !unique_only,
-   novelsplicing = 0L, splicing = NULL, 
+   novelsplicing = FALSE, splicing = NULL, 
    nthreads = 1L, part = NULL, batch = "2", ...) 
 
 }
@@ -44,8 +44,8 @@ GsnapParam(genome, unique_only = FALSE,
   halfmapping_uniq, halfmapping_mult, unpaired_uniq, unpaired_mult, paired_uniq,
   paired_mult, concordant_uniq, and concordant_mult results (up to 9
   files, or 10 if --fails-as-input is selected, or 3 for single-end reads)}
-\item{novelsplicing}{Whether to look for novel splicing events. 0=no,
-  1=yes. 0 is the default.}
+\item{novelsplicing}{Logical indicating whether to look for novel
+  splicing events. FALSE is the default.}
 \item{splicing}{If not NULL, a GmapSplices object. NULL is the default.}
 \item{nthreads}{The number of worker threads gsnap should use to align.}
 \item{part}{If not NULL, then process only the i-th out of every n
