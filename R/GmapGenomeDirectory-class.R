@@ -15,7 +15,7 @@ setMethod("path", "GmapGenomeDirectory", function(object) object@path)
 setMethod("path", "NULL", function(object) NULL)
 
 setMethod("genome", "GmapGenomeDirectory", function(x) {
-  paths <- dir(path(x), full.names = TRUE)
+  paths <- dir(path(x), full.names = TRUE, all.files = TRUE)
   is_dir <- file.info(paths)[,"isdir"]
   genomes <- basename(paths[is_dir])
   genomes[file.exists(file.path(paths[is_dir], paste0(genomes, ".version")))]
