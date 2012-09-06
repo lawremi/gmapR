@@ -176,21 +176,23 @@ Bamread_reset (T this) {
 #endif
 
 
-void
+bool
 Bamread_limit_region (T this, char *chr, Genomicpos_T chrstart, Genomicpos_T chrend) {
   int32_t tid;
-
+  bool success = false;
 #ifdef HAVE_SAMTOOLS
   /* bam_parse_region(this->header,region,&tid,&chrstart,&chrend); */
   if ((tid = bam_get_tid(this->header,chr)) < 0) {
     fprintf(stderr,"chr %s is not in BAM file\n",chr);
+    success = false;
   } else {
     this->iter = bam_iter_query(this->idx,tid,(int) (chrstart - 1U),(int) chrend);
     this->region_limited_p = 1;
+    success = true;
   }
 #endif
 
-  return;
+  return success;
 }
 
 

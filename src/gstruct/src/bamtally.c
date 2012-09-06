@@ -3685,7 +3685,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, G
 
   long int *tally_matches, *tally_mismatches;
   List_T divlist = NULL, typelist = NULL;
-  List_T intervallist, labellist, datalist, p;
+  List_T intervallist = NULL, labellist = NULL, datalist = NULL, p;
   Interval_T interval;
   int quality_counts_match[256], quality_counts_mismatch[256];
   char *divstring, *typestring, *label;
@@ -3694,7 +3694,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, G
   int index;
   Genomicpos_T chroffset, chrlength;
   Table_T intervaltable, labeltable, datatable;
-  bool allocp;
+  bool allocp, chr_in_bam;
 
   intervaltable = Table_new(65522,Table_string_compare,Table_string_hash);
   labeltable = Table_new(65522,Table_string_compare,Table_string_hash);
@@ -3744,26 +3744,30 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, G
 
   } else {
     /* Single chromosomal region */
+    
     divlist = List_push(divlist,(void *) desired_chr);
-    
-    index = IIT_find_linear(chromosome_iit,desired_chr);
-    chroffset = Interval_low(IIT_interval(chromosome_iit,index));
-    
-    Bamread_limit_region(bamreader,desired_chr,chrstart,chrend);
-    Bamtally_run(&tally_matches,&tally_mismatches,
-		 &intervallist,&labellist,&datalist,
-		 quality_counts_match,quality_counts_mismatch,
-		 bamreader,genome,chr,chroffset,/*chrstart*/chrstart,/*chrend*/chrend,alloclength,
-		 /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
-		 minimum_mapq,good_unique_mapq,maximum_nhits,
-		 need_concordant_p,need_unique_p,need_primary_p,
-		 /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
-		 /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
-		 /*quality_score_adj*/0,min_depth,variant_strands,
-		 /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
-		 print_indels_p,/*print_totals_p*/false,/*print_cycles_p*/false,
-		 /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-		 /*want_genotypes_p*/false,verbosep);
+
+    chr_in_bam = Bamread_limit_region(bamreader,desired_chr,chrstart,chrend);
+    if (chr_in_bam) {
+      index = IIT_find_linear(chromosome_iit,desired_chr);
+      chroffset = Interval_low(IIT_interval(chromosome_iit,index));
+      
+      Bamtally_run(&tally_matches,&tally_mismatches,
+                   &intervallist,&labellist,&datalist,
+                   quality_counts_match,quality_counts_mismatch,
+                   bamreader,genome,chr,chroffset,chrstart,chrend,alloclength,
+                   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+                   minimum_mapq,good_unique_mapq,maximum_nhits,
+                   need_concordant_p,need_unique_p,need_primary_p,
+                   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+                   /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
+                   /*quality_score_adj*/0,min_depth,variant_strands,
+                   /*genomic_diff_p*/false,/*signed_counts_p*/false,
+                   ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
+                   /*print_cycles_p*/false,
+                   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
+                   /*want_genotypes_p*/false,verbosep);
+    }
     /* Reverse lists so we can specify presortedp == true */
     Table_put(intervaltable,(void *) desired_chr,List_reverse(intervallist));
     Table_put(labeltable,(void *) desired_chr,List_reverse(labellist));

@@ -30,7 +30,7 @@ Bamread_write_header (T this);
 extern Genomicpos_T
 Bamread_chrlength (T this, char *chr);
 
-extern void
+extern bool
 Bamread_limit_region (T this, char *chr, Genomicpos_T chrstart, Genomicpos_T chrend);
 
 extern void

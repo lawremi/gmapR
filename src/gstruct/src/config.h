@@ -149,7 +149,7 @@
 #define HAVE_ZLIB 1
 
 /* Define to 1 if your zlib library has a gzbuffer function. */
-/* #undef HAVE_ZLIB_GZBUFFER */
+#define HAVE_ZLIB_GZBUFFER 1
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
