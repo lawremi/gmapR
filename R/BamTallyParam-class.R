@@ -54,6 +54,24 @@ setAs("BamTallyParam", "list", function(from) {
 setMethod("as.list", "BamTallyParam", function(x) as(x, "list"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Show
+###
+
+setMethod("show", "BamTallyParam", function(object) {
+  cat("A BamTallyParam object\n")
+  cat("genome:", genome(object@genome), "\n")
+  which <- if (length(object@which) > 0) {
+    paste0(space(object@which), ":", unlist(start(object@which)), "-",
+           unlist(end(object@which)))
+  } else "whole genome"
+  cat(IRanges:::labeledLine("which", which))
+  otherSlotNames <- setdiff(slotNames(object), c("genome", "which"))
+  slots <- sapply(otherSlotNames, slot, object = object, simplify = FALSE)
+  cat(mapply(IRanges:::labeledLine, names(slots), slots, count = FALSE),
+      sep = "")
+})
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Utilities
 ###
 
