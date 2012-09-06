@@ -154,21 +154,20 @@ GsnapParam <- function(genome, unique_only = FALSE,
                        split_output = !unique_only,
                        novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2", ...) {
-  params <- formals(sys.function())
-  mc <- as.list(match.call(expand.dots = FALSE))[-1L]
-  params[names(mc)] <- mc
+  args <- formals(sys.function())
+  params <- mget(names(args), environment())
   params$unique_only <- NULL
+  paramClasses <- getSlots("GsnapParam")
+  paramClasses <- paramClasses[setdiff(names(paramClasses), c("extra", "snps"))]
+  params <- mapply(as, params[names(paramClasses)], paramClasses,
+                   SIMPLIFY = FALSE)
   if (!is.null(snps)) {
     if (!is(snps, "GmapSnps")) {
-      params$snps <- GmapSnps(snps, genome)
+      snps <- GmapSnps(snps, genome)
     }
+    params$snps <- snps
   }
-  dots <- list(...)
-  ##TODO: this breaks if ... has anything in it
-  if (length(dots) > 0) {
-    params$extra <- params$...
-  }
-  params$... <- NULL
+  params$extra <- list(...)
   do.call(new, c("GsnapParam", params))
 }
 
@@ -199,6 +198,18 @@ setAs("GsnapParam", "list", function(from) {
 })
 
 setMethod("as.list", "GsnapParam", function(x) as(x, "list"))
+
+setAs("ANY", "characterORNULL", function(from) {
+  if (is.null(from))
+    NULL
+  else as.character(from)
+})
+setAs("ANY", "integerORNULL", function(from) {
+  if (is.null(from))
+    NULL
+  else as.integer(from)
+})
+
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Show
