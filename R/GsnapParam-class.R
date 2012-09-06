@@ -189,6 +189,7 @@ setAs("GsnapParam", "list", function(from) {
   }
   to$snpsdir <- path(directory(to$snps))
   to$snps <- NULL
+  to$novelsplicing <- as.integer(to$novelsplicing)
 
   extras <- to$extra
   to <- c(to, extras)
