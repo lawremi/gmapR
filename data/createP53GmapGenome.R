@@ -11,6 +11,6 @@ p53Genome <- local({
   p53Seq <- getSeq(Hsapiens, range(tx) + 1e6, as.character = FALSE)
   names(p53Seq) <- gene
   GmapGenome(genome = p53Seq,
-             name = paste0(".", gene),
+             name = paste0(gene, "_demo"),
              create = TRUE)
 })
