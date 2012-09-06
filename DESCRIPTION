@@ -38,5 +38,5 @@ Collate: GmapBamReader-class.R
          snpindex-command.R
          system.R
          test_gmapR_package.R
-         globals.R
-	 makeGmapGenomePackage.R
+         makeGmapGenomePackage.R
+         TP53Genome.R
