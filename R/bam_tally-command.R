@@ -35,6 +35,7 @@ setMethod("bam_tally", "GmapBamReader",
             genome <- param_list$genome
             param_list$db <- genome(genome)
             param_list$genome_dir <- path(directory(genome))
+            param_list$genome <- NULL
             tally <- do.call(.bam_tally_C, c(list(x), param_list))
             tally_names <- c("seqnames", "pos", "ref", "alt", "ncycles",
                              "ncycles.ref", "count", "count.ref",
@@ -100,11 +101,11 @@ normArgTRUEorFALSE <- function(x) {
     stop("'bamreader' must be a GmapBamReader")
   if (!is.null(which)) {
     which <- as(which, "RangesList")
-    spaceIsNULL <- ifelse(is.null(space(which)), TRUE, FALSE)
-    which <- list(as.character(space(which)),
-                  unlist(start(which), use.names = FALSE),
-                  unlist(end(which), use.names = FALSE))
-    if (spaceIsNULL) which <- NULL
+    if (!is.null(space(which))) {
+      which <- list(as.character(space(which)),
+                    unlist(start(which), use.names = FALSE),
+                    unlist(end(which), use.names = FALSE))
+    } else which <- NULL
   }
   if (!is.null(genome_dir) && !IRanges:::isSingleString(genome_dir))
     stop("'genome_dir' must be NULL or a single, non-NA string")
