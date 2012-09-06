@@ -155,8 +155,9 @@ provide accurate alignments, particularly for RNA-seq data. The
 following example synthesizes some input reads and aligns them using
 \software{GSNAP}.
 
-If you've created the D. melanogaster \Rclass{GmapGenome} package as detailed above and installed
-it, you can begin this section as follows:
+If you have created the D. melanogaster \Rclass{GmapGenome} package as
+detailed above and installed it, you can begin this section as
+follows:
 
 <<<load_GmapGenome, eval=FALSE>>=
 library("GmapGenome.Dmelanogaster.UCSC.dm3")
@@ -189,11 +190,11 @@ tmpFasta2 <- makeTestFasta(seqStarts + 125, '2')
 gsnapParam <- GsnapParam(genome = gmapGenome,
                          unique_only = FALSE,
                          max_mismatches = NULL,
-                         suboptimal_levels = 0L, mode = "standard",
-                         npaths = 10L,
+                         suboptimal_levels = 0, mode = "standard",
+                         npaths = 10,
                          novelsplicing = FALSE, splicing = NULL, 
-                         nthreads = 1L,
-                         batch = "2")
+                         nthreads = 1,
+                         batch = 2L)
 
 gsnapOutput <- gsnap(input_a=tmpFasta1,
                      input_b=tmpFasta2,
