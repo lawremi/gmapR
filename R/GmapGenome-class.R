@@ -108,7 +108,6 @@ setGeneric("spliceSites<-",
 
 setReplaceMethod("spliceSites", c("GmapGenome", "GRangesList"),
                  function(x, name, value) {
-                   browser()
                    exonsFlat <- unlist(value, use.names=FALSE)
                    exonsPart <- PartitioningByWidth(exons)
                    exonsHead <- exonsFlat[-end(exonsPart)]
