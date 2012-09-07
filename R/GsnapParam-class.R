@@ -182,15 +182,10 @@ setAs("GsnapParam", "list", function(from) {
   to$db <- genome(to$genome)
   to$dir <- path(directory(to$genome))
   to$genome <- NULL
-  if(!is.null(to$snps)) {
-    to$use_snps <- name(to$snps)
-  } else {
-    to$use_snps <- NULL
-  }
+  to$use_snps <- name(to$snps)
   to$snpsdir <- path(directory(to$snps))
-  to$snps <- NULL
   to$novelsplicing <- as.integer(to$novelsplicing)
-
+  to <- rename(to, splicing = "use_splicing")
   extras <- to$extra
   to <- c(to, extras)
   to$extra <- NULL
