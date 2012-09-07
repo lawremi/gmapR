@@ -106,22 +106,29 @@ setReplaceMethod("snps", c("GmapGenome", "ANY"),
 setGeneric("spliceSites<-",
            function(x, ..., value) standardGeneric("spliceSites<-"))
 
-setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
+setReplaceMethod("spliceSites", c("GmapGenome", "GRangesList"),
                  function(x, name, value) {
-                   exons <- exonsBy(value)
-                   exonsFlat <- unlist(exons, use.names=FALSE)
+                   browser()
+                   exonsFlat <- unlist(value, use.names=FALSE)
                    exonsPart <- PartitioningByWidth(exons)
                    exonsHead <- exonsFlat[-end(exonsPart)]
-                   donors <- flank(exonsHead, 1L, start = FALSE, both = TRUE)
+                   donors <- flank(exonsHead, 1L, start = FALSE)
                    exonsTail <- exonsFlat[-start(exonsPart)]
-                   acceptors <- flank(exonsTail, 1L, start = TRUE, both = TRUE)
-                   sites <- c(donors, acceptors)
+                   acceptors <- flank(exonsTail, 1L, start = TRUE)
+                   sites <- c(resize(donors, 2L, fix = "end"),
+                              resize(acceptors, 2L, fix = "start"))
                    names(sites) <- values(sites)$exon_id
                    info <- rep(c("donor", "acceptor"), each = length(donors))
-                   info <- paste(info, unlist(width(intronsByTranscript(value)),
-                                              use.names = FALSE))
+                   intronWidths <- abs(acceptors - donors) + 1L
+                   info <- paste(info, intronWidths)
                    values(sites) <- DataFrame(info)
                    iit_store(sites, file.path(mapsDirectory(x), name))
+                   x
+                 })
+
+setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
+                 function(x, name, value) {
+                   spliceSites(x, name) <- exonsBy(value)
                    x
                  })
 
