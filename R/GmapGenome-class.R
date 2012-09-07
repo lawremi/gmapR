@@ -118,7 +118,7 @@ setReplaceMethod("spliceSites", c("GmapGenome", "GRangesList"),
                               resize(acceptors, 2L, fix = "start"))
                    names(sites) <- values(sites)$exon_id
                    info <- rep(c("donor", "acceptor"), each = length(donors))
-                   intronWidths <- abs(acceptors - donors) + 1L
+                   intronWidths <- abs(start(acceptors) - start(donors)) + 1L
                    info <- paste(info, intronWidths)
                    values(sites) <- DataFrame(info)
                    iit_store(sites, file.path(mapsDirectory(x), name))
