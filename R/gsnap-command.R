@@ -24,8 +24,14 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
               params_list$split_output <- output
               output_path <- output_dir
             } else {
-              output_path <- paste0("> ", output, ".sam")
-              params_list$.redirect <- output_path
+              output_path <- paste0(output, ".sam")
+              params_list$.redirect <- paste(">", output_path)
+            }
+
+            if (is.null(params_list$gunzip)) {
+              if (file_ext(input_a) == "gz" && file_ext(input_b) == "gz") {
+                params_list$gunzip <- TRUE
+              }
             }
             
             do.call(.gsnap,
@@ -65,7 +71,7 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
                    mode = c("standard", "cmet-stranded", "cmet-nonstranded",
                      "atoi-stranded", "atoi-nonstranded"),
                    tallydir = NULL, use_tally = NULL,
-                   use_runlength = NULL, nthreads = NULL,
+                   use_runlength = NULL, nthreads = 1L,
                    gmap_mode = "pairsearch,terminal,improve",
                    trigger_score_for_gmap = 5L, max_gmap_pairsearch = 3L,
                    max_gmap_improvement = 3L, microexon_spliceprob = 0.90,
