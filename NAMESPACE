@@ -30,4 +30,4 @@ exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
 
 exportMethods(bamPaths, path, genome, seqinfo, gsnap, "snps<-",
-              "spliteSites<-")
+              "spliceSites<-")
