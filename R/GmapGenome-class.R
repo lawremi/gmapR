@@ -109,7 +109,7 @@ setGeneric("spliceSites<-",
 setReplaceMethod("spliceSites", c("GmapGenome", "GRangesList"),
                  function(x, name, value) {
                    exonsFlat <- unlist(value, use.names=FALSE)
-                   exonsPart <- PartitioningByWidth(exons)
+                   exonsPart <- PartitioningByWidth(value)
                    exonsHead <- exonsFlat[-end(exonsPart)]
                    donors <- flank(exonsHead, 1L, start = FALSE)
                    exonsTail <- exonsFlat[-start(exonsPart)]
