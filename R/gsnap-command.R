@@ -28,8 +28,10 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
               params_list$.redirect <- output_path
             }
             
-            do.call(.gsnap, c(.input_a = input_a, .input_b = input_b,
-                              format = "sam", params_list))
+            do.call(.gsnap,
+                    c(list(.input_a = input_a, .input_b = input_b,
+                           format = "sam"),
+                      params_list))
             gsnap_output <- GsnapOutput(path = output_path,
                                         version = gsnapVersion(),
                                         param = params)
