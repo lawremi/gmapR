@@ -15,7 +15,7 @@ setClass("GmapSnps",
 
 setGeneric("name", function(x) standardGeneric("name"))
 
-setMethod("name", "NULL", function(object) NULL)
+setMethod("name", "NULL", function(x) NULL)
 
 setMethod("name", "GmapSnps", function(x) {
   x@name
