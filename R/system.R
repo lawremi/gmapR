@@ -48,8 +48,16 @@ commandLine <- function(binary = "gsnap",
   ##some args have a default vector with more than one element (for
   ##use with match.args). Taking first element:
   defaultArgs <- lapply(defaultArgs,
-                        function(x) {if (length(x) > 1L) x[[1L]] else x}
-                        )
+                        function(x) {
+                          if (length(x) > 1L) x[[1L]] else x
+                        })
+  
+  userArgs <- mapply(function(user, def) {
+    if (!is.null(def))
+      user <- as(user, class(def))
+    user
+  }, userArgs, defaultArgs, SIMPLIFY = FALSE)
+  
   ##remove defaults
   isDefault <- mapply(identical, userArgs, defaultArgs)
   if (sum(!isDefault > 0L)) {
@@ -67,6 +75,11 @@ commandLine <- function(binary = "gsnap",
   userArgs <- Filter(Negate(is.null), userArgs)
   userArgs <- Filter(function(x) !identical(x, FALSE), userArgs)
   named <- !grepl("^\\.", names(userArgs))
+
+  scipen <- getOption("scipen")
+  options(scipen = 100) # prevent use of scientific notation
+  on.exit(options(scipen = scipen))
+  
   unnamedUserArgs <- sapply(userArgs[!named], as.character)
   namedUserArgs <- paste(ifelse(nchar(names(userArgs[named])) > 1, "--", "-"),
                             gsub("_", "-", names(userArgs[named])), sep = "")
