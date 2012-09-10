@@ -176,6 +176,7 @@ instantaneous.)
 
 <<get_TP53_seq>>=
 library("BSgenome.Hsapiens.UCSC.hg19")
+library("gmapR")
 p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                  as.character = FALSE) 
 names(p53Seq) <- "TP53"
