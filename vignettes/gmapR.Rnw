@@ -130,7 +130,7 @@ if (!suppressWarnings(require(BSgenome.Dmelanogaster.UCSC.dm3))) {
   library(BSgenome.Dmelanogaster.UCSC.dm3)
 }
 
-gmapGenomePath <- file.path(getwd(), "testGenome")
+gmapGenomePath <- file.path(getwd(), "flyGenome")
 gmapGenomeDirectory <- GmapGenomeDirectory(gmapGenomePath, create = TRUE)
 ##> gmapGenomeDirectory
 ##GmapGenomeDirectory object
@@ -151,41 +151,51 @@ gmapGenome <- GmapGenome(genome=Dmelanogaster,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The \software{GSNAP} algorithm incorporates biological knowledge to
-provide accurate alignments, particularly for RNA-seq data. The
-following example synthesizes some input reads and aligns them using
-\software{GSNAP}.
+provide accurate alignments, particularly for RNA-seq data. In this
+section, we will align reads from an RNA-seq experiment provided in a
+fastq file to a selected region of the human genome. In this example,
+we will align to the region of the human genome containing TP53 plus
+an additional one megabase on each side of this gene.
 
-If you have created the D. melanogaster \Rclass{GmapGenome} package as
-detailed above and installed it, you can begin this section as
-follows:
+First we need to obtain the desired region of interest from the genome:
 
-<<<load_GmapGenome, eval=FALSE>>=
-library("GmapGenome.Dmelanogaster.UCSC.dm3")
-gmapGenome <- GmapGenome.Dmelanogaster.UCSC.dm3
+<<get_TP53_coordinates>>=
+library("org.Hs.eg.db")
+library("TxDb.Hsapiens.UCSC.hg19.knownGene")
+eg <- org.Hs.eg.db::org.Hs.egSYMBOL2EG[["TP53"]]
+txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+tx <- transcripts(txdb, vals = list(gene_id = eg))
+roi <- range(tx) + 1e6
 @ 
 
-Otherwise, you can create the \Rcode{gmapGenome} object as detailed in the
-initial section of this vignette.
+Next we get the genetic sequence and use it to create a GmapGenome
+object. (Please note that the TP53_demo GmapGenome object is used by
+many examples and tests in the gmapR and VariationTools packages. If
+the object has been created before, its subsequent creation will be
+instantaneous.)
 
-<<align_with_gsnap, eval=FALSE>>=
-##synthesize paired-end FASTA input to align against the genome
-library("BSgenome.Dmelanogaster.UCSC.dm3")
-dnaStringSet <- Dmelanogaster$chr4
-makeTestFasta <- function(seqStarts, pairNum) {
-  seqEnds <- seqStarts + 74
-  nucleotides <- sapply(seq_along(seqStarts),
-                        function(i) as.character(subseq(dnaStringSet, seqStarts[i], seqEnds[i]))
-                        )
-  fastaHeaders <- paste0(">", "fakeRead", seq_along(nucleotides), "#0/", pairNum)
-  fastaLines <- paste(fastaHeaders, nucleotides, sep="\n")
-  tmpFasta <- paste0(tempfile(), ".", pairNum, ".fa")
-  writeLines(fastaLines, con=tmpFasta)
-  tmpFasta
-}
-seqStarts <- seq(1, 100000, by = 10000) + length(dnaStringSet) * 2 / 3
-tmpFasta1 <- makeTestFasta(seqStarts, '1')
-tmpFasta2 <- makeTestFasta(seqStarts + 125, '2')
+<<get_TP53_seq>>=
+library("BSgenome.Hsapiens.UCSC.hg19")
+p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
+                 as.character = FALSE) 
+names(p53Seq) <- "TP53"
+gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE)
+@ 
 
+The data package \software{LungCancerLines} contains fastqs of reads
+obtained from sequencing H1993 and H2073 cell lines. We will use these
+fastqs to demonstrate \software{GSNAP} alignment with \software{gmapR}.
+
+<<get_lung_cancer_fastqs>>=
+library("LungCancerLines")
+fastqs <- LungCancerFastqFiles()
+@ 
+
+\software{GSNAP} is highly configurable. Users create
+\Rclass{GsnapParam} objects to specify desired \software{GSNAP}
+behavior. 
+
+<<create_gsnapParam>>=
 ##specify how GSNAP should behave using a GsnapParam object
 gsnapParam <- GsnapParam(genome = gmapGenome,
                          unique_only = FALSE,
@@ -194,10 +204,15 @@ gsnapParam <- GsnapParam(genome = gmapGenome,
                          npaths = 10,
                          novelsplicing = FALSE, splicing = NULL, 
                          nthreads = 1,
-                         batch = 2L)
+                         batch = 2L,
+                         gunzip=TRUE)
+@ 
 
-gsnapOutput <- gsnap(input_a=tmpFasta1,
-                     input_b=tmpFasta2,
+Now we are ready to align.
+
+<<align_with_gsnap, eval=FALSE>>=
+gsnapOutput <- gsnap(input_a=fastqs["H1993.first"],
+                     input_b=fastqs["H1993.last"],
                      params=gsnapParam)
 ##gsnapOutput
 ##An object of class "GsnapOutput"
@@ -244,29 +259,41 @@ alignments that \software{GSNAP} outputs along with other utilities.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Running the \Rmethod{bam\_tally} method will return a \Rclass{GRanges}
-of information per nucleotide. Below is a basic example. See the
-documentation for the \Rmethod{bam\_tally} method for details.
+of information per nucleotide. Below is an example demonstrating how
+to find variants in the TP53 gene of the human genome. See the
+documentation for the \Rmethod{bam\_tally} method for more details.
+
+\software{gmapR} provides access to a demo genome for examples. This
+genome encompasses the TP53 gene along with a 1-megabase flanking
+region on each side.
+<<TP53Genome_accessor>>=
+genome <- TP53Genome()
+@ 
+
+The \software{LungCancerLines} R package contains a BAM file of reads
+aligned to the TP53 region of the human genome. We'll use this file to
+demonstrate the use of \software{bam_tally} through the
+\software{gmapR} package. The resulting data structure will contain
+the needed information such as number of alternative alleles, quality
+scores, and nucleotide cycle for each allele.
 
 <<run_bamtally, eval=FALSE>>=
 library(gmapR)
-library(GmapGenome.Hsapiens.UCSC.hg19)
-genome <- GmapGenome.Hsapiens.UCSC.hg19
 
-bam_file <- file.path(system.file(package = "gmapR", mustWork=TRUE),
-                      "extdata/bam_tally_test.bam")
+bam_file <- system.file("extdata/H1993.analyzed.bam", 
+                        package="LungCancerLines", mustWork=TRUE)
 
 breaks <- c(0L, 15L, 60L, 75L)
 bqual <- 56L
 mapq <- 13L
 param <- BamTallyParam(genome, cycle_breaks = breaks,
-                       high_quality_cutoff = bqual,
+                       high_base_quality = bqual,
                        minimum_mapq = mapq,
                        concordant_only = FALSE, unique_only = FALSE,
                        primary_only = FALSE,
                        min_depth = 0L, variant_strand = 1L,
                        ignore_query_Ns = TRUE,
                        indels = FALSE)
-
 tallies <-bam_tally(bam_file,
                     param)
 @ 
@@ -330,26 +357,28 @@ repository, etc. After installation,
 \Rcode{library("GmapGenome.Hsapiens.UCSC.hg19")} will load a
 \Rclass{GmapGenome} object that has the same name as the package.
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Aligning with SNP Tolerance}
+%\section{Aligning with SNP Tolerance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Both \software{GSNAP} and \software{GMAP} have the ability to perform
-alignment without penalizing against a set of known SNPs. In this
-section, we work through an example of aligning with this SNP
-tolerance. By using SNP-tolerance, we'll perform alignments without
-penalizing reads that match SNPs contained in the provided SNPs. In
-this case, we'll use dbSNP to provide the SNPs.
-
-This example will use hg19. If you have not installed
-\Rcode{GmapGenome.Hsapiens.UCSC.hg19}, please refer to the section
-\ref{create_hg19_GmapGenome}.
-
-First we load the Hsapiens \Rclass{GmapGenome} object:
-
-<<<load_GmapGenomeHsapiens>>=
-library("GmapGenome.Hsapiens.UCSC.hg19")
-@ 
+%Both \software{GSNAP} and \software{GMAP} have the ability to perform
+%alignment without penalizing against a set of known SNPs. In this
+%section, we work through an example of aligning with this SNP
+%tolerance. By using SNP-tolerance, we'll perform alignments without
+%penalizing reads that match SNPs contained in the provided SNPs. In
+%this case, we'll use dbSNP to provide the SNPs.
+%
+%This example will use hg19. If you have not installed
+%\Rcode{GmapGenome.Hsapiens.UCSC.hg19}, please refer to the section
+%\ref{create_hg19_GmapGenome}.
+%
+%First we load the Hsapiens \Rclass{GmapGenome} object:
+%
+%<<<load_GmapGenomeHsapiens>>=
+%library("GmapGenome.Hsapiens.UCSC.hg19")
+%@ 
 
 <<SessionInfo>>=
 sessionInfo()
