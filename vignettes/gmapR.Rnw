@@ -169,7 +169,7 @@ roi <- range(tx) + 1e6
 @ 
 
 Next we get the genetic sequence and use it to create a GmapGenome
-object. (Please note that the TP53_demo GmapGenome object is used by
+object. (Please note that the TP53\_demo GmapGenome object is used by
 many examples and tests in the gmapR and VariationTools packages. If
 the object has been created before, its subsequent creation will be
 instantaneous.)
@@ -273,7 +273,7 @@ genome <- TP53Genome()
 
 The \software{LungCancerLines} R package contains a BAM file of reads
 aligned to the TP53 region of the human genome. We'll use this file to
-demonstrate the use of \software{bam_tally} through the
+demonstrate the use of \software{bam\_tally} through the
 \software{gmapR} package. The resulting data structure will contain
 the needed information such as number of alternative alleles, quality
 scores, and nucleotide cycle for each allele.
