@@ -17,7 +17,7 @@ Imports: IRanges, Rsamtools (>= 1.7.4), rtracklayer (>= 1.17.15), GenomicRanges,
 Suggests: RUnit, BSgenome.Dmelanogaster.UCSC.dm3,
 	  BSgenome.Scerevisiae.UCSC.sacCer3, VariantAnnotation,
           org.Hs.eg.db, TxDb.Hsapiens.UCSC.hg19.knownGene,
-          BSgenome.Hsapiens.UCSC.hg19
+          BSgenome.Hsapiens.UCSC.hg19, LungCancerLines
 License: Artistic-2.0
 Collate: GmapBamReader-class.R
          GmapGenomeDirectory-class.R
