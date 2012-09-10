@@ -24,7 +24,8 @@ importClassesFrom(VariantAnnotation, "VCF")
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
        directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
-       GmapSnps, GmapSnpDirectory, TP53Genome)
+       GmapSnps, GmapSnpDirectory, TP53Genome, subsetRegion, getGeneRoi,
+       checkPackageInstalled)
 
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
