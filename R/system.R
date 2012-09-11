@@ -90,8 +90,11 @@ commandLine <- function(binary = "gsnap",
   toggle_arg <- sapply(userArgs[named], isTRUE)
   namedUserArgs[!toggle_arg] <-
     paste(namedUserArgs[!toggle_arg],
-          sapply(userArgs[named][!toggle_arg], as.character),
-          sep="=")
+          sapply(userArgs[named][!toggle_arg], as.character))
+  ##long-form args separate arg name and value with "=". Not strictly
+  ##necessary since getopts handles them, but has caused confusion so
+  ##adding
+  namedUserArgs[nchar(dashes) > 1] <- sub(" ", "=", namedUserArgs[nchar(dashes) > 1])
   if (!is.null(path))
     binary <- file.path(path, binary)
   paste(binary, paste(c(namedUserArgs, unnamedUserArgs), collapse = " "))
