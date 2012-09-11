@@ -100,15 +100,16 @@ commandLine <- function(binary = "gsnap",
 ## at some point, mxbay want to customize this
 .system <- function(...) {
 
-  sysopt <- getOption("gmapRSysCall")
-  
-  if (is.null(sysopt)) {
-    res <- system(...)
-  } else if (class(sysopt) == "function") {
-    res <- sysopt(...)
-  } else {
-    stop("If the gmapRSysCall option is provided, it must be a function.")
+  if (is.null(getOption("systemCallMode"))) {
+    options(systemCallMode = FALSE)
   }
-  
-  return(res)
+
+  sysCallModeStatus <- getOption("systemCallMode")
+  if (sysCallModeStatus == TRUE) {
+    error <- simpleError("system command")
+    error$systemCall <- as.character(as.list(...))
+    stop(error)
+  } else {
+    system(...)
+  }
 }

@@ -38,20 +38,13 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
                          c(list(.input_a = input_a, .input_b = input_b,
                                 format = "sam"),
                            params_list))
-            ##users can provide a function to the "gmapRSysCall"
-            ##option. If this has happened, the return value of .gsnap
-            ##(and consequently .system) is returned instead of a
-            ##GsnapOutput object
-            if (is.null(getOption("gmapRSysCall"))) {
-              gsnap_output <- GsnapOutput(path = output_path,
-                                          version = gsnapVersion(),
-                                          param = params)
-              asBam(gsnap_output)
-              if (consolidate)
-                consolidate(gsnap_output)
-              res <- gsnap_output
-            }
-            return(res)
+            gsnap_output <- GsnapOutput(path = output_path,
+                                        version = gsnapVersion(),
+                                        param = params)
+            asBam(gsnap_output)
+            if (consolidate)
+              consolidate(gsnap_output)
+            return(gsnap_output)
           })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
