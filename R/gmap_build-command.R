@@ -85,6 +85,11 @@ setMethod("gmap_build", c("character", "GmapGenome"),
 
   B <- system.file("usr/bin/", package="gmapR",
                             mustWork=TRUE)
-                      
-  .system(commandLine("gmap_build"))
+
+  cl <- commandLine("gmap_build")
+  res <- .system(cl)
+  if (res != 0L) {
+    stop("system call returned a non-0 status: ", cl)
+  }
+  invisible(TRUE)
 }
