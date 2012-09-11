@@ -81,16 +81,34 @@ commandLine <- function(binary = "gsnap",
   on.exit(options(scipen = scipen))
   
   unnamedUserArgs <- sapply(userArgs[!named], as.character)
-  namedUserArgs <- paste(ifelse(nchar(names(userArgs[named])) > 1, "--", "-"),
-                            gsub("_", "-", names(userArgs[named])), sep = "")
+  ##long-form args have double dashes. Short-form args (single char)
+  ##have single dashes.
+  dashes <- ifelse(nchar(names(userArgs[named])) > 1, "--", "-")
+  namedUserArgs <- paste(dashes,
+                         gsub("_", "-", names(userArgs[named])),
+                         sep = "")
   toggle_arg <- sapply(userArgs[named], isTRUE)
   namedUserArgs[!toggle_arg] <-
     paste(namedUserArgs[!toggle_arg],
-          sapply(userArgs[named][!toggle_arg], as.character))
+          sapply(userArgs[named][!toggle_arg], as.character),
+          sep="=")
   if (!is.null(path))
     binary <- file.path(path, binary)
   paste(binary, paste(c(namedUserArgs, unnamedUserArgs), collapse = " "))
 }
 
 ## at some point, mxbay want to customize this
-.system <- function(...) system(...)
+.system <- function(...) {
+
+  sysopt <- getOption("gmapRSysCall")
+  
+  if (is.null(sysopt)) {
+    res <- system(...)
+  } else if (class(sysopt) == "function") {
+    res <- sysopt(...)
+  } else {
+    stop("If the gmapRSysCall option is provided, it must be a function.")
+  }
+  
+  return(res)
+}
