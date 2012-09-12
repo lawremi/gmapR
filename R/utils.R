@@ -2,7 +2,7 @@
 ### Utilities
 ### -------------------------------------------------------------------------
 
-checkPackageVersion <- function(pkg, version, required = FALSE) {
+checkPackageVersion <- function(pkg, version, required = TRUE) {
   installed.version <- try(packageVersion(pkg), silent = TRUE)
   success <- if (is(installed.version, "try-error"))
     FALSE
