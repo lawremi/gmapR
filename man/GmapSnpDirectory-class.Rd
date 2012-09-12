@@ -7,6 +7,8 @@
 \alias{length,GmapSnpDirectory-method}
 \alias{names,GmapSnpDirectory-method}
 \alias{path,GmapSnpDirectory-method}
+\alias{snps<-,GmapSnpDirectory,character,VCF-method}
+\alias{snps<-,GmapSnpDirectory,character,character-method}
 
 \title{Class \code{"GmapSnpDirectory"}}
 \description{

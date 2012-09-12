@@ -6,8 +6,10 @@ test_GmapGenome_constructor_DNAStringSet_noCreate <- function() {
 }
 
 test_GmapGenome_constructor_DNAStringSet_create <- function() {
-  dna <- Biostrings::DNAStringSet("ACTGTGTCAG")
-  names(dna) <- "test"
+  set.seed(1)
+  seq <- paste0(sample(c("A", "C", "G", "T"), 2000, replace=TRUE),
+                collapse="")
+  dna <- Biostrings::DNAStringSet(seq)
   genomeDir <- file.path(tempdir(), as.integer(runif(1) * 1000000000))
   if (file.exists(genomeDir)) unlink(genomeDir, recursive=TRUE)
   dir.create(genomeDir, recursive=TRUE)

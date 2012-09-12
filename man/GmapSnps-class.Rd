@@ -25,8 +25,10 @@ Objects can be created by calls of the form \code{GmapSnps(snps,
   \item{name}{If provided, the name to give the database of SNPs. If not
   provided, defauts to the \code{snps} argument.}
   \item{create}{If the directory provided in the \code{directory}
-  argument does not exist, create it.}
-  }
+    argument does not exist, create it.}
+  \item{...}{Additional arguments to be passed to the SNPs
+    replacement method.}
+}
   
 \section{Accessors}{
     \describe{
@@ -36,8 +38,7 @@ Objects can be created by calls of the form \code{GmapSnps(snps,
 	this \code{GmapSnps} object.}
     }
 }
-
-  
+ 
 \section{Methods}{
   \describe{
     \item{directory}{\code{signature(x = "GmapSnps")}: ... }

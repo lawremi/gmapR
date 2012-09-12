@@ -24,7 +24,7 @@ setMethod("length", "GmapSnpDirectory", function(x) {
 
 setReplaceMethod("snps", c("GmapSnpDirectory", "character", "VCF"),
                  function(x, name, genome = GmapGenome(genome(x)),
-                          iitPath = tempdir(), ..., value)
+                          iitPath = tempdir(), value)
                  {
                    gr <- rowData(value)
                    values(gr) <- values(fixed(value))[c("REF", "ALT")]
