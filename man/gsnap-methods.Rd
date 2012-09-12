@@ -26,9 +26,15 @@
   is the only FASTA file used as input.}
   \item{input_b}{If provided, a path to the FASTA file containing the
   second set of reads from paired-end sequencing data.}
-  \item{params}{A \code{GsnapParam} object to configure the behavior of GSNAP.}
-  \item{output}{The output directory for the GSNAP alignments. If not
-  provided, the directory is the same directory that contains input_a.}
+  \item{params}{A \code{GsnapParam} object to configure the behavior of
+    GSNAP.}
+  \item{output}{The output path for the GSNAP alignments. The results
+    will be saved in \code{dirname(output)}. If \code{split_output} in
+    \code{params} is \code{TRUE}, \code{basename(output)} is used as the
+    common stem for the multiple output files. Otherwise, the results
+    are saved to \code{output} with the \dQuote{bam} extension
+    appended.
+  }
   \item{consolidate}{If GSNAP is run with multiple worker threads, each
   thread will output its own set of files. If consolidate is set to
   TRUE, these files will be merged. The default is TRUE.}
