@@ -9,6 +9,8 @@
 \alias{snps<-,GmapGenome,ANY,ANY-method}
 \alias{spliceSites<-,GmapGenome,GRangesList-method}
 \alias{spliceSites<-,GmapGenome,TranscriptDb-method}
+\alias{snps<-}
+\alias{spliceSites<-}
 
 \title{Class \code{"GmapGenome"}}
 \description{
