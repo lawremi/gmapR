@@ -58,7 +58,12 @@ GmapGenome <- function(genome,
   if (is(genome, "DNAStringSet")) {
     if (missing(name))
       stop("If the genome argument is a DNAStringSet object",
-           "the name argument must be provided") 
+           "the name argument must be provided")
+    if (is.null(names(genome))) {
+      stop("If the genome is provided as a DNAStringSet, ",
+           "the genome needs to have names. ",
+           "E.g., \"names(genome) <- someSeqNames")
+    }
   }
   if (!isSingleString(name))
     stop("'name' must be a single, non-NA string")

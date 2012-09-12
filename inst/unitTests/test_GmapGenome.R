@@ -9,10 +9,12 @@ test_GmapGenome_constructor_DNAStringSet_create <- function() {
   genomeDir <- file.path(tempdir(), as.integer(runif(1) * 1000000000))
   if (file.exists(genomeDir)) unlink(genomeDir, recursive=TRUE)
   dir.create(genomeDir, recursive=TRUE)
-  
   on.exit(unlink(genomeDir, recursive=TRUE))
+  checkException(GmapGenome(genome=dna, directory=genomeDir,
+                            name="thing", create=TRUE))
+  names(dna) <- "sampleDNAStringSet"
   gmapGenome <- GmapGenome(genome=dna, directory=genomeDir,
-                           name="thing", create=TRUE)                           
+                           name="thing", create=TRUE)
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
