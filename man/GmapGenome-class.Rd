@@ -6,6 +6,9 @@
 \alias{genome,GmapGenome-method}
 \alias{seqinfo,GmapGenome-method}
 \alias{GmapGenome}
+\alias{snps<-,GmapGenome,ANY,ANY-method}
+\alias{spliceSites<-,GmapGenome,GRangesList-method}
+\alias{spliceSites<-,GmapGenome,TranscriptDb-method}
 
 \title{Class \code{"GmapGenome"}}
 \description{
