@@ -13,9 +13,9 @@
 #include "gmapR.h"
 
 enum { SEQNAMES, POS, REF, READ, N_CYCLES, N_CYCLES_REF, COUNT, COUNT_REF,
-         COUNT_TOTAL, HIGH_QUALITY, HIGH_QUALITY_REF, MEAN_QUALITY,
-         MEAN_QUALITY_REF, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
-         COUNT_MINUS_REF, N_BASE_COLS };
+       COUNT_TOTAL, HIGH_QUALITY, HIGH_QUALITY_REF, HIGH_QUALITY_TOTAL,
+       MEAN_QUALITY, MEAN_QUALITY_REF, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
+       COUNT_MINUS_REF, N_BASE_COLS };
 
 typedef struct TallyTable {
   SEXP seqnames_R;
@@ -29,6 +29,7 @@ typedef struct TallyTable {
   int *count_total;
   int *high_quality;
   int *high_quality_ref;
+  int *high_quality_total;
   double *mean_quality;
   double *mean_quality_ref;
   int *count_plus;
@@ -188,11 +189,16 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, SEXP cycle_breaks_R,
                           high_base_quality);
     }
   }
+  int high_quality_total = 0;
+  for (int r = ref_row; r < row; r++) {
+    high_quality_total += tally.high_quality[r];
+  }
   for (int r = ref_row; r < row; r++) {
     tally.n_cycles_ref[r] = tally.n_cycles[ref_row];
     tally.count_total[r] = tally.count_total[ref_row];
     tally.mean_quality_ref[r] = tally.mean_quality[ref_row];
     tally.high_quality_ref[r] = tally.high_quality[ref_row];
+    tally.high_quality_total[r] = high_quality_total;
     tally.count_plus_ref[r] = tally.count_plus[ref_row];
     tally.count_minus_ref[r] = tally.count_minus[ref_row];
     tally.count_ref[r] = tally.count_plus_ref[r] + tally.count_minus_ref[r];
@@ -360,6 +366,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
   tally.high_quality = INTEGER(VECTOR_ELT(tally_R, HIGH_QUALITY));
   SET_VECTOR_ELT(tally_R, HIGH_QUALITY_REF, allocVector(INTSXP, n_rows));
   tally.high_quality_ref = INTEGER(VECTOR_ELT(tally_R, HIGH_QUALITY_REF));
+  SET_VECTOR_ELT(tally_R, HIGH_QUALITY_TOTAL, allocVector(INTSXP, n_rows));
+  tally.high_quality_total = INTEGER(VECTOR_ELT(tally_R, HIGH_QUALITY_TOTAL));
   SET_VECTOR_ELT(tally_R, MEAN_QUALITY, allocVector(REALSXP, n_rows));
   tally.mean_quality = REAL(VECTOR_ELT(tally_R, MEAN_QUALITY));
   SET_VECTOR_ELT(tally_R, MEAN_QUALITY_REF, allocVector(REALSXP, n_rows));

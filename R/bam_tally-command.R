@@ -40,6 +40,7 @@ setMethod("bam_tally", "GmapBamReader",
             tally_names <- c("seqnames", "pos", "ref", "alt", "ncycles",
                              "ncycles.ref", "count", "count.ref",
                              "count.total", "high.quality", "high.quality.ref",
+                             "high.quality.total",
                              "mean.quality", "mean.quality.ref",
                              "count.pos", "count.pos.ref",
                              "count.neg", "count.neg.ref")
