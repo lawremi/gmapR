@@ -1,5 +1,6 @@
 \name{TP53Genome}
 \alias{TP53Genome}
+\alias{TP53Which}
 \title{
   Demo genome around TP53
 }
@@ -12,12 +13,16 @@
 }
 \usage{
 TP53Genome()
+TP53Which()
 }
 \value{
-  A \code{GmapGenome} object. If this is the first time the user has run
-  this function, a side-effect will be the generation of an on-disk
-  genome index, under the name \dQuote{TP53_demo} in the default genome
-  directory. 
+  For \code{TP53Genome}, a \code{GmapGenome} object. If this is the
+  first time the user has run this function, a side-effect will be the
+  generation of an on-disk genome index, under the name
+  \dQuote{TP53_demo} in the default genome directory.
+
+  For \code{TP53Which}, a \code{GRanges} of the extents of the TP53
+  gene, translated to the space of \code{TP53Genome}.
 }
 \author{
   Michael Lawrence, Cory Barr

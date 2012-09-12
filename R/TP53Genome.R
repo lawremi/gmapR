@@ -5,13 +5,13 @@ TP53Genome <- function() {
   if (genomeName %in% genome(GmapGenomeDirectory(create=TRUE))) {
     GmapGenome(genomeName)
   } else{ 
-    checkPackageInstalled("org.Hs.eg.db", required = TRUE)
-    checkPackageInstalled("TxDb.Hsapiens.UCSC.hg19.knownGene", required = TRUE)
-    checkPackageInstalled("BSgenome.Hsapiens.UCSC.hg19", required = TRUE)
+    checkPackageInstalled("TxDb.Hsapiens.UCSC.hg19.knownGene")
+    checkPackageInstalled("BSgenome.Hsapiens.UCSC.hg19")
+    checkPackageInstalled("org.Hs.eg.db")    
     txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
 
     ## get region of interest
-    roi <- getGeneRoi(gene)
+    roi <- getGeneRoi(txdb, org.Hs.eg.db::org.Hs.eg.db, gene)
     
     p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                      as.character = FALSE)
@@ -27,16 +27,54 @@ TP53Genome <- function() {
   }
 }
 
-getGeneRoi <- function(gene, extend=1e6) {
-  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
-  eg <- org.Hs.eg.db::org.Hs.egSYMBOL2EG[[gene]]
-  tx <- transcripts(txdb, vals = list(gene_id=eg))
-  range(tx) + extend
+exonsToGene <- range
+
+getExons <- function(txdb, orgdb, gene) {
+  eg <- select(orgdb, gene, "ENTREZID", "SYMBOL")$ENTREZID
+  exons(txdb, vals = list(gene_id=eg))
+}
+
+getGeneRoi <- function(txdb, orgdb, gene, extend=1e6) {
+  exons <- getExons(txdb, orgdb, gene)
+  exonsToGene(exons) + extend
 }
 
 subsetRegion <- function(x, roi, newseqname) {
   x <- shift(subsetByOverlaps(x, roi), 1L - start(roi))
   x <- renameSeqlevels(x, setNames(newseqname, seqnames(roi)))
-  seqlengths(x)[newseqname] <- width(roi)
+  x <- keepSeqlevels(x, newseqname)
+  seqlengths(x) <- width(roi)
   x
 }
+
+translateToP53Genome <- function(x) {
+  checkPackageInstalled("TxDb.Hsapiens.UCSC.hg19.knownGene")
+  checkPackageInstalled("org.Hs.eg.db")    
+  gene <- "TP53"
+  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
+  orgdb <- org.Hs.eg.db::org.Hs.eg.db
+  roi <- getGeneRoi(txdb, orgdb, "TP53")
+  subregion <- subsetRegion(x, roi, gene)
+  genome(subregion) <- "TP53_demo"
+  subregion
+}
+
+exonsOnTP53Genome <- function(gene) {
+  checkPackageInstalled("TxDb.Hsapiens.UCSC.hg19.knownGene")
+  checkPackageInstalled("org.Hs.eg.db")    
+  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
+  orgdb <- org.Hs.eg.db::org.Hs.eg.db
+  translateToP53Genome(getExons(txdb, orgdb, gene))
+}
+
+geneOnTP53Genome <- function(gene) {
+  exonsToGene(exonsOnTP53Genome(gene))
+}
+
+TP53Which <- function() {
+  ##geneOnTP53Genome("TP53")
+  ## for performance:
+  GRanges("TP53", IRanges(1000001, 1025767))
+}
+
+
