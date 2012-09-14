@@ -12,7 +12,7 @@ setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
 setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
           function(input_a, input_b, params,
                    output = file_path_sans_ext(input_a, TRUE),
-                   consolidate = TRUE, ...)
+                   consolidate = TRUE, indexDestination=TRUE, ...)
           {
             output_dir <- dirname(output)
             if (!file.exists(output_dir))
@@ -41,7 +41,7 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
             gsnap_output <- GsnapOutput(path = output_path,
                                         version = gsnapVersion(),
                                         param = params)
-            asBam(gsnap_output)
+            asBam(gsnap_output, indexDestination=indexDestination)
             if (consolidate)
               consolidate(gsnap_output)
             return(gsnap_output)

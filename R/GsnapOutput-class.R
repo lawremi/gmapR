@@ -125,7 +125,7 @@ setMethod("consolidate", "GsnapOutput", function(x) {
 
 ##converts all gsnap SAM files to BAM files and creates the .bai index files
 setMethod("asBam", "GsnapOutput",
-          function(file) {
+          function(file, indexDestination=TRUE) {
             ## the input is not a file. It is a GsnapOutput,
             ## but param name is enforced
             gsp <- file 
@@ -133,7 +133,8 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
-            mapply(asBam, file = samFiles, dest = samFiles, overwrite = TRUE)
+            mapply(asBam, file = samFiles, dest = samFiles,
+                   overwrite = TRUE, indexDestination=indexDestination)
             
             unlink(samFiles)            
 })
