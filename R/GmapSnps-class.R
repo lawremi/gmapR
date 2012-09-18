@@ -5,9 +5,8 @@
 ### A set of SNPs in a GMAP SNP directory
 ###
 
-setClass("GmapSnps",
-         representation(name = "character",
-                        directory = "GmapSnpDirectory"))
+setClass("GmapSnps", representation(name = "character",
+                                    directory = "GmapSnpDirectory"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Accessors
