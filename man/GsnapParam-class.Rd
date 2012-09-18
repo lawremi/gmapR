@@ -13,15 +13,13 @@
 
 \usage{
 GsnapParam(genome, unique_only = FALSE,
-   max_mismatches = NULL,
-   suboptimal_levels = 0L, mode = "standard",
-   snps = NULL,
+   max_mismatches = NULL, suboptimal_levels = 0L,
+   mode = "standard", snps = NULL,
    npaths = if (unique_only) 1L else 100L,
    quiet_if_excessive = unique_only, nofails = unique_only,
    split_output = !unique_only,
    novelsplicing = FALSE, splicing = NULL, 
-   nthreads = 1L, part = NULL, batch = "2", ...) 
-
+   nthreads = 1L, part = NULL, batch = "2", ...)
 }
 
 \arguments{
@@ -32,8 +30,9 @@ GsnapParam(genome, unique_only = FALSE,
   alignment. If NULL, then the value defaults to ((readlength + 2) / 12 - 2))}
 \item{suboptimal_levels}{Report suboptimal hits beyond best hit. The
   default is 0L.}
-\item{mode}{The alignment mode. It can be "standard", "cmet", or "atoi".
-  The default is "standard".}
+\item{mode}{The alignment mode. It can be "standard", "cmet-stranded",
+  "cmet-nonstranded", "atoi-stranded", or "atoi-nonstranded". The default 
+  is "standard".}
 \item{snps}{If not NULL, then a GmapSnps object. Provided SNPs will not
   count as mismatches.}
 \item{npaths}{The maximum number of paths to print.}
