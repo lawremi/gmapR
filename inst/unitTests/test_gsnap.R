@@ -113,7 +113,6 @@ test_gsnap_syscall_novelsplicing_FALSE <- function() {
   checkTrue(sum(grepl("^--novelsplicing=", pieces)) == 0)
 }
 
-
 test_gsnap_syscall_novelsplicing_TRUE <- function() {
   gmapGenome <- TP53Genome()
   fastqs <- LungCancerLines::LungCancerFastqFiles()
@@ -133,4 +132,45 @@ test_gsnap_syscall_novelsplicing_TRUE <- function() {
                                            params=gsnapParam))
   pieces <- unlist(strsplit(systemCall, " "))
   checkTrue("--novelsplicing=1" %in% pieces)
+}
+
+test_gsnap_syscall_nthreads_TRUE <- function() {
+  gmapGenome <- TP53Genome()
+  fastqs <- LungCancerLines::LungCancerFastqFiles()
+  gsnapParam <- GsnapParam(genome = gmapGenome,
+                           nthreads=8,
+                           gunzip=TRUE)
+  
+  systemCall <- gmapR:::asSystemCall(gsnap(input_a=fastqs["H1993.first"],
+                                           input_b=fastqs["H1993.last"],
+                                           params=gsnapParam))
+  pieces <- unlist(strsplit(systemCall, " "))
+  checkTrue("--nthreads=8" %in% pieces)
+}
+
+test_gsnap_syscall_part <- function() {
+  gmapGenome <- TP53Genome()
+  fastqs <- LungCancerLines::LungCancerFastqFiles()
+  gsnapParam <- GsnapParam(genome = gmapGenome,
+                           part="3/99",
+                           gunzip=TRUE)
+  
+  systemCall <- gmapR:::asSystemCall(gsnap(input_a=fastqs["H1993.first"],
+                                           input_b=fastqs["H1993.last"],
+                                           params=gsnapParam))
+  pieces <- unlist(strsplit(systemCall, " "))
+  checkTrue("--part=3/99" %in% pieces)
+}
+
+test_gsnap_syscall_batch <- function() {
+  gmapGenome <- TP53Genome()
+  fastqs <- LungCancerLines::LungCancerFastqFiles()
+  gsnapParam <- GsnapParam(genome = gmapGenome,
+                           batch=4,
+                           gunzip=TRUE)  
+  systemCall <- gmapR:::asSystemCall(gsnap(input_a=fastqs["H1993.first"],
+                                           input_b=fastqs["H1993.last"],
+                                           params=gsnapParam))
+  pieces <- unlist(strsplit(systemCall, " "))
+  checkTrue("--batch=4" %in% pieces)
 }
