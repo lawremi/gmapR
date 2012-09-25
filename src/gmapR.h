@@ -3,13 +3,14 @@
 
 #include <Rinternals.h>
 
+/* .Call entry points for the gmapR package */
+
 SEXP
 R_Bamread_new (SEXP bamfile_R);
 
 SEXP
 R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP which_R,
-                SEXP cycle_breaks_R, SEXP high_quality_cutoff_R,
                 SEXP alloclength_R,
                 SEXP minimum_mapq_R, SEXP good_unique_mapq_R,
                 SEXP maximum_nhits_R,
@@ -20,5 +21,9 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP print_indels_p_R,
                 SEXP blocksize_R, 
                 SEXP verbosep_R);
+
+SEXP
+R_tally_iit_parse(SEXP tally_iit_R, SEXP cycle_breaks_R,
+                  SEXP high_base_quality, SEXP which_R);
 
 #endif

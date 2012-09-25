@@ -121,20 +121,22 @@ normArgTRUEorFALSE <- function(x) {
     if (is.unsorted(cycle_breaks))
       stop("'cycle_breaks' must be sorted")
   }
-  .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+  iit <- .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+               normArgSingleInteger(alloclength),
+               normArgSingleInteger(minimum_mapq),
+               normArgSingleInteger(good_unique_mapq),
+               normArgSingleInteger(maximum_nhits),
+               normArgTRUEorFALSE(concordant_only),
+               normArgTRUEorFALSE(unique_only),
+               normArgTRUEorFALSE(primary_only),
+               normArgSingleInteger(min_depth),
+               normArgSingleInteger(variant_strand),
+               normArgTRUEorFALSE(ignore_query_Ns),
+               normArgTRUEorFALSE(indels),
+               normArgSingleInteger(blocksize),
+               normArgTRUEorFALSE(verbosep))
+  .Call(R_tally_iit_parse, iit,
         cycle_breaks,
         normArgSingleInteger(high_base_quality),
-        normArgSingleInteger(alloclength),
-        normArgSingleInteger(minimum_mapq),
-        normArgSingleInteger(good_unique_mapq),
-        normArgSingleInteger(maximum_nhits),
-        normArgTRUEorFALSE(concordant_only),
-        normArgTRUEorFALSE(unique_only),
-        normArgTRUEorFALSE(primary_only),
-        normArgSingleInteger(min_depth),
-        normArgSingleInteger(variant_strand),
-        normArgTRUEorFALSE(ignore_query_Ns),
-        normArgTRUEorFALSE(indels),
-        normArgSingleInteger(blocksize),
-        normArgTRUEorFALSE(verbosep))
+        NULL)
 }

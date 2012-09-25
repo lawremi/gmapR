@@ -2,7 +2,7 @@ SUBDIRS = gmap gstruct
 
 .PHONY: all clean $(SUBDIRS)
 
-OBJECTS = bamreader.o bamtally.o R_init_gmapR.o
+OBJECTS = bamreader.o bamtally.o iit.o variantsummary.o R_init_gmapR.o
 
 R_SRC_DIR = ${CURDIR}
 PREFIX = ${R_SRC_DIR}/../inst/usr
