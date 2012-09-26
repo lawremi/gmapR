@@ -55,3 +55,37 @@ test_GmapGenome_accessors <- function() {
   checkTrue(is(directory(gmapGenome), "GmapGenomeDirectory"))
   checkIdentical(genome(gmapGenome), genomeName)
 }
+
+test_GmapGenome_spliceSites_replacement <- function() {
+  library("TxDb.Hsapiens.UCSC.hg19.knownGene")
+  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
+  getTP53Range <- function() {
+    library(org.Hs.eg.db)
+    eg <- org.Hs.egSYMBOL2EG[["TP53"]]
+    txTP53 <- transcripts(TxDb.Hsapiens.UCSC.hg19.knownGene,
+                          vals = list(gene_id = eg))
+    rngs <- GRanges(ranges=IRanges(start(range(tx)), end(range(tx))),
+                    seqnames="chr17")
+    rngs + 1e6
+  }
+  rngTP53 <- getTP53Range()
+  
+  exonsByTx <- exonsBy(txdb, by="tx")
+  exonsInRegion <- exonsByTx[exonsByTx %in% rngTP53]
+  
+  ##shift coords of retrieved exons so the ranges match the 
+  ##region of the genome used for this example
+  shiftCoords <- function(x) {
+    x <- exonsInRegion
+    w <- width(x)
+    r <- ranges(x)
+    r <- r + start(rngTP53)
+    width(r) <- w
+    ranges(x) <- r
+    return(x)
+  }
+  shiftedExons <- shiftCoords(exonsInRegion)
+  genome <- TP53Genome()
+  x <- spliceSites(genome, name="dbSnp") <- shiftedExons
+  checkIdentical(class(x), class(GRangesList()))
+}
