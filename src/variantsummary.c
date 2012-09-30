@@ -260,7 +260,7 @@ static int parse_allele_count(unsigned char *bytes) {
 }
 
 static int count_rows_for_interval(IIT_T tally_iit, int index) {
-  int n_rows;
+  int n_rows = 0;
   unsigned char *bytes = IIT_data(tally_iit, index);
   int width = IIT_length(tally_iit, index);
   unsigned char *base = bytes + (3 * width + 1) * sizeof(int);
