@@ -18,6 +18,11 @@ bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
   startingDir <- getwd()
   on.exit(setwd(startingDir))
 
+  if (file.exists(extractDir)) {
+    unlink(extractDir, recursive=TRUE)
+  }
+  dir.create(extractDir)
+  
   svnCheckoutDir <- .getSVNProj(projectSVNURL, extractDir)
   on.exit(unlink(svnCheckoutDir, recursive=TRUE), add=TRUE)
   setwd(svnCheckoutDir)
@@ -66,7 +71,6 @@ bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
     stop("unable to bootstrap")
   }
 }
-
 
 .configureSrc <- function(program) {
   ##--with-gmapdb=${GMAPDB} --prefix=${PREFIX}
