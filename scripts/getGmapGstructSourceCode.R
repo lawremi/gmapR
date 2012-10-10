@@ -7,14 +7,18 @@ updateGMAPRSrc <- function() {
   extractDirGmap <- file.path(getwd(), "src/gmap")
   extractDirGstruct <- file.path(getwd(), "src/gstruct")
 
-  bootstrapAndExtract(projectSVNURL=gmapSVNProj, extractDir=extractDirGmap,
+  .bootstrapAndExtract(projectSVNURL=gmapSVNProj, extractDir=extractDirGmap,
                       program="gmap")  
-  bootstrapAndExtract(projectSVNURL=gstructSVNProj, extractDir=extractDirGstruct,
+  .bootstrapAndExtract(projectSVNURL=gstructSVNProj, extractDir=extractDirGstruct,
                       program="gstruct")
   .copySamflagsHeader(extractDirGstruct, extractDirGmap)
 }
-  
-bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
+
+###################
+###helper functions
+###################
+
+.bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
   startingDir <- getwd()
   on.exit(setwd(startingDir))
 
@@ -32,10 +36,6 @@ bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
   .extractDistTarballIntoSrcDirectory(extractDir)
   invisible(TRUE)
 }
-
-###################
-###helper functions
-###################
 
 .copySamflagsHeader <- function(extractDirGstruct, extractDirGmap) {
   ##gstruct needs samflags.h. Copying from the gmap src
