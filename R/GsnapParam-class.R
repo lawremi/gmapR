@@ -154,6 +154,8 @@ GsnapParam <- function(genome, unique_only = FALSE,
                        split_output = !unique_only,
                        novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2", ...) {
+  if (missing(genome))
+    stop("The 'genome' must be specified (should be coercible to GmapGenome)")
   args <- formals(sys.function())
   params <- mget(names(args), environment())
   params$unique_only <- NULL
