@@ -94,6 +94,7 @@ GsnapOutput <- function(path, param = NULL, version = NULL) {
   }
   if (!is(param, "GsnapParamORNULL"))
     stop("'param' must be a GsnapParam object or NULL")
+  path <- file_path_as_absolute(path)
   new("GsnapOutput", path = path, version = version, param = param)
 }
 
@@ -133,10 +134,15 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
-            mapply(asBam, file = samFiles, dest = samFiles,
-                   overwrite = TRUE)
+            bamFiles <- mapply(asBam, file = samFiles,
+                               dest = file_path_sans_ext(samFiles),
+                               overwrite = TRUE)
+            unlink(samFiles)
+
+            if (!is_dir(x))
+              object@path <- bamFiles
             
-            unlink(samFiles)            
+            object
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
