@@ -41,7 +41,7 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
             gsnap_output <- GsnapOutput(path = output_path,
                                         version = gsnapVersion(),
                                         param = params)
-            asBam(gsnap_output)
+            gsnap_output <- asBam(gsnap_output)
             if (consolidate)
               consolidate(gsnap_output)
             return(gsnap_output)
