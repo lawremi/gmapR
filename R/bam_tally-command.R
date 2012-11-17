@@ -26,6 +26,19 @@ setMethod("bam_tally", "character",
             callGeneric()
           })
 
+.gmapGenomeCreated <- function(genome) {
+  ##existance means the GENOME_NAME.chromosome exists
+  
+  d <- path(directory(genome))
+  if (!file.exists(d)) return(FALSE)
+
+  possibleLoc1 <- file.path(d, paste(genome(genome), "chromosome", sep="."))
+  possibleLoc2 <- file.path(d, genome(genome), paste(genome(genome), "chromosome", sep="."))
+  if (!(file.exists(possibleLoc1) || file.exists(possibleLoc2))) return(FALSE)
+
+  return(TRUE)
+}
+
 setMethod("bam_tally", "GmapBamReader",
           function(x, param, ...)
           {
@@ -33,8 +46,16 @@ setMethod("bam_tally", "GmapBamReader",
             args <- list(...)
             param_list[names(args)] <- args
             genome <- param_list$genome
+
+            ##verify genome has been created
+            
             param_list$db <- genome(genome)
             param_list$genome_dir <- path(directory(genome))
+            if (!.gmapGenomeCreated(param_list$genome_dir)) {
+              stop("The GmapGenome object has not yet been created. ",
+                   "One solution is to run the GmapGenome constructor with create=TRUE")
+            }
+            
             param_list$genome <- NULL
             tally <- do.call(.bam_tally_C, c(list(x), param_list))
             tally_names <- c("seqnames", "pos", "ref", "alt", "ncycles",
