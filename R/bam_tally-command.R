@@ -3,7 +3,7 @@
 ### -------------------------------------------------------------------------
 ###
 
-### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### High-level wrapper
 ###
 
@@ -51,7 +51,7 @@ setMethod("bam_tally", "GmapBamReader",
             
             param_list$db <- genome(genome)
             param_list$genome_dir <- path(directory(genome))
-            if (!.gmapGenomeCreated(param_list$genome_dir)) {
+            if (!.gmapGenomeCreated(genome)) {
               stop("The GmapGenome object has not yet been created. ",
                    "One solution is to run the GmapGenome constructor with create=TRUE")
             }
