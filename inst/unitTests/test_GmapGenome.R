@@ -89,3 +89,7 @@ test_GmapGenome_spliceSites_replacement <- function() {
   x <- spliceSites(genome, name="dbSnp") <- shiftedExons
   checkIdentical(class(x), class(GRangesList()))
 }
+
+test_if_GmapGenome_dir_does_not_exist <- function() {
+  checkException(GmapGenome(genome="NoGenome", directory = file.path(tempdir(), "DoesNotExist")))
+}
