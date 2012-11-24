@@ -7,7 +7,8 @@
 enum { SEQNAMES, POS, REF, READ, N_CYCLES, N_CYCLES_REF, COUNT, COUNT_REF,
        COUNT_TOTAL, HIGH_QUALITY, HIGH_QUALITY_REF, HIGH_QUALITY_TOTAL,
        MEAN_QUALITY, MEAN_QUALITY_REF, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
-       COUNT_MINUS_REF, N_BASE_COLS };
+       COUNT_MINUS_REF, READ_POS_MEAN, READ_POS_MEAN_REF, READ_POS_VAR,
+       READ_POS_VAR_REF, N_BASE_COLS };
 
 typedef struct TallyTable {
   SEXP seqnames_R;
@@ -28,6 +29,10 @@ typedef struct TallyTable {
   int *count_plus_ref;
   int *count_minus;
   int *count_minus_ref;
+  double *read_pos_mean;
+  double *read_pos_mean_ref;
+  double *read_pos_var;
+  double *read_pos_var_ref;
   int **cycle_bins;
 } TallyTable;
 
@@ -53,6 +58,11 @@ static SEXP R_TallyTable_new(int n_rows, int n_cycle_bins) {
   SET_VECTOR_ELT(tally_R, COUNT_PLUS_REF, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_MINUS, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_MINUS_REF, allocVector(INTSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, READ_POS_MEAN, allocVector(REALSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, READ_POS_MEAN_REF, allocVector(REALSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, READ_POS_VAR, allocVector(REALSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, READ_POS_VAR_REF, allocVector(REALSXP, n_rows));
+
   for (int bin = 0; bin < n_cycle_bins; bin++) {
     SEXP cycle_bin_R = allocVector(INTSXP, n_rows);
     SET_VECTOR_ELT(tally_R, bin + N_BASE_COLS, cycle_bin_R);
@@ -84,6 +94,10 @@ static TallyTable *TallyTable_new(SEXP tally_R) {
   tally->count_plus_ref = INTEGER(VECTOR_ELT(tally_R, COUNT_PLUS_REF));
   tally->count_minus = INTEGER(VECTOR_ELT(tally_R, COUNT_MINUS));
   tally->count_minus_ref = INTEGER(VECTOR_ELT(tally_R, COUNT_MINUS_REF));
+  tally->read_pos_mean = REAL(VECTOR_ELT(tally_R, READ_POS_MEAN));
+  tally->read_pos_mean_ref = REAL(VECTOR_ELT(tally_R, READ_POS_MEAN_REF));
+  tally->read_pos_var = REAL(VECTOR_ELT(tally_R, READ_POS_VAR));
+  tally->read_pos_var_ref = REAL(VECTOR_ELT(tally_R, READ_POS_VAR_REF));
   tally->cycle_bins = (int **) R_alloc(sizeof(int*), n_cycle_bins);
   for (int bin = 0; bin < n_cycle_bins; bin++) {
     tally->cycle_bins[bin] = INTEGER(VECTOR_ELT(tally_R, bin + N_BASE_COLS));
@@ -101,15 +115,20 @@ read_total_counts(unsigned char **bytes, int row, int *count_total) {
 
 static void
 read_cycle_counts(unsigned char **bytes, int row, int *n_cycles,
+                  double *read_pos_mean, double *read_pos_var,
                   int **cycle_bins, int *cycle_breaks, int n_cycle_bins)
 {
   int n_cycle_breaks = n_cycle_bins + 1;
+  int count_sum = 0, weighted_sum = 0, weighted_sum_sq = 0;
   n_cycles[row] = read_int(bytes);
-  if (cycle_breaks != NULL) {
-    for (int index = 0; index < n_cycles[row]; index++) {
-      int cycle = abs(read_int(bytes));
-      int count = read_int(bytes);
-      int bin = 0;
+  for (int index = 0; index < n_cycles[row]; index++) {
+    int cycle = abs(read_int(bytes));
+    int count = read_int(bytes);
+    int bin = 0;
+    count_sum += count;
+    weighted_sum += cycle * count;
+    weighted_sum_sq += cycle * cycle * count;
+    if (cycle_breaks != NULL) {
       while(n_cycle_breaks > bin &&
             cycle > cycle_breaks[bin])
         bin++;
@@ -117,8 +136,13 @@ read_cycle_counts(unsigned char **bytes, int row, int *n_cycles,
         cycle_bins[bin-1][row] += count;
       }
     }
+  }
+  read_pos_mean[row] = ((double)weighted_sum) / count_sum;
+  if (count_sum > 1) {
+    read_pos_var[row] = ((double)weighted_sum_sq) / count_sum -
+      read_pos_mean[row] * read_pos_mean[row];
   } else {
-    (*bytes) += n_cycles[row] * 2 * sizeof(int);
+    read_pos_var[row] = NA_REAL;
   }
 }
 
@@ -129,11 +153,14 @@ parse_indels(unsigned char *bytes, int row,
 {
   int indel_count = read_int(&bytes);
   for (int indel = 0; indel < indel_count; indel++) {
-    /* TODO: add ref counts when we have them from Tom. */
-    /* TODO: sum the ref counts with the indel counts for total. */
     tally->count_plus[row] = read_int(&bytes);
     tally->count_minus[row] = read_int(&bytes);
     tally->count[row] = tally->count_plus[row] + tally->count_minus[row];
+    tally->count_plus_ref[row] = read_int(&bytes);
+    tally->count_minus_ref[row] = read_int(&bytes);
+    tally->count_ref[row] = tally->count_plus_ref[row] +
+      tally->count_minus_ref[row];
+    tally->count_total[row] = tally->count_ref[row] + tally->count[row];
     SEXP seq_R = mkChar(read_string(&bytes));
     if (insertion) {
       SET_STRING_ELT(tally->read_R, row, seq_R);
@@ -143,14 +170,19 @@ parse_indels(unsigned char *bytes, int row,
       SET_STRING_ELT(tally->read_R, row, R_BlankString);
       SET_STRING_ELT(tally->ref_R, row, seq_R);
     }
-    read_cycle_counts(&bytes, row, tally->n_cycles, tally->cycle_bins,
-                      cycle_breaks, n_cycle_bins);
+    read_cycle_counts(&bytes, row, tally->n_cycles,
+                      tally->read_pos_mean, tally->read_pos_var,
+                      tally->cycle_bins, cycle_breaks, n_cycle_bins);
     /* quality is per-base and so not relevant for indels */
     tally->mean_quality[row] = NA_REAL;
     tally->mean_quality_ref[row] = NA_REAL;
     tally->high_quality[row] = NA_INTEGER;
     tally->high_quality_ref[row] = NA_INTEGER;
     tally->high_quality_total[row] = NA_INTEGER;
+    /* no position from which to tabulate the cycles */
+    tally->n_cycles_ref[row] = NA_INTEGER;
+    tally->read_pos_mean_ref[row] = NA_REAL;
+    tally->read_pos_var_ref[row] = NA_REAL;
   }
   return indel_count;
 }
@@ -209,10 +241,14 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
     tally->high_quality[row] = 0;
     tally->mean_quality[row] = R_NaN;
     if (tally->count[row] > 0) {
-      read_cycle_counts(&bytes, row, tally->n_cycles, tally->cycle_bins,
-                        cycle_breaks, n_cycle_bins);
+      read_cycle_counts(&bytes, row, tally->n_cycles,
+                        tally->read_pos_mean, tally->read_pos_var,
+                        tally->cycle_bins, cycle_breaks, n_cycle_bins);
       read_quality_counts(&bytes, row, tally->high_quality, tally->mean_quality,
                           high_base_quality);
+    } else {
+      tally->read_pos_mean[row] = R_NaN;
+      tally->read_pos_var[row] = NA_REAL;
     }
   }
   int high_quality_total = 0;
@@ -228,6 +264,8 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
     tally->count_plus_ref[r] = tally->count_plus[ref_row];
     tally->count_minus_ref[r] = tally->count_minus[ref_row];
     tally->count_ref[r] = tally->count_plus_ref[r] + tally->count_minus_ref[r];
+    tally->read_pos_mean_ref[r] = tally->read_pos_mean[ref_row];
+    tally->read_pos_var_ref[r] = tally->read_pos_var[ref_row];
     SET_STRING_ELT(tally->ref_R, r, STRING_ELT(tally->read_R, ref_row));  
   }
   bool have_ref_row = row > ref_row;
