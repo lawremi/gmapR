@@ -149,7 +149,7 @@
 #define HAVE_ZLIB 1
 
 /* Define to 1 if your zlib library has a gzbuffer function. */
-/* #undef HAVE_ZLIB_GZBUFFER */
+#define HAVE_ZLIB_GZBUFFER 1
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
@@ -175,6 +175,9 @@
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "gstruct"
+
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "2012-08-20"
@@ -213,6 +216,11 @@
 # ifndef WORDS_BIGENDIAN
 /* #  undef WORDS_BIGENDIAN */
 # endif
+#endif
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

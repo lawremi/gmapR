@@ -64,7 +64,9 @@ setMethod("bam_tally", "GmapBamReader",
                              "high.quality.total",
                              "mean.quality", "mean.quality.ref",
                              "count.pos", "count.pos.ref",
-                             "count.neg", "count.neg.ref")
+                             "count.neg", "count.neg.ref",
+                             "read.pos.mean", "read.pos.mean.ref",
+                             "read.pos.var", "read.pos.var.ref")
             cycle_breaks <- param_list$cycle_breaks
             if (!is.null(cycle_breaks)) {
               cycle_breaks <- as.integer(cycle_breaks)
