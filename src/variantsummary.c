@@ -139,8 +139,8 @@ read_cycle_counts(unsigned char **bytes, int row, int *n_cycles,
   }
   read_pos_mean[row] = ((double)weighted_sum) / count_sum;
   if (count_sum > 1) {
-    read_pos_var[row] = ((double)weighted_sum_sq) / count_sum -
-      read_pos_mean[row] * read_pos_mean[row];
+    read_pos_var[row] = ((double)weighted_sum_sq) / (count_sum - 1) -
+      (count_sum / (count_sum - 1)) * read_pos_mean[row] * read_pos_mean[row];
   } else {
     read_pos_var[row] = NA_REAL;
   }
