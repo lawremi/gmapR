@@ -41,7 +41,7 @@ ${R_SRC_DIR}/samtools: $(RSAMTOOLS_PATH)
 
 $(SUBDIRS): %: %/Makefile
 	cd $@; \
-	$(MAKE) -j install
+	$(MAKE) install
 
 gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools 
 	cd $(dir $@); \
