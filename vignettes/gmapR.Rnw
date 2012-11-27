@@ -139,7 +139,8 @@ gmapGenomeDirectory <- GmapGenomeDirectory(gmapGenomePath, create = TRUE)
 gmapGenome <- GmapGenome(genome=Dmelanogaster,
                          directory = gmapGenomeDirectory,
                          name = "dm3",
-                         create = TRUE)
+                         create = TRUE,
+                         k = 12L)
 ##> gmapGenome
 ##GmapGenome object
 ##genome: dm3 
