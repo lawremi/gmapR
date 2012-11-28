@@ -181,7 +181,7 @@ library("gmapR")
 p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                  as.character = FALSE) 
 names(p53Seq) <- "TP53"
-gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE)
+gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE, k = 12L)
 @ 
 
 The data package \software{LungCancerLines} contains fastqs of reads
