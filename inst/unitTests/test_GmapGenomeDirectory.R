@@ -5,11 +5,21 @@ test_GmapGenomeDirectory <- function() {
   on.exit(unlink(genomeDir, recursive=TRUE))
   
   ##test constructor
-  ggd <- GmapGenomeDirectory(path=genomeDir,
-  create=TRUE)
+  ggd <- GmapGenomeDirectory(path=genomeDir, create=TRUE)
   checkTrue(is(ggd, "GmapGenomeDirectory"))
   
   ##test methods
   checkIdentical(genome(ggd), character(0))
-  checkIdentical(path(ggd), genomeDir)
+
+  ##for compatibility with Macs
+  .unSymLink <- function(d) {
+    pieces <- unlist(strsplit(d, "/"))
+    unSymed <- Sys.readlink(file.path(pieces[1], pieces[2]))
+    if (unSymed != "") {
+      pieces[2] <- sub("^/", "", unSymed)
+      d <- paste(pieces, collapse="/")
+    }
+    return(d)
+  }
+  checkIdentical(.unSymLink(path(ggd)), .unSymLink(genomeDir))
 }
