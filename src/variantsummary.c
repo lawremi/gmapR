@@ -152,7 +152,10 @@ parse_indels(unsigned char *bytes, int row,
              int high_base_quality, TallyTable *tally, bool insertion)
 {
   int indel_count = read_int(&bytes);
-  for (int indel = 0; indel < indel_count; indel++) {
+  for (int indel = 0; indel < indel_count; indel++, row++) {
+    for (int b = 0; b < n_cycle_bins; b++) {
+      tally->cycle_bins[b][row] = 0;
+    }
     tally->count_plus[row] = read_int(&bytes);
     tally->count_minus[row] = read_int(&bytes);
     tally->count[row] = tally->count_plus[row] + tally->count_minus[row];
