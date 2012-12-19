@@ -36,7 +36,7 @@ BamTallyParam <- function(genome, which = RangesList(),
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$genome <- as(genome, "GmapGenome")
-  params$which <- as(which, "RangesList")
+  params$which <- split(ranges(which), seqnames(which))
   integer_params <- c("high_base_quality", "minimum_mapq", "min_depth",
                       "variant_strand")
   params[integer_params] <- lapply(params[integer_params], as.integer)
