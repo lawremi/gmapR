@@ -23,6 +23,14 @@ setClass("BamTallyParam",
 ### Constructor
 ###
 
+normArgWhich <- function(x) {
+  if (is(x, "GenomicRanges"))
+    x <- split(ranges(x), seqnames(x))
+  else if (!is(x, "RangesList"))
+    stop("'which' must be a GenomicRanges or RangesList")
+  x
+}
+
 BamTallyParam <- function(genome, which = RangesList(),
                           cycle_breaks = NULL,
                           high_base_quality = 0L,
@@ -36,7 +44,7 @@ BamTallyParam <- function(genome, which = RangesList(),
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$genome <- as(genome, "GmapGenome")
-  params$which <- split(ranges(which), seqnames(which))
+  params$which <- normArgWhich(which)
   integer_params <- c("high_base_quality", "minimum_mapq", "min_depth",
                       "variant_strand")
   params[integer_params] <- lapply(params[integer_params], as.integer)
