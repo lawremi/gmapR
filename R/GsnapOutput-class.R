@@ -139,7 +139,7 @@ setMethod("asBam", "GsnapOutput",
                                overwrite = TRUE)
             unlink(samFiles)
 
-            if (!is_dir(x))
+            if (!is_dir(file))
               object@path <- bamFiles
             
             object
