@@ -140,9 +140,9 @@ setMethod("asBam", "GsnapOutput",
             unlink(samFiles)
 
             if (!is_dir(file))
-              object@path <- bamFiles
+              file@path <- bamFiles
             
-            object
+            file
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
