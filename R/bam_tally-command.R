@@ -53,16 +53,17 @@ setMethod("bam_tally", "GmapBamReader",
             param_list$genome_dir <- path(directory(genome))
             if (!.gmapGenomeCreated(genome)) {
               stop("The GmapGenome object has not yet been created. ",
-                   "One solution is to run the GmapGenome constructor with create=TRUE")
+                   "One solution is to run the GmapGenome constructor ",
+                   "with create=TRUE")
             }
             
             param_list$genome <- NULL
             tally <- do.call(.bam_tally_C, c(list(x), param_list))
             tally_names <- c("seqnames", "pos", "ref", "alt", "ncycles",
-                             "ncycles.ref", "count", "count.ref",
-                             "count.total", "high.quality", "high.quality.ref",
-                             "high.quality.total",
-                             "mean.quality", "mean.quality.ref",
+                             "ncycles.ref", "count", "count.ref", "count.total",
+                             "high.quality", "high.quality.ref",
+                             "high.quality.total", "mean.quality",
+                             "mean.quality.ref",
                              "count.pos", "count.pos.ref",
                              "count.neg", "count.neg.ref",
                              "read.pos.mean", "read.pos.mean.ref",
