@@ -12,10 +12,16 @@ setClassUnion("POSIXltORNULL", c("POSIXlt", "NULL"))
 
 setClassUnion("GsnapParamORNULL", c("GsnapParam", "NULL"))
 
+.valid_GsnapOutput <- function(object) {
+  if (length(samPaths(object)) == 0L && length(bamPaths(object)) == 0L)
+    paste0("No GSNAP output at '", object@path, "'")
+}
+
 setClass("GsnapOutput",
          representation(path = "character",
                         param = "GsnapParamORNULL",
-                        version = "POSIXltORNULL"))
+                        version = "POSIXltORNULL"),
+         validity = .valid_GsnapOutput)
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Accessors
@@ -134,9 +140,8 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
-            bamFiles <- mapply(asBam, file = samFiles,
-                               dest = file_path_sans_ext(samFiles),
-                               overwrite = TRUE)
+            bamFiles <- mapply(asBam, file = samFiles, dest = samFiles,
+                               MoreArgs = list(overwrite = TRUE))
             unlink(samFiles)
 
             if (!is_dir(file))
