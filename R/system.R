@@ -31,7 +31,7 @@ getDefaultGmapPath <- function() {
 
 ## gathers command line from non-NULL args to parent frame
 commandLine <- function(binary = "gsnap",
-                        path = getOption("gmap.path", getDefaultGmapPath()))
+                        path = NULL)
 {
   ##get values of arguments of function that called this function
   parentFormals <- formals(sys.function(sys.parent()))
@@ -94,13 +94,18 @@ commandLine <- function(binary = "gsnap",
   ##long-form args separate arg name and value with "=". Not strictly
   ##necessary since getopts handles them, but has caused confusion so
   ##adding
-  namedUserArgs[nchar(dashes) > 1] <- sub(" ", "=", namedUserArgs[nchar(dashes) > 1])
-  if (!is.null(path))
-    binary <- file.path(path, binary)
-  paste(binary, paste(c(namedUserArgs, unnamedUserArgs), collapse = " "))
+  namedUserArgs[nchar(dashes) > 1] <-
+    sub(" ", "=", namedUserArgs[nchar(dashes) > 1])
+  .commandLine(binary, namedUserArgs, unnamedUserArgs, path = path)
 }
 
-## at some point, mxbay want to customize this
+.commandLine <- function(binary, ..., path = NULL) {
+  if (is.null(path))
+    path <- getOption("gmap.path", getDefaultGmapPath())
+  arg.string <- paste(c(...), collapse = " ")
+  paste(file.path(path, binary), arg.string)
+}
+
 .system <- function(...) {
 
   if (is.null(getOption("systemCallMode"))) {

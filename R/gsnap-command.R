@@ -51,7 +51,8 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
 ### Low-level interface
 ###
 
-.gsnap <- function(db, dir = NULL, part = NULL, input_buffer_size = 1000L,
+.gsnap <- function(db = NULL, dir = NULL, part = NULL,
+                   input_buffer_size = 1000L,
                    barcode_length = 0L,
                    orientation = c("FR", "RF", "FF"),
                    fastq_id_start = NULL, fastq_id_end = NULL,
@@ -107,7 +108,6 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
   if (!is.null(problems))
     stop("validation failed:\n  ", paste(problems, collapse = "\n  "))  
 
-  ##TODO: figure out how to do this programmatically
   orientation <- match.arg(orientation)
   batch <- match.arg(batch)
   mode <- match.arg(mode)
@@ -116,7 +116,26 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
   
 ### TODO: if input_a is NULL, or split_output and .redirect are NULL:
 ###       return a pipe()
-  .system(commandLine("gsnap"), intern = version)
+  .system_gsnap(commandLine("gsnap"))
+}
+
+..gsnap <- function(args, path = NULL) {
+  .system_gsnap(.commandLine("gsnap", args, path))
+}
+
+.system_gsnap <- function(command) {
+  command <- paste(command, "2>&1")
+  output <- .system(command, intern = TRUE)
+  if (!gsnapSucceeded(command, output))
+    stop("Execution of gsnap failed, command-line: '", command,
+         "'; last output line: '", tail(output, 1), "'")
+  else output
+}
+
+gsnapSucceeded <- function(command, output) {
+  if (!grepl("--version", command))
+    any(grepl("^Processed \\d+ queries", output))
+  else TRUE
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -198,10 +217,11 @@ setValidity("GsnapParam", .valid_GsnapParam)
 ###
 
 gsnapVersion <- function() {
-  version_text <- sub("GSNAP version (.*?) ", "\\1", .gsnap(version = TRUE))
+  output <- .gsnap(version = TRUE)
+  version_text <- sub("GSNAP version (.*?) .*", "\\1", output[1])
   parseGsnapVersion(version_text)
 }
 
 parseGsnapVersion <- function(x) {
-  as.POSIXlt(x, format = "%m-%d-%Y")
+  as.POSIXlt(x, format = "%Y-%m-%d")
 }
