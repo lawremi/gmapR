@@ -8,7 +8,8 @@ test_makeGmapGenomePackage_sacCer3 <- function() {
   gmapGenome <- GmapGenome(genome=Scerevisiae,
                            directory = ggd,
                            name = "yeast",
-                           create = TRUE)
+                           create = TRUE,
+                           k = 12)
 
   packageDestDir <- file.path(tempdir(), as.integer(runif(1) * 100000))
   on.exit(unlink(packageDestDir, recursive=TRUE), add=TRUE)  

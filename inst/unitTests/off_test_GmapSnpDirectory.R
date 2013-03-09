@@ -2,7 +2,7 @@ test_snps <- function() {
   ## FIXME: rewrite this test to use the output of bam_tally, once we
   ## can convert those results to a VCF.
   library(gmapR)
-  genome <- GmapGenome("hg19_IGIS21", create = TRUE)
+  genome <- GmapGenome("hg19_IGIS21", create = TRUE, k = 12)
   dir <- GmapSnpDirectory(genome)
   gr <- as(seqinfo(genome), "GenomicRanges")
   gr <- GRanges("3", IRanges(3e6,4e6))

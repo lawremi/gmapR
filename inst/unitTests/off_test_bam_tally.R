@@ -28,6 +28,8 @@ test_bam_tally_C <- function() {
   which <- RangesList("1" = IRanges(1e6, 2e6))
   bam <- "~/share/data/R1047_LIB6635_SAM636095_L1_NXG2449.analyzed.bam"
   bf <- Rsamtools::BamFile(bam)
-  gr <- bam_tally(bf, BamTallyParam(genome, which = which, variant_strand = 1L))
+  gr <- bam_tally(bf, BamTallyParam(genome, which = which, variant_strand = 1L,
+                                    cycle_breaks = c(0L, 10L, 75L),
+                                    indels = TRUE))
   
 }

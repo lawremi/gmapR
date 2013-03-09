@@ -1,7 +1,7 @@
 test_GmapGenome_constructor_DNAStringSet_noCreate <- function() {
   dna <- Biostrings::DNAStringSet("ACTGTGTCAG")
   names(dna) <- "test"
-  gmapGenome <- GmapGenome(genome=dna, name="thing", create=FALSE)
+  gmapGenome <- GmapGenome(genome=dna, name="thing", create=FALSE, k = 12)
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
@@ -15,10 +15,10 @@ test_GmapGenome_constructor_DNAStringSet_create <- function() {
   dir.create(genomeDir, recursive=TRUE)
   on.exit(unlink(genomeDir, recursive=TRUE))
   checkException(GmapGenome(genome=dna, directory=genomeDir,
-                            name="thing", create=TRUE))
+                            name="thing", create=TRUE, k=12))
   names(dna) <- "sampleDNAStringSet"
   gmapGenome <- GmapGenome(genome=dna, directory=genomeDir,
-                           name="thing", create=TRUE)
+                           name="thing", create=TRUE, k=12)
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
@@ -30,14 +30,14 @@ test_GmapGenome_constructor_BSgenome_create <- function() {
   dir.create(genomeDir, recursive=TRUE)  
   on.exit(unlink(genomeDir, recursive=TRUE))
   gmapGenome <- GmapGenome(genome=Scerevisiae, directory=genomeDir,
-                           name=genomeName, create=TRUE)                           
+                           name=genomeName, create=TRUE, k=12) 
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
 testGmapGenome_constructor_FastaFile_create <- function() {
   fa <- system.file("extdata/hg19.p53.fasta", package="gmapR", mustWork=TRUE)
   fastaFile <- rtracklayer::FastaFile(fa)
-  gmapGenome <- GmapGenome(fastaFile, create=TRUE)
+  gmapGenome <- GmapGenome(fastaFile, create=TRUE, k=12)
   checkTrue(is(gmapGenome, "GmapGenome"))
 }
 
@@ -50,7 +50,7 @@ test_GmapGenome_accessors <- function() {
   dir.create(genomeDir, recursive=TRUE)
   on.exit(unlink(genomeDir, recursive=TRUE))
   gmapGenome <- GmapGenome(genome=dna, directory=genomeDir,
-                           name=genomeName, create=FALSE)
+                           name=genomeName, create=FALSE, k=12)
   checkIdentical(path(gmapGenome), file.path(genomeDir, genomeName))
   checkTrue(is(directory(gmapGenome), "GmapGenomeDirectory"))
   checkIdentical(genome(gmapGenome), genomeName)

@@ -2,7 +2,7 @@ test_GsnapParam_constructor <- function() {
   
   fa <- system.file("extdata/hg19.p53.fasta", package="gmapR", mustWork=TRUE)
   fastaFile <- rtracklayer::FastaFile(fa)
-  gmapGenome <- GmapGenome(fastaFile, create=TRUE)
+  gmapGenome <- GmapGenome(fastaFile, create=TRUE, k = 12)
 
   gsnapParam <- GsnapParam(genome = gmapGenome,
                            unique_only = FALSE,
