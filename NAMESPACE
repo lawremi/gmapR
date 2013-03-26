@@ -18,6 +18,7 @@ importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
 importMethodsFrom(rtracklayer, export)
 importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed)
 importClassesFrom(VariantAnnotation, "VCF")
+importFrom(BSgenome, getSeq, providerVersion)
 
 ## public API
 
@@ -29,4 +30,4 @@ exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
 
 exportMethods(bamPaths, path, genome, seqinfo, gsnap, "snps<-",
-              "spliceSites<-")
+              "spliceSites<-", getSeq)
