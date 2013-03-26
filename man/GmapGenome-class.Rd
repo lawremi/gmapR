@@ -5,6 +5,7 @@
 \alias{path,GmapGenome-method}
 \alias{genome,GmapGenome-method}
 \alias{seqinfo,GmapGenome-method}
+\alias{getSeq,GmapGenome-method}
 \alias{GmapGenome}
 \alias{snps<-,GmapGenome,ANY,ANY-method}
 \alias{spliceSites<-,GmapGenome,GRangesList-method}
@@ -52,6 +53,14 @@
       The first example below gives the typical and recommended usage
       when implementing a reproducible analysis.
     }
+  }
+}
+
+\section{Extracting Genomic Sequence}{
+  \item{}{\code{getSeq(x, which)}: Extracts the genomic sequence for
+    each region in \code{which} (something coercible to
+    \code{GRanges}). The result is a character vector for now. This is
+    implemented in C and is very efficient.
   }
 }
 
