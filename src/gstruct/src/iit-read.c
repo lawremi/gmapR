@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit-read.c 76037 2012-10-08 18:25:50Z twu $";
+static char rcsid[] = "$Id: iit-read.c 80796 2012-12-05 21:49:53Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1268,7 +1268,7 @@ sort_matches_by_type (T this, int *matches, int nmatches, bool alphabetizep) {
 /* For IIT versions >= 3.  Assumes that matches are all in the same
    div */
 static int *
-sort_matches_by_position (T this, int *matches, int nmatches, char *divstring, int divno) {
+sort_matches_by_position (T this, int *matches, int nmatches) {
   int *sorted, index, i;
   struct Interval_windex_T *intervals;
 
@@ -3902,7 +3902,7 @@ IIT_get (int *nmatches, T this, char *divstring, unsigned int x, unsigned int y,
     return sorted;
 #endif
   } else {
-    sorted = sort_matches_by_position(this,matches,*nmatches,divstring,divno);
+    sorted = sort_matches_by_position(this,matches,*nmatches);
     FREE(matches);
     return sorted;
   }
@@ -4016,6 +4016,44 @@ IIT_contained_with_divno (T this, int divno, unsigned int x, unsigned int y) {
 
 /* Want interval to contain x and y */
 bool
+IIT_contains_region_with_divno (T this, int divno, unsigned int x, unsigned int y) {
+  int match;
+  int lambda;
+  int min1, max1 = 0, min2, max2 = 0;
+  Interval_T interval;
+
+  if (divno < 0) {
+    return false;
+  } else if (this->nintervals[divno] == 0) {
+    return false;
+  } else {
+    min1 = min2 = this->nintervals[divno] + 1;
+
+    debug(printf("Entering IIT_contains_region_with_divno with divno %d and query %u %u\n",divno,x,y));
+    fnode_query_aux(&min1,&max1,this,divno,0,x);
+    fnode_query_aux(&min2,&max2,this,divno,0,y);
+    debug(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
+
+    for (lambda = min1; lambda <= max2; lambda++) {
+      match = this->sigmas[divno][lambda];
+      interval = &(this->intervals[divno][match - 1]);
+      if (Interval_contains_region_p(x,y,this->intervals[divno],match) == true) {
+	return true;
+      }
+      match = this->omegas[divno][lambda];
+      interval = &(this->intervals[divno][match - 1]);
+      if (Interval_contains_region_p(x,y,this->intervals[divno],match) == true) {
+	return true;
+      }
+    }
+
+    return false;
+  }
+}
+
+
+/* Want interval to contain x and y */
+bool
 IIT_contains_region_with_divno_signed (T this, int divno, unsigned int x, unsigned int y, int sign) {
   int match;
   int lambda;
@@ -4052,6 +4090,44 @@ IIT_contains_region_with_divno_signed (T this, int divno, unsigned int x, unsign
     return false;
   }
 }
+
+/* Want x and y to contain the interval */
+bool
+IIT_contained_by_region_with_divno (T this, int divno, unsigned int x, unsigned int y) {
+  int match;
+  int lambda;
+  int min1, max1 = 0, min2, max2 = 0;
+  Interval_T interval;
+
+  if (divno < 0) {
+    return false;
+  } else if (this->nintervals[divno] == 0) {
+    return false;
+  } else {
+    min1 = min2 = this->nintervals[divno] + 1;
+
+    debug(printf("Entering IIT_get_with_divno with divno %d and query %u %u\n",divno,x,y));
+    fnode_query_aux(&min1,&max1,this,divno,0,x);
+    fnode_query_aux(&min2,&max2,this,divno,0,y);
+    debug(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
+
+    for (lambda = min1; lambda <= max2; lambda++) {
+      match = this->sigmas[divno][lambda];
+      interval = &(this->intervals[divno][match - 1]);
+      if (Interval_contained_by_region_p(x,y,this->intervals[divno],match) == true) {
+	return true;
+      }
+      match = this->omegas[divno][lambda];
+      interval = &(this->intervals[divno][match - 1]);
+      if (Interval_contained_by_region_p(x,y,this->intervals[divno],match) == true) {
+	return true;
+      }
+    }
+
+    return false;
+  }
+}
+
 
 /* Want x and y to contain the interval */
 bool
@@ -4222,6 +4298,106 @@ IIT_get_with_divno (int *nmatches, T this, int divno, unsigned int x, unsigned i
 }
 
 
+int *
+IIT_get_signed (int *nmatches, T this, char *divstring, unsigned int x, unsigned int y, int sign, bool sortp) {
+  int *sorted, *matches = NULL, matchstart, *uniq, neval, nuniq, i;
+  int lambda, prev;
+  int divno;
+  int min1, max1 = 0, min2, max2 = 0;
+  int nintervals;
+  int index;
+
+  divno = IIT_divint(this,divstring);
+#if 1
+  /* Usually don't need to check, unless crossing between iits,
+     because divstring comes from same iit */
+  if (divno < 0) {
+    /* fprintf(stderr,"No div %s found in iit file\n",divstring); */
+    *nmatches = 0;
+    return (int *) NULL;
+  }
+#endif
+  if ((nintervals = this->nintervals[divno]) == 0) {
+    *nmatches = 0;
+    return (int *) NULL;
+  } else {
+    min1 = min2 = nintervals + 1;
+  }
+
+  debug(printf("Entering IIT_get with query %u %u\n",x,y));
+  fnode_query_aux(&min1,&max1,this,divno,0,x);
+  fnode_query_aux(&min2,&max2,this,divno,0,y);
+  debug(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
+
+  *nmatches = 0;
+  if (max2 >= min1) {
+    neval = (max2 - min1 + 1) + (max2 - min1 + 1);
+    matches = (int *) CALLOC(neval,sizeof(int));
+    uniq = (int *) CALLOC(neval,sizeof(int));
+
+    i = 0;
+    for (lambda = min1; lambda <= max2; lambda++) {
+      index = this->sigmas[divno][lambda];
+      if (sign == 0 || Interval_sign(&(this->intervals[divno][index-1])) == sign) {
+	matches[i++] = index;
+      }
+      index = this->omegas[divno][lambda];
+      if (sign == 0 || Interval_sign(&(this->intervals[divno][index-1])) == sign) {
+	matches[i++] = index;
+      }
+    }
+
+    /* Eliminate duplicates */
+    qsort(matches,neval,sizeof(int),int_compare);
+    nuniq = 0;
+    prev = 0;
+    debug(printf("unique segments in lambda %d to %d:",min1,max2));
+    for (i = 0; i < neval; i++) {
+      if (matches[i] != prev) {
+	debug(printf(" %d",matches[i]));
+	uniq[nuniq++] = matches[i];
+	prev = matches[i];
+      }
+    }
+    debug(printf("\n"));
+
+    for (i = 0; i < nuniq; i++) {
+      if (Interval_overlap_p(x,y,this->intervals[divno],uniq[i]) == true) {
+	matches[(*nmatches)++] = uniq[i];
+	debug(printf("Pushing overlapping segment %d (%u..%u)\n",uniq[i],
+		     Interval_low(&(this->intervals[divno][uniq[i]-1])),
+		     Interval_high(&(this->intervals[divno][uniq[i]-1]))));
+      } else {
+	debug(printf("Not pushing non-overlapping segment %d (%u..%u)\n",uniq[i],
+		     Interval_low(&(this->intervals[divno][uniq[i]-1])),
+		     Interval_high(&(this->intervals[divno][uniq[i]-1]))));
+      }
+    }
+
+    FREE(uniq);
+  }
+
+  /* Convert to universal indices */
+  matchstart = this->cum_nintervals[divno];
+  for (i = 0; i < *nmatches; i++) {
+    matches[i] += matchstart;
+  }
+
+  if (sortp == false) {
+    return matches;
+#if 0
+  } else if (this->version <= 2) {
+    sorted = sort_matches_by_type(this,matches,*nmatches,/*alphabetizep*/true);
+    FREE(matches);
+    return sorted;
+#endif
+  } else {
+    sorted = sort_matches_by_position(this,matches,*nmatches);
+    FREE(matches);
+    return sorted;
+  }
+}
+
 
 int *
 IIT_get_signed_with_divno (int *nmatches, T this, int divno, unsigned int x, unsigned int y, bool sortp,
@@ -4323,7 +4499,7 @@ coord_search_low (T this, int divno, unsigned int x) {
   bool foundp = false;
   unsigned int middlevalue;
 
-  low = 0;
+  low = 1;
   high = this->nintervals[divno];
 
   while (!foundp && low < high) {
@@ -4351,7 +4527,7 @@ coord_search_high (T this, int divno, unsigned int x) {
   bool foundp = false;
   unsigned int middlevalue;
 
-  low = 0;
+  low = 1;
   high = this->nintervals[divno];
 
   while (!foundp && low < high) {
@@ -4537,9 +4713,11 @@ IIT_get_flanking_with_divno (int **leftflanks, int *nleftflanks, int **rightflan
   return;
 }
 
+
 void
 IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
-			T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int type) {
+			T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int type,
+			int sign) {
   int lambda, matchstart, i;
   Interval_T interval;
   bool stopp;
@@ -4547,7 +4725,7 @@ IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, i
 
   divno = IIT_divint(this,divstring);
 
-  debug(printf("Entering IIT_get_flanking_typed with query %u %u\n",x,y));
+  debug2(printf("Entering IIT_get_flanking_typed with query %u %u => divno is %d\n",x,y,divno));
 
   if (this->alphas[divno] == NULL) {
 #if 0
@@ -4561,19 +4739,27 @@ IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, i
 
   /* Look at alphas for right flank */
   lambda = coord_search_low(this,divno,y);
+  debug2(printf("coord_search_low yields lambda %d\n",lambda));
 
   *rightflanks = (int *) CALLOC(nflanking,sizeof(int));
   *nrightflanks = 0;
   stopp = false;
   while (lambda <= this->nintervals[divno] && stopp == false) {
     interval = &(this->intervals[divno][this->alphas[divno][lambda]-1]);
-    if (Interval_low(interval) <= y) {
+    if (sign != 0 && Interval_sign(interval) != sign) {
+      debug2(printf("Advancing because sign != 0 && interval_sign %d != %d\n",Interval_sign(interval),sign));
+      lambda++;
+    } else if (Interval_low(interval) <= y) {
+      debug2(printf("Advancing because interval_low %u <= %u\n",Interval_low(interval),y));
       lambda++;
     } else if (Interval_type(interval) != type) {
+      debug2(printf("Advancing because interval_type %d != %d\n",Interval_type(interval),type));
       lambda++;
     } else {
       (*rightflanks)[(*nrightflanks)++] = this->alphas[divno][lambda];
+      debug2(printf("Storing right flank %d\n",this->alphas[divno][lambda]));
       if (*nrightflanks < nflanking) {
+	debug2(printf("Advancing because need more\n"));
 	lambda++;
       } else {
 	stopp = true;
@@ -4589,7 +4775,9 @@ IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, i
   stopp = false;
   while (lambda >= 1 && stopp == false) {
     interval = &(this->intervals[divno][this->betas[divno][lambda]-1]);
-    if (Interval_high(interval) >= x) {
+    if (sign != 0 && Interval_sign(interval) != sign) {
+      lambda--;
+    } else if (Interval_high(interval) >= x) {
       lambda--;
     } else if (Interval_type(interval) != type) {
       lambda--;
@@ -4614,6 +4802,7 @@ IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, i
 
   return;
 }
+
 
 void
 IIT_get_flanking_multiple_typed (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
@@ -4804,7 +4993,7 @@ IIT_get_typed (int *ntypematches, T this, char *divstring, unsigned int x, unsig
 #endif
   } else {
     divno = IIT_divint(this,divstring);
-    sorted = sort_matches_by_position(this,typematches,*ntypematches,divstring,divno);
+    sorted = sort_matches_by_position(this,typematches,*ntypematches);
     FREE(typematches);
     return sorted;
   }
@@ -4910,7 +5099,7 @@ IIT_get_typed_signed (int *ntypematches, T this, char *divstring, unsigned int x
 #endif
   } else {
     divno = IIT_divint(this,divstring);
-    sorted = sort_matches_by_position(this,typematches,*ntypematches,divstring,divno);
+    sorted = sort_matches_by_position(this,typematches,*ntypematches);
     FREE(typematches);
     return sorted;
   }
@@ -5025,7 +5214,7 @@ IIT_get_multiple_typed (int *ntypematches, T this, char *divstring, unsigned int
 #endif
   } else {
     divno = IIT_divint(this,divstring);
-    sorted = sort_matches_by_position(this,typematches,*ntypematches,divstring,divno);
+    sorted = sort_matches_by_position(this,typematches,*ntypematches);
     FREE(typematches);
     return sorted;
   }

@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 74032 2012-09-14 23:03:55Z twu $";
+static char rcsid[] = "$Id: bamtally.c 87717 2013-03-01 18:34:33Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1837,7 +1837,7 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 static void
 tally_block (long int *tally_matches, long int *tally_mismatches,
 	     T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
-	     Genome_T genome, char *chr, Genomicpos_T chroffset,
+	     Genome_T genome, char *chr, Genomicpos_T chroffset, Genomicpos_T chrstart,
 	     int quality_score_adj, int min_depth, int variant_strands, bool genomic_diff_p) {
   T this;
   double probs[NGENOTYPES], loglik[NGENOTYPES];
@@ -1892,11 +1892,11 @@ tally_block (long int *tally_matches, long int *tally_mismatches,
 	    binx_mismatches[bini] += mismatch->count;
 	}
 #else
-	tally_matches[chrpos] += this->nmatches;
+	tally_matches[chrpos - chrstart] += this->nmatches;
 
 	for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	    mismatch = (Mismatch_T) List_head(ptr);
-	    tally_mismatches[chrpos] += mismatch->count;
+	    tally_mismatches[chrpos - chrstart] += mismatch->count;
 	}
 #endif
       }
@@ -2337,7 +2337,7 @@ transfer_position (T *alloc_tallies, T *block_tallies, Genomicpos_T *exonstart, 
 	lastpos = print_runlength(block_tallies,&(*exonstart),lastpos,*blockstart,*blockptr,chr);
       } else if (output_type == OUTPUT_TALLY) {
 	tally_block(tally_matches,tally_mismatches,
-		    block_tallies,*blockstart,*blockptr,genome,chr,chroffset,
+		    block_tallies,*blockstart,*blockptr,genome,chr,chroffset,chrstart,
 		    quality_score_adj,min_depth,variant_strands,genomic_diff_p);
       } else if (output_type == OUTPUT_IIT) {
 	iit_block(&(*intervallist),&(*labellist),&(*datalist),
@@ -2402,11 +2402,11 @@ transfer_position_lh (T *alloc_tallies_low, T *alloc_tallies_high, T *block_tall
       debug0(printf("      print block from blockstart %u to blockptr %u\n",*blockstart,*blockptr));
       
       tally_block(tally_matches_low,tally_mismatches_low,
-		  block_tallies_low,*blockstart,*blockptr,genome,chr,chroffset,
+		  block_tallies_low,*blockstart,*blockptr,genome,chr,chroffset,chrstart,
 		  quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 
       tally_block(tally_matches_high,tally_mismatches_high,
-		  block_tallies_high,*blockstart,*blockptr,genome,chr,chroffset,
+		  block_tallies_high,*blockstart,*blockptr,genome,chr,chroffset,chrstart,
 		  quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 
       debug0(printf("      set blockstart to chrpos, blockend to chrpos + blocksize\n"));
@@ -3217,7 +3217,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, int alloclength,
 	      Tableuint_T resolve_low_table, Tableuint_T resolve_high_table,
 	      int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-	      bool need_concordant_p, bool need_unique_p, bool need_primary_p,
+	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      bool ignore_lowend_p, bool ignore_highend_p,
 	      Tally_outputtype_T output_type, bool blockp, int blocksize,
 	      int quality_score_adj, int min_depth, int variant_strands,
@@ -3258,8 +3258,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   *datalist = (List_T) NULL;
 
   if (output_type == OUTPUT_TALLY) {
-    *tally_matches = (long int *) CALLOC(chrend+1,sizeof(long int));
-    *tally_mismatches = (long int *) CALLOC(chrend+1,sizeof(long int));
+    *tally_matches = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+    *tally_mismatches = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
   }
   
   alloc_ptr = 0U;
@@ -3269,10 +3269,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 
   while (goodp == false &&
 	 (bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,need_concordant_p)) != NULL) {
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 need_concordant_p)) != NULL) {
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
     debug0(printf(">%s:%u..%u ",chr,chrpos_low,chrpos_high));
-    debug0(Bamread_print_cigar(bamline));
+    debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
 
     if (resolve_low_table != NULL &&
@@ -3321,13 +3322,14 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   }
 
   while ((bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,need_concordant_p)) != NULL) {
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 need_concordant_p)) != NULL) {
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
 
     debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  ",
 		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend));
     debug0(printf("%s:%u..%u ",chr,chrpos_low,chrpos_high));
-    debug0(Bamread_print_cigar(bamline));
+    debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
     
     if (resolve_low_table != NULL &&
@@ -3462,7 +3464,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     lastpos = print_runlength(block_tallies,&exonstart,lastpos,blockstart,blockptr,chr);
   } else if (output_type == OUTPUT_TALLY) {
     tally_block(*tally_matches,*tally_mismatches,
-		block_tallies,blockstart,blockptr,genome,chr,chroffset,
+		block_tallies,blockstart,blockptr,genome,chr,chroffset,chrstart,
 		quality_score_adj,min_depth,variant_strands,genomic_diff_p);
   } else if (output_type == OUTPUT_IIT) {
     iit_block(&(*intervallist),&(*labellist),&(*datalist),
@@ -3499,7 +3501,7 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 Bamreader_T bamreader, Genome_T genome, char *chr,
 		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, int alloclength,
 		 int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-		 bool need_concordant_p, bool need_unique_p, bool need_primary_p,
+		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
 		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep) {
   T this_low, this_high;
@@ -3538,10 +3540,10 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
   }
   block_tallies_high = &(block_tallies_high_alloc[0]);
 
-  *tally_matches_low = (long int *) CALLOC(chrend+1,sizeof(long int));
-  *tally_mismatches_low = (long int *) CALLOC(chrend+1,sizeof(long int));
-  *tally_matches_high = (long int *) CALLOC(chrend+1,sizeof(long int));
-  *tally_mismatches_high = (long int *) CALLOC(chrend+1,sizeof(long int));
+  *tally_matches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_mismatches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_matches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_mismatches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
 
   alloc_ptr = 0U;
   alloc_low = 0U;
@@ -3550,13 +3552,14 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 
   while (goodp == false &&
 	 (bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,need_concordant_p)) != NULL) {
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 need_concordant_p)) != NULL) {
     chrpos_low = Bamline_chrpos_low(bamline);
     chrpos_high = Bamline_chrpos_high(bamline);
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
 
     debug0(printf(">%s:%u..%u ",chr,chrpos_low,chrpos_high));
-    debug0(Bamread_print_cigar(bamline));
+    debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
 
     alloc_low = chrpos_low;
@@ -3596,13 +3599,14 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
   }
 
   while ((bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,need_concordant_p)) != NULL) {
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 need_concordant_p)) != NULL) {
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
 
     debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  ",
 		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend));
     debug0(printf("%s:%u..%u ",chr,chrpos_low,chrpos_high));
-    debug0(Bamread_print_cigar(bamline));
+    debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
     
     chrpos_low = Bamline_chrpos_low(bamline);
@@ -3725,10 +3729,10 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 
   debug0(printf("print block from blockstart %u to blockptr %u\n",blockstart,blockptr));
   tally_block(*tally_matches_low,*tally_mismatches_low,
-	      block_tallies_low,blockstart,blockptr,genome,chr,chroffset,
+	      block_tallies_low,blockstart,blockptr,genome,chr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
   tally_block(*tally_matches_high,*tally_mismatches_high,
-	      block_tallies_high,blockstart,blockptr,genome,chr,chroffset,
+	      block_tallies_high,blockstart,blockptr,genome,chr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 
 
@@ -3756,7 +3760,7 @@ IIT_T
 Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, Genomicpos_T chrend,
 	      Genome_T genome, IIT_T chromosome_iit, int alloclength,
 	      int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-	      bool need_concordant_p, bool need_unique_p, bool need_primary_p,
+	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep) {
   IIT_T iit;
@@ -3795,7 +3799,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, G
 		   bamreader,genome,chr,chroffset,/*chrstart*/1U,/*chrend*/chrlength,alloclength,
 		   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
 		   minimum_mapq,good_unique_mapq,maximum_nhits,
-		   need_concordant_p,need_unique_p,need_primary_p,
+		   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 		   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 		   /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
 		   /*quality_score_adj*/0,min_depth,variant_strands,
@@ -3836,7 +3840,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, Genomicpos_T chrstart, G
                    bamreader,genome,chr,chroffset,chrstart,chrend,alloclength,
                    /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
                    minimum_mapq,good_unique_mapq,maximum_nhits,
-                   need_concordant_p,need_unique_p,need_primary_p,
+                   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
                    /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
                    /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
                    /*quality_score_adj*/0,min_depth,variant_strands,

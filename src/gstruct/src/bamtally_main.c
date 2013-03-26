@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 68316 2012-07-06 20:55:23Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 87713 2013-03-01 18:32:34Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -32,6 +32,8 @@ static char rcsid[] = "$Id: bamtally_main.c 68316 2012-07-06 20:55:23Z twu $";
 #include "getopt.h"
 
 
+#define BUFFERLEN 1024
+
 static bool via_iit_p = false;
 
 
@@ -45,6 +47,9 @@ static int min_depth = 1;
 static int variant_strands = 0;
 static bool genomic_diff_p = false;
 static bool signed_counts_p = false;
+
+/* Coordinates */
+static bool whole_genome_p = false;
 
 /* Output options */
 static bool verbosep = false;
@@ -75,6 +80,7 @@ static int maximum_nhits = 1000000;
 static bool need_concordant_p = false;
 static bool need_unique_p = false;
 static bool need_primary_p = false;
+static bool ignore_duplicates_p = false;
 
 /* static int min_mlength = 0; */
 
@@ -98,6 +104,9 @@ static struct option long_options[] = {
   {"variants", required_argument, 0, 'X'}, /* variant_strands */
   {"diffs-only", no_argument, 0, 0},	   /* genomic_diff_p */
 
+  /* Genomic region */
+  {"whole-genome", no_argument, 0, 0}, /* whole_genome_p */
+
   /* Output options */
   {"verbose", required_argument, 0, 0},	       /* verbosep */
   {"block-format", required_argument, 0, 'B'}, /* blockp */
@@ -118,6 +127,8 @@ static struct option long_options[] = {
   {"concordant", required_argument, 0, 'C'}, /* need_concordant_p */
   {"unique", required_argument, 0, 'U'}, /* need_unique_p */
   {"primary", required_argument, 0, 'P'}, /* need_primary_p */
+  {"ignore-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
+  {"allow-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
 
   /* Help options */
   {"version", no_argument, 0, 0}, /* print_program_version */
@@ -150,6 +161,7 @@ print_program_usage ();
 int
 main (int argc, char *argv[]) {
   char *genomesubdir = NULL, *fileroot = NULL;
+  char Buffer[BUFFERLEN], *p;
   long int *tally_matches, *tally_mismatches;
   List_T intervallist = NULL, labellist = NULL, datalist = NULL;
   int quality_counts_match[256], quality_counts_mismatch[256], i;
@@ -188,6 +200,8 @@ main (int argc, char *argv[]) {
 	exit(0);
       } else if (!strcmp(long_name,"verbose")) {
 	verbosep = true;
+      } else if (!strcmp(long_name,"whole-genome")) {
+	whole_genome_p = true;
       } else if (!strcmp(long_name,"via-iit")) {
 	via_iit_p = true;
       } else if (!strcmp(long_name,"diffs-only")) {
@@ -198,6 +212,10 @@ main (int argc, char *argv[]) {
 	print_cycles_p = true;
       } else if (!strcmp(long_name,"depth")) {
 	min_depth = atoi(optarg);
+      } else if (!strcmp(long_name,"ignore-duplicates")) {
+	ignore_duplicates_p = true;
+      } else if (!strcmp(long_name,"allow-duplicates")) {
+	ignore_duplicates_p = false;
 
 #if 0
       } else if (!strcmp(long_name,"use-quality-const")) {
@@ -313,47 +331,7 @@ main (int argc, char *argv[]) {
 		      /*access*/USE_MMAP_ONLY);
 
   bamreader = Bamread_new(argv[0]);
-  if (argc > 1) {
-    if ((Parserange_universal(&chromosome,&revcomp,&genomicstart,&genomiclength,&chrstart,&chrend,
-			      &chroffset,&chrlength,argv[1],genomesubdir,fileroot)) == false) {
-      fprintf(stderr,"Chromosome coordinates %s could not be found in the genome\n",argv[1]);
-      exit(9);
-
-    } else if (via_iit_p == true) {
-      iitfile = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+
-				strlen(fileroot)+strlen(".chromosome.iit")+1,sizeof(char));
-      sprintf(iitfile,"%s/%s.chromosome.iit",genomesubdir,fileroot);
-      chromosome_iit = IIT_read(iitfile,/*name*/NULL,/*readonlyp*/true,/*divread*/READ_ALL,
-				/*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
-      FREE(iitfile);
-
-      bamtally_iit = Bamtally_iit(bamreader,/*chr*/chromosome,chrstart,chrend,
-				  genome,chromosome_iit,alloclength,
-				  minimum_mapq,good_unique_mapq,maximum_nhits,
-				  need_concordant_p,need_unique_p,need_primary_p,
-				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep);
-      IIT_free(&chromosome_iit);
-
-    } else {
-      Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
-      Bamtally_run(&tally_matches,&tally_mismatches,
-		   &intervallist,&labellist,&datalist,
-		   quality_counts_match,quality_counts_mismatch,
-		   bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-		   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
-		   minimum_mapq,good_unique_mapq,maximum_nhits,
-		   need_concordant_p,need_unique_p,need_primary_p,
-		   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
-		   output_type,blockp,blocksize,
-		   quality_score_adj,min_depth,variant_strands,
-		   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
-		   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-		   print_mapq_scores_p,want_genotypes_p,verbosep);
-      Bamread_unlimit_region(bamreader);
-    }
-
-  } else {
+  if (whole_genome_p == true) {
     iitfile = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+
 			      strlen(fileroot)+strlen(".chromosome.iit")+1,sizeof(char));
     sprintf(iitfile,"%s/%s.chromosome.iit",genomesubdir,fileroot);
@@ -365,7 +343,7 @@ main (int argc, char *argv[]) {
       bamtally_iit = Bamtally_iit(bamreader,/*chr*/NULL,/*chrstart*/0,/*chrend*/0,
 				  genome,chromosome_iit,alloclength,
 				  minimum_mapq,good_unique_mapq,maximum_nhits,
-				  need_concordant_p,need_unique_p,need_primary_p,
+				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep);
     } else {
@@ -382,7 +360,7 @@ main (int argc, char *argv[]) {
 		     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
 		     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
 		     minimum_mapq,good_unique_mapq,maximum_nhits,
-		     need_concordant_p,need_unique_p,need_primary_p,
+		     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 		     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 		     output_type,blockp,blocksize,
 		     quality_score_adj,min_depth,variant_strands,
@@ -398,6 +376,81 @@ main (int argc, char *argv[]) {
     }
 
     IIT_free(&chromosome_iit);
+
+  } else if (argc > 1) {
+    /* Coordinates given on command line */
+    if ((Parserange_universal(&chromosome,&revcomp,&genomicstart,&genomiclength,&chrstart,&chrend,
+			      &chroffset,&chrlength,argv[1],genomesubdir,fileroot)) == false) {
+      fprintf(stderr,"Chromosome coordinates %s could not be found in the genome\n",argv[1]);
+      exit(9);
+
+    } else if (via_iit_p == true) {
+      iitfile = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+
+				strlen(fileroot)+strlen(".chromosome.iit")+1,sizeof(char));
+      sprintf(iitfile,"%s/%s.chromosome.iit",genomesubdir,fileroot);
+      chromosome_iit = IIT_read(iitfile,/*name*/NULL,/*readonlyp*/true,/*divread*/READ_ALL,
+				/*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
+      FREE(iitfile);
+
+      bamtally_iit = Bamtally_iit(bamreader,/*chr*/chromosome,chrstart,chrend,
+				  genome,chromosome_iit,alloclength,
+				  minimum_mapq,good_unique_mapq,maximum_nhits,
+				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+				  min_depth,variant_strands,ignore_query_Ns_p,
+				  print_indels_p,blocksize,verbosep);
+      IIT_free(&chromosome_iit);
+
+    } else {
+      Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
+      Bamtally_run(&tally_matches,&tally_mismatches,
+		   &intervallist,&labellist,&datalist,
+		   quality_counts_match,quality_counts_mismatch,
+		   bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
+		   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+		   minimum_mapq,good_unique_mapq,maximum_nhits,
+		   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+		   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+		   output_type,blockp,blocksize,
+		   quality_score_adj,min_depth,variant_strands,
+		   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
+		   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
+		   print_mapq_scores_p,want_genotypes_p,verbosep);
+      Bamread_unlimit_region(bamreader);
+    }
+
+  } else {
+    /* Expecting coordinates from stdin */
+    if (via_iit_p == true) {
+      fprintf(stderr,"Combination of --via-iit and coordinates from stdin not supported\n");
+      exit(9);
+    }
+
+    while (fgets(Buffer,BUFFERLEN,stdin) != NULL) {
+      if ((p = rindex(Buffer,'\n')) != NULL) {
+	*p = '\0';
+      }
+      if ((Parserange_universal(&chromosome,&revcomp,&genomicstart,&genomiclength,&chrstart,&chrend,
+				&chroffset,&chrlength,Buffer,genomesubdir,fileroot)) == false) {
+	fprintf(stderr,"Chromosome coordinates %s could not be found in the genome\n",Buffer);
+
+      } else {
+	Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
+	Bamtally_run(&tally_matches,&tally_mismatches,
+		     &intervallist,&labellist,&datalist,
+		     quality_counts_match,quality_counts_mismatch,
+		     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
+		     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+		     minimum_mapq,good_unique_mapq,maximum_nhits,
+		     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+		     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+		     output_type,blockp,blocksize,
+		     quality_score_adj,min_depth,variant_strands,
+		     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
+		     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
+		     print_mapq_scores_p,want_genotypes_p,verbosep);
+	Bamread_unlimit_region(bamreader);
+      }
+    }
   }
 
   if (bamtally_iit != NULL) {
@@ -488,6 +541,10 @@ where\n\
    range is startposition..endposition\n\
          or startposition+length (+ strand)\n\
 \n\
+If chromosome:range not given, then either entire genome is processed\n\
+if --whole-genome flag is given, or the program expects to get chromosomal\n\
+coordinates via stdin.\n\
+\n\
 Input options (must include -d)\n\
   -D, --dir=directory            Genome directory\n\
   -d, --db=STRING                Genome database\n\
@@ -500,8 +557,13 @@ Compute options\n\
   -C, --concordant=INT           Require alignments to be concordant (0=no [default], 1=yes)\n\
   -U, --unique=INT               Require alignments to be unique (0=no [default], 1=yes)\n\
   -P, --primary=INT              Require alignments to be primary (0=no [default], 1=yes)\n\
+  --allow-duplicates             Allow alignments even if marked as duplicate (0x400) [default behavior]\n\
+  --ignore-duplicates            Ignore alignments marked as duplicate (0x400)\n\
   --pairmax=INT                  Expected insert length (discards alignments longer than\n\
                                    this value) [default=200000]\n\
+\n\
+Coordinates\n\
+  --whole-genome                 Compute tally over entire genome\n\
 \n\
 Filtering of output (options may be combined)\n\
   --depth=INT                    Print only positions with this depth or more\n\

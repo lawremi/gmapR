@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uinttable.c 47838 2011-09-20 23:44:25Z twu $";
+static char rcsid[] = "$Id: uinttable.c 81700 2012-12-14 21:27:59Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -212,6 +212,7 @@ Uinttable_keys_by_timeindex (T table) {
     p = buckets[j];
     keyarray[j] = p->key;
   }
+  FREE(buckets);
 
   return keyarray;
 }

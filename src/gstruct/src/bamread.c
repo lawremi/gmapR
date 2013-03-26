@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 75138 2012-09-27 18:00:15Z twu $";
+static char rcsid[] = "$Id: bamread.c 87713 2013-03-01 18:32:34Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -362,7 +362,6 @@ Bamread_nreads (int *npositions, T this, char *chr, Genomicpos_T chrpos1, Genomi
 }
 
 
-
 static void
 parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 	    char **mate_chr, Genomicpos_T *mate_chrpos, int *insert_length,
@@ -644,12 +643,12 @@ Bamline_cigar_npositions (Bamline_T this) {
 }
 
 void
-Bamread_print_cigar (Bamline_T this) {
+Bamread_print_cigar (FILE *fp, Bamline_T this) {
   Intlist_T p;
   Uintlist_T q;
 
   for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
-    printf("%u%c",Uintlist_head(q),Intlist_head(p));
+    fprintf(fp,"%u%c",Uintlist_head(q),Intlist_head(p));
   }
   return;
 }
@@ -729,9 +728,10 @@ aux_print (FILE *fp, unsigned char *s, unsigned char *aux_end) {
 
 
 void
-Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag) {
+Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj) {
   Intlist_T p;
   Uintlist_T q;
+  char *c;
 
   fprintf(fp,"%s\t",this->acc);
   fprintf(fp,"%u\t",newflag);
@@ -757,7 +757,12 @@ Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag) {
   if (this->quality_string == NULL) {
     fprintf(fp,"*");
   } else {
-    fprintf(fp,"%s",this->quality_string);
+    /* fprintf(fp,"%s",this->quality_string); */
+    c = this->quality_string;
+    while (*c != '\0') {
+      fputc(*c + quality_score_adj,fp);
+      c++;
+    }
   }
 
   aux_print(fp,this->aux_start,this->aux_end);
@@ -1228,7 +1233,8 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
 
 Bamline_T
 Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-		      bool need_unique_p, bool need_primary_p, bool need_concordant_p) {
+		      bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+		      bool need_concordant_p) {
   char *acc, *chr, *mate_chr, splice_strand;
   unsigned int flag;
   int nhits;
@@ -1270,6 +1276,11 @@ Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximu
 	FREE(read);
       } else if (need_primary_p == true && (flag & NOT_PRIMARY) != 0) {
 	debug1(fprintf(stderr,"Fails because need primary and flag is %u\n",flag));
+	Intlist_free(&cigar_types);
+	Uintlist_free(&cigarlengths);
+	FREE(read);
+      } else if (ignore_duplicates_p == true && (flag & DUPLICATE_READ) != 0) {
+	debug1(fprintf(stderr,"Fails because ignoring duplicates and flag is %u\n",flag));
 	Intlist_free(&cigar_types);
 	Uintlist_free(&cigarlengths);
 	FREE(read);
@@ -1325,6 +1336,46 @@ Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximu
 }
 
 
+Bamline_T
+Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *desired_acc) {
+  char *acc, *chr, *mate_chr, splice_strand;
+  unsigned int flag;
+  int nhits;
+  int mapq;
+  Genomicpos_T chrpos_low, mate_chrpos_low;
+  int insert_length;
+  Intlist_T cigar_types;
+  Uintlist_T cigarlengths;
+  int cigar_querylength, readlength;
+  char *read;
+  char *quality_string;
+
+
+  Bamread_limit_region(this,desired_chr,desired_chrpos,desired_chrpos);
+  while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
+    debug1(fprintf(stderr,"Got line\n"));
+    parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
+	       &mate_chr,&mate_chrpos_low,&insert_length,
+	       &cigar_types,&cigarlengths,&cigar_querylength,
+	       &readlength,&read,&quality_string);
+    splice_strand = aux_splice_strand(this);
+    if (!strcmp(acc,desired_acc) && chrpos_low == desired_chrpos) {
+      Bamread_unlimit_region(this);
+      return Bamline_new(acc,flag,nhits,/*good_unique_p*/true,mapq,splice_strand,chr,chrpos_low,
+			 mate_chr,mate_chrpos_low,insert_length,
+			 cigar_types,cigarlengths,cigar_querylength,
+			 readlength,read,quality_string,
+			 /*aux_start*/bam1_aux(this->bam),
+			 /*aux_end*/this->bam->data + this->bam->data_len);
+    }
+  }
+
+  Bamread_unlimit_region(this);
+  return (Bamline_T) NULL;
+}
+
+
+
 /************************************************************************
  *   Bamstore
  ************************************************************************/
@@ -1373,7 +1424,8 @@ Bamstore_get (Table_T bamstore_chrtable, char *chr, Genomicpos_T low, char *acc,
 
   chrom = Chrom_from_string(chr,/*mitochondrial_string*/NULL,/*order*/0U);
   if ((bamstore_table = (Uinttable_T) Table_get(bamstore_chrtable,(void *) chrom)) == NULL) {
-    fprintf(stderr,"Unexpected error.  No bamstore_table for chr %s\n",chr);
+    /* Can happen if we read high end and not low end */
+    /* fprintf(stderr,"Unexpected error.  No bamstore_table for chr %s\n",chr); */
     Chrom_free(&chrom);
     return (Bamline_T) NULL;
   } else {
@@ -1466,6 +1518,16 @@ struct Bampair_T {
   int level;
 };
 
+Bamline_T
+Bampair_bamline_low (Bampair_T this) {
+  return this->bamline_low;
+}
+
+Bamline_T
+Bampair_bamline_high (Bampair_T this) {
+  return this->bamline_high;
+}
+
 Genomicpos_T
 Bampair_chrpos_low (Bampair_T this) {
   return this->chrpos_low;
@@ -1549,12 +1611,12 @@ Bampair_free (Bampair_T *old) {
 
 
 void
-Bampair_print (FILE *fp, Bampair_T this) {
+Bampair_print (FILE *fp, Bampair_T this, int quality_score_adj) {
   if (this->bamline_low != NULL) {
-    Bamline_print(fp,this->bamline_low,this->bamline_low->flag);
+    Bamline_print(fp,this->bamline_low,this->bamline_low->flag,quality_score_adj);
   }
   if (this->bamline_high != NULL) {
-    Bamline_print(fp,this->bamline_high,this->bamline_high->flag);
+    Bamline_print(fp,this->bamline_high,this->bamline_high->flag,quality_score_adj);
   }
   return;
 }
@@ -1592,20 +1654,25 @@ Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
 
 List_T
 Bamread_all_pairs (T bamreader, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-		   bool need_unique_p, bool need_primary_p, bool need_concordant_p) {
-  List_T lines = NULL;
+		   bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+		   bool need_concordant_p) {
+  List_T lines = NULL, p;
   Bamline_T bamline_low, bamline;
 
   Table_T bamstore_chrtable;
   Uinttable_T bamstore_table;
+  Bamstore_T bamstore;
   Chrom_T *chroms, chrom;
+  unsigned int *keys;
+  int nkeys, j;
   int n, i;
 
 
   bamstore_chrtable = Table_new(100,Chrom_compare_table,Chrom_hash_table);
 
   while ((bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,need_concordant_p)) != NULL) {
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 need_concordant_p)) != NULL) {
     if (Bamline_concordantp(bamline) == false) {
       /* Handle now */
       if (Bamline_firstend_p(bamline) == true) {
@@ -1626,18 +1693,39 @@ Bamread_all_pairs (T bamreader, int minimum_mapq, int good_unique_mapq, int maxi
       if (bamline_low == NULL) {
 	fprintf(stderr,"Hmm...low end not found for %s at %s:%u\n",
 		Bamline_acc(bamline),Bamline_chr(bamline),Bamline_chrpos_low(bamline));
+	lines = List_push(lines,Bampair_new(/*bamline_low*/NULL,/*bamline_high*/bamline));
       } else {
 	lines = List_push(lines,Bampair_new(bamline_low,/*bamline_high*/bamline));
       }
     }
   }
 
+
   if ((n = Table_length(bamstore_chrtable)) > 0) {
     chroms = (Chrom_T *) Table_keys(bamstore_chrtable,NULL);
     for (i = 0; i < n; i++) {
       chrom = chroms[i];
       bamstore_table = (Uinttable_T) Table_get(bamstore_chrtable,(void *) chrom);
-      Bamstore_table_free(&bamstore_table);
+
+      /* Handle low ends without high ends */
+      nkeys = Uinttable_length(bamstore_table);
+      keys = Uinttable_keys_by_timeindex(bamstore_table);
+      for (j = 0; j < nkeys; j++) {
+	if ((bamstore = (Bamstore_T) Uinttable_get(bamstore_table,keys[j])) == NULL) {
+	  /* No bamlines at this chrpos_low */
+	} else {
+	  for (p = bamstore->bamlines; p != NULL; p = List_next(p)) {
+	    bamline = (Bamline_T) List_head(p);
+	    fprintf(stderr,"Hmm...high end not found for %s at %s:%u\n",
+		    Bamline_acc(bamline),Bamline_chr(bamline),Bamline_chrpos_low(bamline));
+	    lines = List_push(lines,Bampair_new(/*bamline_low*/bamline,/*bamline_high*/NULL));
+	  }
+	  /* Bamstore_free(&bamstore); -- This causes errors */
+	}
+      }
+      FREE(keys);
+
+      /* Bamstore_table_free(&bamstore_table); */
       Uinttable_free(&bamstore_table);
     }
     for (i = 0; i < n; i++) {

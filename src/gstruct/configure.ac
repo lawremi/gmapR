@@ -53,7 +53,7 @@ AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_AUX_DIR([config])
 # For autotest: AC_CONFIG_TESTDIR([tests],[tests:src:util])
 
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIR([config])
 
 AC_SUBST([LIBGSTRUCT_SO_VERSION], [1:0:0])
 AC_SUBST([LIBGSTRUCT_API_VERSION], [1.0])

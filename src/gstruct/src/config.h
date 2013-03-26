@@ -171,7 +171,7 @@
 #define PACKAGE_NAME "gstruct"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "gstruct 2012-08-20"
+#define PACKAGE_STRING "gstruct 2013-02-14"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "gstruct"
@@ -180,7 +180,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2012-08-20"
+#define PACKAGE_VERSION "2013-02-14"
 
 /* pagesize is available via sysconf */
 #define PAGESIZE_VIA_SYSCONF 1
@@ -204,7 +204,7 @@
 #define USE_FOPEN_TEXT 1
 
 /* Version number of package */
-#define VERSION "2012-08-20"
+#define VERSION "2013-02-14"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */

@@ -1,4 +1,4 @@
-/* $Id: iit-read.h 76037 2012-10-08 18:25:50Z twu $ */
+/* $Id: iit-read.h 80796 2012-12-05 21:49:53Z twu $ */
 #ifndef IIT_READ_INCLUDED
 #define IIT_READ_INCLUDED
 #include <stdio.h>
@@ -140,7 +140,11 @@ IIT_contained (T this, char *divstring, unsigned int x, unsigned int y);
 extern bool
 IIT_contained_with_divno (T this, int divno, unsigned int x, unsigned int y);
 extern bool
+IIT_contains_region_with_divno (T this, int divno, unsigned int x, unsigned int y);
+extern bool
 IIT_contains_region_with_divno_signed (T this, int divno, unsigned int x, unsigned int y, int sign);
+extern bool
+IIT_contained_by_region_with_divno (T this, int divno, unsigned int x, unsigned int y);
 extern bool
 IIT_contained_by_region_with_divno_signed (T this, int divno, unsigned int x, unsigned int y, int sign);
 
@@ -150,6 +154,8 @@ extern int *
 IIT_get_low (int *nmatches, T this, int divno, unsigned int x, bool sortp);
 extern int *
 IIT_get_high (int *nmatches, T this, int divno, unsigned int x, bool sortp);
+extern int *
+IIT_get_signed (int *nmatches, T this, char *divstring, unsigned int x, unsigned int y, int sign, bool sortp);
 extern int *
 IIT_get_signed_with_divno (int *nmatches, T this, int divno, unsigned int x, unsigned int y, bool sortp,
 			   int sign);
@@ -161,7 +167,8 @@ IIT_get_flanking_with_divno (int **leftflanks, int *nleftflanks, int **rightflan
 			     T this, int divno, unsigned int x, unsigned int y, int nflanking, int sign);
 extern void
 IIT_get_flanking_typed (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
-			T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int type);
+			T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int type,
+			int sign);
 extern void
 IIT_get_flanking_multiple_typed (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
 				 T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int *types, int ntypes);

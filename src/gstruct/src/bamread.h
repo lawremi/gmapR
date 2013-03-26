@@ -1,4 +1,4 @@
-/* $Id: bamread.h 75138 2012-09-27 18:00:15Z twu $ */
+/* $Id: bamread.h 87713 2013-03-01 18:32:34Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -45,7 +45,6 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
 		   int *readlength, char **read, char **quality_string);
 
-
 typedef struct Bamline_T *Bamline_T;
 
 extern char *
@@ -83,7 +82,7 @@ Bamline_cigar_npositions (Bamline_T this);
 extern int
 Bamline_cigar_querylength (Bamline_T this);
 extern void
-Bamread_print_cigar (Bamline_T this);
+Bamread_print_cigar (FILE *fp, Bamline_T this);
 extern int
 Bamline_readlength (Bamline_T this);
 extern char *
@@ -91,7 +90,7 @@ Bamline_read (Bamline_T this);
 extern char *
 Bamline_quality_string (Bamline_T this);
 extern void
-Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag);
+Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj);
 
 extern char
 Bamline_splice_strand (Bamline_T this);
@@ -106,7 +105,10 @@ extern void
 Bamline_free (Bamline_T *old);
 extern Bamline_T
 Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-		      bool need_unique_p, bool need_primary_p, bool need_concordant_p);
+		      bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+		      bool need_concordant_p);
+extern Bamline_T
+Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *desired_acc);
 
 
 typedef struct Bamstore_T *Bamstore_T;
@@ -131,6 +133,10 @@ Bamstore_table_free (Uinttable_T *bamstore_table);
 
 typedef struct Bampair_T *Bampair_T;
 
+extern Bamline_T
+Bampair_bamline_low (Bampair_T this);
+extern Bamline_T
+Bampair_bamline_high (Bampair_T this);
 extern Genomicpos_T
 Bampair_chrpos_low (Bampair_T this);
 extern Genomicpos_T
@@ -147,7 +153,7 @@ Bampair_primaryp (Bampair_T this);
 extern void
 Bampair_free (Bampair_T *old);
 extern void
-Bampair_print (FILE *fp, Bampair_T this);
+Bampair_print (FILE *fp, Bampair_T this, int quality_score_adj);
 extern void
 Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
 		 Uintlist_T *splice_lows, Uintlist_T *splice_highs, Intlist_T *splice_signs,
@@ -155,7 +161,8 @@ Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
 
 extern List_T
 Bamread_all_pairs (T bamreader, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-		   bool need_unique_p, bool need_primary_p, bool need_concordant_p);
+		   bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+		   bool need_concordant_p);
 
 extern int
 Bampair_compute_levels (List_T bampairs, Genomicpos_T mincoord,

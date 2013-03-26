@@ -1358,6 +1358,7 @@ Genome_fill_buffer_simple (T this, Genomicpos_T left, Genomicpos_T length, char 
   }
 
   if (length == 0) {
+    gbuffer1[0] = '\0';
     return;
   }
 

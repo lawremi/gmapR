@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bam_get.c 51938 2011-11-08 01:23:41Z twu $";
+static char rcsid[] = "$Id: bam_get.c 87713 2013-03-01 18:32:34Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -37,6 +37,8 @@ static int maximum_nhits = 1000000;
 static bool need_concordant_p = false;
 static bool need_unique_p = false;
 static bool need_primary_p = false;
+static bool ignore_duplicates_p = false;
+static int quality_score_adj = 64;
 
 
 static struct option long_options[] = {
@@ -46,6 +48,8 @@ static struct option long_options[] = {
   {"concordant", required_argument, 0, 'C'}, /* need_concordant_p */
   {"unique", required_argument, 0, 'U'}, /* need_unique_p */
   {"primary", required_argument, 0, 'P'}, /* need_primary_p */
+  {"ignore-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
+  {"allow-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
 
   /* Help options */
   {"version", no_argument, 0, 0}, /* print_program_version */
@@ -75,11 +79,11 @@ print_program_usage ();
 
 int
 main (int argc, char *argv[]) {
-  char *chromosome;
-  Genomicpos_T chrstart, chrend;
+  char *chromosome, *mate_chr;
+  Genomicpos_T chrstart, chrend, mate_chrpos_low, mate_chrpos_high;
 
-  Bamreader_T bamreader;
-  Bamline_T bamline;
+  Bamreader_T bamreader, bamreader_mate;
+  Bamline_T bamline, bamline_mate;
 
   bool revcomp;
   
@@ -101,6 +105,11 @@ main (int argc, char *argv[]) {
       } else if (!strcmp(long_name,"help")) {
 	print_program_usage();
 	exit(0);
+
+      } else if (!strcmp(long_name,"ignore-duplicates")) {
+	ignore_duplicates_p = true;
+      } else if (!strcmp(long_name,"allow-duplicates")) {
+	ignore_duplicates_p = false;
 
       } else {
 	/* Shouldn't reach here */
@@ -151,14 +160,42 @@ main (int argc, char *argv[]) {
 
 
   bamreader = Bamread_new(argv[0]);
+  bamreader_mate = Bamread_new(argv[0]);
+
   Bamread_write_header(bamreader);
   Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
   while ((bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
-					 need_unique_p,need_primary_p,/*need_concordant_p*/true)) != NULL) {
-    Bamline_print(stdout,bamline,Bamline_flag(bamline));
+					 need_unique_p,need_primary_p,ignore_duplicates_p,
+					 /*need_concordant_p*/true)) != NULL) {
+    Bamline_print(stdout,bamline,Bamline_flag(bamline),quality_score_adj);
+    if ((mate_chr = Bamline_mate_chr(bamline)) == NULL) {
+      /* No mate.  Need to know how to get an unmapped mate. */
+    } else if (strcmp(mate_chr,chromosome) || Bamline_mate_chrpos_low(bamline) > chrend) {
+      /* Mate will not be retrieved */
+      mate_chrpos_low = Bamline_mate_chrpos_low(bamline);
+      bamline_mate = Bamread_get_acc(bamreader_mate,mate_chr,mate_chrpos_low,Bamline_acc(bamline));
+      if (bamline_mate != NULL) {
+	Bamline_print(stdout,bamline_mate,Bamline_flag(bamline_mate),quality_score_adj);
+	Bamline_free(&bamline_mate);
+      }
+    } else {
+      mate_chrpos_low = Bamline_mate_chrpos_low(bamline);
+      bamline_mate = Bamread_get_acc(bamreader_mate,mate_chr,mate_chrpos_low,Bamline_acc(bamline));
+      if (bamline_mate != NULL) {
+	mate_chrpos_high = Bamline_chrpos_high(bamline_mate);
+	if (mate_chrpos_high < chrstart) {
+	  /* Mate will not be retrieved */
+	  Bamline_print(stdout,bamline_mate,Bamline_flag(bamline_mate),quality_score_adj);
+	}
+	Bamline_free(&bamline_mate);
+      }
+    }
+
     Bamline_free(&bamline);
   }
   Bamread_unlimit_region(bamreader);
+
+  Bamread_free(&bamreader_mate);
   Bamread_free(&bamreader);
 
   return 0;
@@ -182,6 +219,8 @@ Filtering options\n\
   -C, --concordant=INT           Require alignments to be concordant (0=no [default], 1=yes)\n\
   -U, --unique=INT               Require alignments to be unique (0=no [default], 1=yes)\n\
   -P, --primary=INT              Require alignments to be primary (0=no [default], 1=yes)\n\
+  --allow-duplicates             Allow alignments even if marked as duplicate (0x400) [default behavior]\n\
+  --ignore-duplicates            Ignore alignments marked as duplicate (0x400)\n\
 \n\
 ");
     return;
