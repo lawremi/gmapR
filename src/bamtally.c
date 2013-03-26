@@ -1,17 +1,13 @@
-#include <stdlib.h>
-#include <string.h>
-
 #include <gstruct/bool.h>
-#include <gstruct/datadir.h>
 #include <gstruct/iit-read.h>
 #include <gstruct/genome.h>
-#include <gstruct/interval.h>
 #include <gstruct/genomicpos.h>
 #include <gstruct/bamread.h>
 #include <gstruct/bamtally.h>
 
 #include "gmapR.h"
 #include "iit.h"
+#include "genome.h"
 
 SEXP
 R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
@@ -20,7 +16,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP minimum_mapq_R, SEXP good_unique_mapq_R,
                 SEXP maximum_nhits_R,
                 SEXP need_concordant_p_R, SEXP need_unique_p_R,
-                SEXP need_primary_p_R,
+                SEXP need_primary_p_R, SEXP ignore_duplicates_p_R,
                 SEXP min_depth_R, SEXP variant_strands_R,
                 SEXP ignore_query_Ns_p_R,
                 SEXP print_indels_p_R,
@@ -38,30 +34,16 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
   bool need_concordant_p = asLogical(need_concordant_p_R);
   bool need_unique_p = asLogical(need_unique_p_R);
   bool need_primary_p = asLogical(need_primary_p_R);
+  bool ignore_duplicates_p = asLogical(ignore_duplicates_p_R);
   int min_depth = asInteger(min_depth_R);
   int variant_strands = asInteger(variant_strands_R);
   bool ignore_query_Ns_p = asLogical(ignore_query_Ns_p_R);
   bool print_indels_p = asLogical(print_indels_p_R);
   int blocksize = asInteger(blocksize_R);
   int verbosep = asLogical(verbosep_R);
-  
-  char *genomesubdir, *fileroot, *dbversion, *iitfile;
-  genomesubdir = Datadir_find_genomesubdir(&fileroot, &dbversion,
-                                           (char *)genome_dir, (char *)db);
-  
-  iitfile = (char *) calloc(strlen(genomesubdir) + strlen("/") +
-                            strlen(fileroot) + strlen(".chromosome.iit") + 1,
-                            sizeof(char));
-  sprintf(iitfile, "%s/%s.chromosome.iit", genomesubdir, fileroot);
-  IIT_T chromosome_iit = IIT_read(iitfile, /*name*/NULL, /*readonlyp*/true,
-                                  /*divread*/READ_ALL, /*divstring*/NULL,
-                                  /*add_iit_p*/false, /*labels_read_p*/true);
-  Genome_T genome = Genome_new(genomesubdir, fileroot, /*snps_root*/NULL,
-                               /*uncompressedp*/false, /*access*/USE_MMAP_ONLY);
-  free(iitfile);
-  free(fileroot);
-  free(dbversion);
-  free(genomesubdir);
+
+  Genome_T genome = createGenome(genome_dir, db);
+  IIT_T chromosome_iit = readChromosomeIIT(genome_dir, db);
   
   const char *chr = NULL;
   Genomicpos_T start = 0;
@@ -78,6 +60,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  alloclength, minimum_mapq, good_unique_mapq,
                                  maximum_nhits, need_concordant_p,
                                  need_unique_p, need_primary_p,
+                                 ignore_duplicates_p,
                                  min_depth, variant_strands, ignore_query_Ns_p,
                                  print_indels_p, blocksize, verbosep);
   IIT_free(&chromosome_iit);

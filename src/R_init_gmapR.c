@@ -7,11 +7,14 @@
 static const R_CallMethodDef callMethods[] = {
 
   /* bamtally.c */
-  CALLMETHOD_DEF(R_Bamtally_iit, 17),
+  CALLMETHOD_DEF(R_Bamtally_iit, 18),
   CALLMETHOD_DEF(R_tally_iit_parse, 4),
   
   /* bamreader.c */
   CALLMETHOD_DEF(R_Bamread_new, 1),
+
+  /* genome.c */
+  CALLMETHOD_DEF(R_Genome_getSeq, 6),
   
   {NULL, NULL, 0}
 };
