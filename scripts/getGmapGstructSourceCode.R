@@ -1,17 +1,20 @@
 ##run this to update. The current working directory needs to be the
 ##top-level directory of the SVN checkout
-updateGMAPRSrc <- function() {
-  gmapSVNProj <- "http://resscm/bioinfo/projects/gmap/branches/internal-2011-12-28"
-  gstructSVNProj <- "http://resscm/bioinfo/projects/gstruct/trunk"
-
+updateGMAPSrc <- function() {
+  gmapSVNProj <-
+    "http://resscm/bioinfo/projects/gmap/branches/internal-2011-12-28"
   extractDirGmap <- file.path(getwd(), "src/gmap")
-  extractDirGstruct <- file.path(getwd(), "src/gstruct")
-
   .bootstrapAndExtract(projectSVNURL=gmapSVNProj, extractDir=extractDirGmap,
-                      program="gmap")  
-  .bootstrapAndExtract(projectSVNURL=gstructSVNProj, extractDir=extractDirGstruct,
-                      program="gstruct")
-  .copySamflagsHeader(extractDirGstruct, extractDirGmap)
+                       program="gmap")
+  
+}
+updateGSTRUCTSrc <- function() {
+  gstructSVNProj <- "http://resscm/bioinfo/projects/gstruct/trunk"
+  extractDirGstruct <- file.path(getwd(), "src/gstruct")
+  .bootstrapAndExtract(projectSVNURL=gstructSVNProj,
+                       extractDir=extractDirGstruct,
+                       program="gstruct")
+  .copySamflagsHeader(extractDirGstruct, file.path(getwd(), "src/gmap"))
 }
 
 ###################
