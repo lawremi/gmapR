@@ -18,7 +18,7 @@
                 high_base_quality = 0L,
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
-                primary_only = FALSE,
+                primary_only = FALSE, ignore_duplicates = FALSE,
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
                 indels = FALSE)
@@ -41,6 +41,9 @@
   }
   \item{unique_only}{Consider only the uniquly mapped reads.}
   \item{primary_only}{Consider only primary pairs.}
+  \item{ignore_duplicates}{Whether to ignore the reads flagged as
+    PCR/optical duplicates.
+  }
   \item{min_depth}{The minimum number of reads overlapping a position for
     it to be counted.}
   \item{variant_strand}{The number of strands on which a variant must be
