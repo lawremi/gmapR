@@ -142,9 +142,12 @@ setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
 
 setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
   which <- as(which, "GRanges")
-  .Call(R_Genome_getSeq, path(directory(x)), genome(x),
-        as.character(seqnames(which)), start(which), width(which),
-        as.character(strand(which)))
+  ans <- .Call(R_Genome_getSeq, path(directory(x)), genome(x),
+               as.character(seqnames(which)), start(which), width(which),
+               as.character(strand(which)))
+  if (!is.null(names(x)))
+    names(ans) <- names(x)
+  ans
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -152,6 +155,10 @@ setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
 ###
 
 setAs("ANY", "GmapGenome", function(from) GmapGenome(from))
+
+setAs("GmapGenome", "DNAStringSet", function(from) {
+  DNAStringSet(getSeq(from))
+})
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Show

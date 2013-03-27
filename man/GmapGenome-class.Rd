@@ -10,6 +10,7 @@
 \alias{snps<-,GmapGenome,ANY,ANY-method}
 \alias{spliceSites<-,GmapGenome,GRangesList-method}
 \alias{spliceSites<-,GmapGenome,TranscriptDb-method}
+\alias{coerce,GmapGenome,DNAStringSet-method}
 \alias{snps<-}
 \alias{spliceSites<-}
 
@@ -57,11 +58,23 @@
 }
 
 \section{Extracting Genomic Sequence}{
-  \item{}{\code{getSeq(x, which = seqinfo(x))}: Extracts the genomic
-    sequence for each region in \code{which} (something coercible to
-    \code{GRanges}). The result is a character vector for now. This is
-    implemented in C and is very efficient. The default for \code{which}
-    will retrieve the entire genome.
+  \describe{
+    \item{}{\code{getSeq(x, which = seqinfo(x))}: Extracts the genomic
+      sequence for each region in \code{which} (something coercible to
+      \code{GRanges}). The result is a character vector for now. This is
+      implemented in C and is very efficient. The default for \code{which}
+      will retrieve the entire genome.
+    }
+  }
+}
+
+\section{Coercion}{
+  \describe{
+    \item{}{\code{as(object, "DNAStringSet")}: Extracts the entire
+      sequence of the genome as a \code{DNAStringSet}. One consequence is
+      that this comes possible with rtracklayer:
+      \code{export(object, "genome.fasta")}.
+    }
   }
 }
 
