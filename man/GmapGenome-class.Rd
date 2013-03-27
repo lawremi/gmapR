@@ -57,10 +57,11 @@
 }
 
 \section{Extracting Genomic Sequence}{
-  \item{}{\code{getSeq(x, which)}: Extracts the genomic sequence for
-    each region in \code{which} (something coercible to
+  \item{}{\code{getSeq(x, which = seqinfo(x))}: Extracts the genomic
+    sequence for each region in \code{which} (something coercible to
     \code{GRanges}). The result is a character vector for now. This is
-    implemented in C and is very efficient.
+    implemented in C and is very efficient. The default for \code{which}
+    will retrieve the entire genome.
   }
 }
 

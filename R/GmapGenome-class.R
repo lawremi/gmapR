@@ -140,7 +140,7 @@ setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
 ### Sequence access
 ###
 
-setMethod("getSeq", "GmapGenome", function(x, which) {
+setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
   which <- as(which, "GRanges")
   .Call(R_Genome_getSeq, path(directory(x)), genome(x),
         as.character(seqnames(which)), start(which), width(which),
