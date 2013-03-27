@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include <gstruct/bool.h>
 #include <gstruct/iit-read.h>
 #include <gstruct/genome.h>
