@@ -1,5 +1,5 @@
 Package: gmapR
-Maintainer: Cory Barr <barr.cory@gene.com>
+Maintainer: Michael Lawrence <lawrence.michael@gene.com>
 License: Artistic-2.0
 Title: Provides convenience methods to work with GMAP and GSNAP from
     within R
@@ -10,7 +10,7 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
     to work with GMAP and GSNAP from within R. In addition, it provides 
     methods to tally alignment results on a per-nucleotide basis using 
     the bam_tally tool.
-Version: 1.1.15
+Version: 1.1.16
 Depends: R (>= 2.15.0), methods, GenomicRanges
 Imports: IRanges, Rsamtools (>= 1.7.4), rtracklayer (>= 1.17.15), GenomicRanges,
          GenomicFeatures, Biostrings, VariantAnnotation, tools, Biobase,
