@@ -145,8 +145,8 @@ setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
   ans <- .Call(R_Genome_getSeq, path(directory(x)), genome(x),
                as.character(seqnames(which)), start(which), width(which),
                as.character(strand(which)))
-  if (!is.null(names(x)))
-    names(ans) <- names(x)
+  if (!is.null(names(which)))
+    names(ans) <- names(which)
   ans
 })
 
