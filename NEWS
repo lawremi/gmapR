@@ -1,0 +1,30 @@
+CHANGES IN VERSION 1.2.0
+-----------------------
+
+NEW FEATURES
+
+    o New method getSeq,GmapGenome retrieves sequence from a
+      GmapGenome index. This also supports a coercion to DNAStringSet
+      and thus easy export to FASTA via rtracklayer.
+
+    o bam_tally gains an ignore_duplicates argument for ignoring BAM
+      records flagged as PCR/optical duplicates.
+
+    o Read position mean and variance are now output by bam_tally.
+
+USER-VISIBLE CHANGES
+
+    o GMAP has been updated to the July '12 version (yes, this is old).
+    
+    o GSTRUCT (bamtally) updated to trunk as of 3/22/13.
+    
+BUG FIXES
+
+    o asBam,GsnapOutput now actually works.
+
+CHANGES IN VERSION 1.0.0
+-----------------------
+
+Initial release
+
+(start date: 12 September, 2012)
