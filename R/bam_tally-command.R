@@ -26,19 +26,6 @@ setMethod("bam_tally", "character",
             callGeneric()
           })
 
-.gmapGenomeCreated <- function(genome) {
-  ##existance means the GENOME_NAME.chromosome exists
-  
-  d <- path(directory(genome))
-  if (!file.exists(d)) return(FALSE)
-
-  possibleLoc1 <- file.path(d, paste(genome(genome), "chromosome", sep="."))
-  possibleLoc2 <- file.path(d, genome(genome), paste(genome(genome), "chromosome", sep="."))
-  if (!(file.exists(possibleLoc1) || file.exists(possibleLoc2))) return(FALSE)
-
-  return(TRUE)
-}
-
 setMethod("bam_tally", "GmapBamReader",
           function(x, param, ...)
           {

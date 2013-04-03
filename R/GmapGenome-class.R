@@ -141,6 +141,8 @@ setReplaceMethod("spliceSites", c("GmapGenome", "TranscriptDb"),
 ###
 
 setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
+  if (!.gmapGenomeCreated(x))
+    stop("Genome index does not exist")
   which <- as(which, "GRanges")
   ans <- .Call(R_Genome_getSeq, path(directory(x)), genome(x),
                as.character(seqnames(which)), start(which), width(which),
@@ -177,5 +179,22 @@ setMethod("show", "GmapGenome", function(object) {
   if (!is(db, "GmapGenome"))
     db <- GmapGenome(db, dir)
   db
+}
+
+
+.gmapGenomeCreated <- function(genome) {
+  ##existance means the GENOME_NAME.chromosome exists
+  
+  d <- path(directory(genome))
+  if (!file.exists(d))
+    return(FALSE)
+
+  chromosome.file <- paste(genome(genome), "chromosome", sep=".")
+  possibleLoc1 <- file.path(d, chromosome.file)
+  possibleLoc2 <- file.path(d, genome(genome), chromosome.file)
+  if (!(file.exists(possibleLoc1) || file.exists(possibleLoc2)))
+    return(FALSE)
+
+  return(TRUE)
 }
 
