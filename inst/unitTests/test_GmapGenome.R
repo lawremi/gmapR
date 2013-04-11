@@ -71,7 +71,7 @@ test_GmapGenome_spliceSites_replacement <- function() {
   rngTP53 <- getTP53Range()
   
   exonsByTx <- exonsBy(txdb, by="tx")
-  exonsInRegion <- exonsByTx[exonsByTx %in% rngTP53]
+  exonsInRegion <- exonsByTx[exonsByTx %over% rngTP53]
   
   ##shift coords of retrieved exons so the ranges match the 
   ##region of the genome used for this example
