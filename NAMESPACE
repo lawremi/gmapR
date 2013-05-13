@@ -7,7 +7,7 @@ importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
 importFrom(Biobase, createPackage)
 import(IRanges)
 import(GenomicRanges)
-importFrom(Biostrings, getSeq, read.DNAStringSet, DNAStringSet)
+importFrom(Biostrings, getSeq, readDNAStringSet, DNAStringSet)
 importFrom(GenomicRanges, genome, seqinfo)
 importMethodsFrom(GenomicRanges, seqnames, strand)
 importMethodsFrom(Rsamtools, asBam)

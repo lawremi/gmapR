@@ -24,7 +24,7 @@ setMethod("get_genome", "GmapGenome",
             .get_genome(path(directory(db)), genome(db), snpsdir = snpsdir,
                         usesnps = usesnps, snpformat = "2", ...,
                         .range = range, .redirect = tmpfile)
-            read.DNAStringSet(tmpfile)
+            readDNAStringSet(tmpfile)
           })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
