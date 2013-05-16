@@ -25,7 +25,8 @@ makeGmapGenomePackage <- function(gmapGenome,
                   MAINTAINER=maintainer,
                   GMAPRVERSION=as.character(packageVersion("gmapR")),
                   LIC=license,
-                  GMAPOBJNAME=gsub("\\.", "_", pkgName))
+                  GMAPOBJNAME=gsub("\\.", "_", pkgName),
+                  GMAPGENOMENAME=genome(gmapGenome))
   
   ## Should never happen
   if (any(duplicated(names(symvals)))) {

@@ -7,9 +7,8 @@
   ns <- asNamespace(pkgname)
 
   iit_path <- system.file("extdata", package=pkgname, lib.loc=libname)
-  genome <- GmapGenome(genome = pkgname,
+  genome <- GmapGenome(genome = "@GMAPGENOMENAME@",
                        directory = GmapGenomeDirectory(iit_path),
-                       name = pkgname,
                        create = FALSE)
 
   objname <- pkgname
