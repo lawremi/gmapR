@@ -26,6 +26,8 @@ setClass("GsnapParam",
                         quiet_if_excessive = "logical",
                         nofails = "logical", 
                         split_output = "logical",
+                        terminal_threshold = "integer",
+                        gmap_mode = "character",
                         extra = "list"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -145,7 +147,7 @@ gsnap_extra <- function(x) {
 ### Constructor
 ###
 
-GsnapParam <- function(genome, unique_only = FALSE,
+GsnapParam <- function(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
                        max_mismatches = NULL,
                        suboptimal_levels = 0L, mode = "standard",
                        snps = NULL,
@@ -153,9 +155,12 @@ GsnapParam <- function(genome, unique_only = FALSE,
                        quiet_if_excessive = unique_only, nofails = unique_only,
                        split_output = !unique_only,
                        novelsplicing = FALSE, splicing = NULL, 
-                       nthreads = 1L, part = NULL, batch = "2", ...) {
+                       nthreads = 1L, part = NULL, batch = "2",
+                       terminal_threshold = if (molecule == "DNA") 1000L else 2L,
+                       gmap_mode = if (molecule == "DNA") "none", ...) {
   if (missing(genome))
     stop("The 'genome' must be specified (should be coercible to GmapGenome)")
+  molecule <- match.arg(molecule)
   args <- formals(sys.function())
   params <- mget(names(args), environment())
   params$unique_only <- NULL
