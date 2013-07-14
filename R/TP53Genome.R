@@ -74,7 +74,9 @@ geneOnTP53Genome <- function(gene) {
 TP53Which <- function() {
   ##geneOnTP53Genome("TP53")
   ## for performance:
-  GRanges("TP53", IRanges(1000001, 1025767))
+  gr <- GRanges("TP53", IRanges(1000001, 1025767))
+  seqinfo(gr) <- seqinfo(TP53Genome())
+  gr
 }
 
 
