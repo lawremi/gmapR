@@ -6,6 +6,7 @@ importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
            list_files_with_exts)
 importFrom(Biobase, createPackage)
 import(IRanges)
+import(methods)
 import(GenomicRanges)
 importFrom(Biostrings, getSeq, readDNAStringSet, DNAStringSet)
 importFrom(GenomicRanges, genome, seqinfo)
@@ -16,15 +17,16 @@ importFrom(GenomicFeatures, transcripts, exons)
 importClassesFrom(rtracklayer, RTLFile, FastaFile)
 importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
 importMethodsFrom(rtracklayer, export)
-importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed)
-importClassesFrom(VariantAnnotation, "VCF")
+importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed, VRanges, ref, alt,
+           "ref<-", "alt<-")
+importClassesFrom(VariantAnnotation, "VCF", "VRanges")
 importFrom(BSgenome, getSeq, providerVersion)
 
 ## public API
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
        directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
-       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which)
+       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which, summarizeVariants)
 
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)

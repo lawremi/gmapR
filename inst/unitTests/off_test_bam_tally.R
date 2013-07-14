@@ -22,14 +22,14 @@ test_bam_tally_C <- function() {
   empty <- RangesList(chr2L = IRanges(1e6, 2e6))
   gr <- bam_tally(bf, BamTallyParam(genome, which = empty))
   
-  gr <- bam_tally(bf, BamTallyParam(genome, cycle_breaks = c(1, 15, 30, 40)))
+  gr <- bam_tally(bf, BamTallyParam(genome, read_pos_breaks = c(1, 15, 30, 40)))
 
   genome <- GmapGenome("hg19_IGIS21")
   which <- RangesList("1" = IRanges(1e6, 2e6))
   bam <- "~/share/data/R1047_LIB6635_SAM636095_L1_NXG2449.analyzed.bam"
   bf <- Rsamtools::BamFile(bam)
   gr <- bam_tally(bf, BamTallyParam(genome, which = which, variant_strand = 1L,
-                                    cycle_breaks = c(0L, 10L, 75L),
+                                    read_pos_breaks = c(0L, 10L, 75L),
                                     indels = TRUE))
   
 }

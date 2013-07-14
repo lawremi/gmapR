@@ -277,7 +277,7 @@ aligned to the TP53 region of the human genome. We'll use this file to
 demonstrate the use of \software{bam\_tally} through the
 \software{gmapR} package. The resulting data structure will contain
 the needed information such as number of alternative alleles, quality
-scores, and nucleotide cycle for each allele.
+scores, and read position for each allele.
 
 <<run_bamtally, eval=FALSE>>=
 library(gmapR)
@@ -288,7 +288,7 @@ bam_file <- system.file("extdata/H1993.analyzed.bam",
 breaks <- c(0L, 15L, 60L, 75L)
 bqual <- 56L
 mapq <- 13L
-param <- BamTallyParam(genome, cycle_breaks = breaks,
+param <- BamTallyParam(genome, read_pos_breaks = breaks,
                        high_base_quality = bqual,
                        minimum_mapq = mapq,
                        concordant_only = FALSE, unique_only = FALSE,

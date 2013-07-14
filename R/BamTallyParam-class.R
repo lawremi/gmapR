@@ -8,8 +8,6 @@
 setClass("BamTallyParam",
          representation(genome = "GmapGenome",
                         which = "RangesList",
-                        cycle_breaks = "integerORNULL",
-                        high_base_quality = "integer",
                         minimum_mapq = "integer",
                         concordant_only = "logical",
                         unique_only = "logical",
@@ -24,17 +22,18 @@ setClass("BamTallyParam",
 ### Constructor
 ###
 
-normArgWhich <- function(x) {
+normArgWhich <- function(x, genome) {
   if (is(x, "GenomicRanges"))
     x <- split(ranges(x), seqnames(x))
   else if (!is(x, "RangesList"))
     stop("'which' must be a GenomicRanges or RangesList")
+  si <- seqinfo(genome)
+  seqinfo(x, new2old = match(seqlevels(si), seqlevels(x))) <-
+    merge(si, seqinfo(x))
   x
 }
 
 BamTallyParam <- function(genome, which = RangesList(),
-                          cycle_breaks = NULL,
-                          high_base_quality = 0L,
                           minimum_mapq = 0L,
                           concordant_only = FALSE, unique_only = FALSE,
                           primary_only = FALSE, ignore_duplicates = FALSE,
@@ -42,12 +41,29 @@ BamTallyParam <- function(genome, which = RangesList(),
                           ignore_query_Ns = FALSE,
                           indels = FALSE)
 {
+  if (!isSingleNumber(minimum_mapq) || minimum_mapq < 0)
+    stop("minimum_mapq must be a single, non-negative, non-NA number")
+  if (!isTRUEorFALSE(concordant_only))
+    stop("concordant_only must be TRUE or FALSE")
+  if (!isTRUEorFALSE(unique_only))
+    stop("unique_only must be TRUE or FALSE")
+  if (!isTRUEorFALSE(primary_only))
+    stop("primary_only must be TRUE or FALSE")
+  if (!isTRUEorFALSE(ignore_duplicates))
+    stop("ignore_duplicates must be TRUE or FALSE")
+  if (!isSingleNumber(min_depth) || minimum_mapq < 0)
+    stop("min_depth must be a single, non-negative, non-NA number")
+  if (!variant_strand %in% c(0, 1, 2))
+    stop("variant_strand must be one of 0, 1, or 2")
+  if (!isTRUEorFALSE(ignore_query_Ns))
+    stop("ignore_query_Ns must be TRUE or FALSE")
+  if (!isTRUEorFALSE(indels))
+    stop("indels must be TRUE or FALSE")
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$genome <- as(genome, "GmapGenome")
-  params$which <- normArgWhich(which)
-  integer_params <- c("high_base_quality", "minimum_mapq", "min_depth",
-                      "variant_strand")
+  params$which <- normArgWhich(which, params$genome)
+  integer_params <- c("minimum_mapq", "min_depth", "variant_strand")
   params[integer_params] <- lapply(params[integer_params], as.integer)
   do.call(new, c("BamTallyParam", params))  
 }

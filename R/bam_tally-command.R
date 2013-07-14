@@ -3,6 +3,22 @@
 ### -------------------------------------------------------------------------
 ###
 
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Raw tally result
+###
+
+setClass("TallyIIT", representation(ptr = "externalptr", genome = "GmapGenome"))
+
+TallyIIT <- function(ptr, genome) {
+  new("TallyIIT", ptr = ptr, genome = genome)
+}
+
+setMethod("genome", "TallyIIT", function(x) x@genome)
+
+setMethod("show", "TallyIIT", function(object) {
+  cat("Tally IIT object for genome '", genome(genome(object)), "'\n", sep = "")
+})
+
 ## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### High-level wrapper
 ###
@@ -45,39 +61,70 @@ setMethod("bam_tally", "GmapBamReader",
             }
             
             param_list$genome <- NULL
-            tally <- do.call(.bam_tally_C, c(list(x), param_list))
-            tally_names <- c("seqnames", "pos", "ref", "alt", "ncycles",
-                             "ncycles.ref", "count", "count.ref", "count.total",
-                             "high.quality", "high.quality.ref",
-                             "high.quality.total", "mean.quality",
-                             "mean.quality.ref",
-                             "count.pos", "count.pos.ref",
-                             "count.neg", "count.neg.ref",
-                             "read.pos.mean", "read.pos.mean.ref",
-                             "read.pos.var", "read.pos.var.ref")
-            cycle_breaks <- param_list$cycle_breaks
-            if (!is.null(cycle_breaks)) {
-              cycle_breaks <- as.integer(cycle_breaks)
-              break_names <- paste("cycleCount", head(cycle_breaks, -1),
-                                    tail(cycle_breaks, -1), sep = ".")
-              tally_names <- c(tally_names, break_names)
-            }
-            names(tally) <- tally_names
-            if (param_list$variant_strand > 0) {
-              variant_rows <- !is.na(tally$alt)
-              tally <- lapply(tally, `[`, variant_rows)
-            }
-            gr <- GRanges(tally$seqnames,
-                          IRanges(tally$pos,
-                                  width = rep.int(1L, length(tally$pos))),
-                          strand = Rle("+", length(tally$pos)),
-                          location = paste(tally$seqnames, tally$pos,
-                            sep = ":"),
-                          DataFrame(tail(tally, -2)),
-                          seqlengths = seqlengths(genome))
-            seqinfo(gr) <- seqinfo(genome)
-            gr
+            TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome)
           })
+
+summarizeVariants <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
+{
+  tally <- .Call(R_tally_iit_parse, x@ptr,
+                 read_pos_breaks,
+                 normArgSingleInteger(high_base_quality),
+                 NULL)
+
+  tally_names <- c("seqnames", "pos", "ref", "alt", "n.read.pos",
+                   "n.read.pos.ref", "raw.count", "raw.count.ref",
+                   "raw.count.total",
+                   "high.quality", "high.quality.ref",
+                   "high.quality.total", "mean.quality",
+                   "mean.quality.ref",
+                   "count.pos", "count.pos.ref",
+                   "count.neg", "count.neg.ref",
+                   "read.pos.mean", "read.pos.mean.ref",
+                   "read.pos.var", "read.pos.var.ref")
+  if (!is.null(read_pos_breaks)) {
+    read_pos_breaks <- as.integer(read_pos_breaks)
+    break_names <- paste("readPosCount", head(read_pos_breaks, -1),
+                         tail(read_pos_breaks, -1), sep = ".")
+    tally_names <- c(tally_names, break_names)
+  }
+  names(tally) <- tally_names
+
+  variant_rows <- !is.na(tally$alt)
+  if (!all(variant_rows))
+    tally <- lapply(tally, `[`, variant_rows)
+  
+  meta_names <- setdiff(tally_names,
+                        c("seqnames", "pos", "ref", "alt", "high.quality",
+                          "high.quality.total"))
+  genome <- genome(x)
+  indel <- nchar(tally$ref) == 0L | nchar(tally$alt) == 0L
+  gr <- with(tally,
+             VRanges(seqnames,
+                     IRanges(pos,
+                             width = ifelse(nchar(alt) == 0, nchar(ref), 1L)),
+                     ref, alt,
+                     ifelse(indel, raw.count.total, high.quality.total),
+                     ifelse(indel, raw.count.ref, high.quality.ref),
+                     ifelse(indel, raw.count, high.quality),
+                     DataFrame(tally[meta_names]),
+                     seqlengths = seqlengths(genome)))
+  seqinfo(gr) <- seqinfo(genome)
+  gr <- normalizeIndelAlleles(gr, genome)
+  gr
+}
+
+normalizeIndelAlleles <- function(x, genome) {
+  is.indel <- nchar(ref(x)) == 0L | nchar(alt(x)) == 0L
+  if (any(is.indel)) {
+    indels <- x[is.indel]
+    indels <- shift(indels, -1)
+    anchor <- getSeq(genome, indels)
+    ref(indels) <- paste0(anchor, ref(indels))
+    alt(indels) <- paste0(anchor, alt(indels))
+    x[is.indel] <- indels
+  }
+  x
+}
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Low-level wrappers
@@ -98,7 +145,7 @@ normArgTRUEorFALSE <- function(x) {
 }
 
 .bam_tally_C <- function(bamreader, genome_dir = NULL, db = NULL,
-                         which = NULL, cycle_breaks = NULL,
+                         which = NULL, read_pos_breaks = NULL,
                          high_base_quality = 0L, alloclength = 200000L,
                          minimum_mapq = 0L, good_unique_mapq = 35L,
                          maximum_nhits = 1000000L,
@@ -123,32 +170,28 @@ normArgTRUEorFALSE <- function(x) {
     stop("'genome_dir' must be NULL or a single, non-NA string")
   if (!is.null(db) && !IRanges:::isSingleString(db))
     stop("'db' must be NULL or a single, non-NA string")
-  if (!is.null(cycle_breaks)) {
-    cycle_breaks <- as.integer(cycle_breaks)
-    if (any(is.na(cycle_breaks)))
-      stop("'cycle_breaks' should not contain missing values")
-    if (length(cycle_breaks) < 2)
-      stop("'cycle_breaks' needs at least two elements to define a bin")
-    if (is.unsorted(cycle_breaks))
-      stop("'cycle_breaks' must be sorted")
+  if (!is.null(read_pos_breaks)) {
+    read_pos_breaks <- as.integer(read_pos_breaks)
+    if (any(is.na(read_pos_breaks)))
+      stop("'read_pos_breaks' should not contain missing values")
+    if (length(read_pos_breaks) < 2)
+      stop("'read_pos_breaks' needs at least two elements to define a bin")
+    if (is.unsorted(read_pos_breaks))
+      stop("'read_pos_breaks' must be sorted")
   }
-  iit <- .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
-               normArgSingleInteger(alloclength),
-               normArgSingleInteger(minimum_mapq),
-               normArgSingleInteger(good_unique_mapq),
-               normArgSingleInteger(maximum_nhits),
-               normArgTRUEorFALSE(concordant_only),
-               normArgTRUEorFALSE(unique_only),
-               normArgTRUEorFALSE(primary_only),
-               normArgTRUEorFALSE(ignore_duplicates),
-               normArgSingleInteger(min_depth),
-               normArgSingleInteger(variant_strand),
-               normArgTRUEorFALSE(ignore_query_Ns),
-               normArgTRUEorFALSE(indels),
-               normArgSingleInteger(blocksize),
-               normArgTRUEorFALSE(verbosep))
-  .Call(R_tally_iit_parse, iit,
-        cycle_breaks,
-        normArgSingleInteger(high_base_quality),
-        NULL)
+  .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+        normArgSingleInteger(alloclength),
+        normArgSingleInteger(minimum_mapq),
+        normArgSingleInteger(good_unique_mapq),
+        normArgSingleInteger(maximum_nhits),
+        normArgTRUEorFALSE(concordant_only),
+        normArgTRUEorFALSE(unique_only),
+        normArgTRUEorFALSE(primary_only),
+        normArgTRUEorFALSE(ignore_duplicates),
+        normArgSingleInteger(min_depth),
+        normArgSingleInteger(variant_strand),
+        normArgTRUEorFALSE(ignore_query_Ns),
+        normArgTRUEorFALSE(indels),
+        normArgSingleInteger(blocksize),
+        normArgTRUEorFALSE(verbosep))
 }

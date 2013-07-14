@@ -36,9 +36,9 @@
   \item{ref}{The reference base at that position.}
   \item{alt}{The base for the alternate allele, \code{NA} for the
     reference allele row.}
-  \item{ncycles}{The number of unique cycles at which the alternate allele was
+  \item{n.read.pos}{The number of unique cycles at which the alternate allele was
     observed, \code{NA} for the reference allele row.}
-  \item{ncycles.ref}{The number of unique cycles at which the reference
+  \item{n.read.pos.ref}{The number of unique cycles at which the reference
     allele was observed.}
   \item{count}{The number of reads with the alternate allele,
     \code{NA} for the reference allele row.}
@@ -64,7 +64,7 @@
     allele.}
 
   An additional column is present for each bin formed by
-  the \code{cycle_breaks} parameter, with the read count for that bin.
+  the \code{read_pos_breaks} parameter, with the read count for that bin.
 }
 
 \author{Michael Lawrence}
