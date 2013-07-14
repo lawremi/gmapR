@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: gregion.c 44373 2011-08-05 03:55:58Z twu $";
+static char rcsid[] = "$Id: gregion.c 79539 2012-11-19 22:34:57Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -13,6 +13,8 @@ static char rcsid[] = "$Id: gregion.c 44373 2011-08-05 03:55:58Z twu $";
 #include "listdef.h"
 #include "uinttable.h"
 
+
+#define MAX_GENOMICLENGTH 2000000
 
 #define EXTRA_SHORTEND  30000
 #define EXTRA_LONGEND   100000
@@ -44,10 +46,9 @@ static char rcsid[] = "$Id: gregion.c 44373 2011-08-05 03:55:58Z twu $";
 struct T {
   int nexons;
 
-  Genomicpos_T genomicstart;
-  Genomicpos_T genomicend;
   Genomicpos_T genomiclength;
   bool plusp;
+  int genestrand;
 
   Genomicpos_T extension5;
   Genomicpos_T extension3;
@@ -62,7 +63,9 @@ struct T {
   Genomicpos_T extentend;
 
   Genomicpos_T chroffset;	/* This is for chr, not the segment */
-  Genomicpos_T chrlength;	/* This is for chr, not the segment */
+  Genomicpos_T chrhigh;
+  Genomicpos_T chrlength;
+
   int querystart;		/* Used only for maponly mode */
   int queryend;			/* Used only for maponly mode */
   int matchsize;		/* Used only for maponly mode */
@@ -102,10 +105,10 @@ Gregion_print (T this) {
   /* Off for debugging */
   printf(" %d..%d ",this->querystart,this->queryend);
 #endif
-  printf("%u %u %u %u %u..%u  #%d:%u..%u  length:%u  weight:%.2f  support:%d",
+  printf("%u %u %u %u #%d:%u..%u  length:%u  weight:%.2f  support:%d",
 	 this->extentstart,this->extentend,this->chrstart,this->chrend,
-	 this->genomicstart,this->genomicend,this->chrnum,this->chrstart,
-	 this->chrend,this->genomiclength,this->weight,this->support);
+	 this->chrnum,this->chrstart,this->chrend,this->genomiclength,
+	 this->weight,this->support);
 #ifdef USE_CLEAN
   printf("  bounded_low:%d, bounded_high:%d",this->bounded_low_p,this->bounded_high_p);
 #endif
@@ -124,12 +127,22 @@ Gregion_free (T *old) {
 
 Genomicpos_T
 Gregion_genomicstart (T this) {
-  return this->genomicstart;
+  return this->chroffset + this->chrstart;
 }
 
 Genomicpos_T
 Gregion_genomicend (T this) {
-  return this->genomicend;
+  return this->chroffset + this->chrend;
+}
+
+Genomicpos_T
+Gregion_chrstart (T this) {
+  return this->chrstart;
+}
+
+Genomicpos_T
+Gregion_chrend (T this) {
+  return this->chrend;
 }
 
 Genomicpos_T
@@ -147,6 +160,11 @@ Gregion_revcompp (T this) {
   return !(this->plusp);
 }
 
+int
+Gregion_genestrand (T this) {
+  return this->genestrand;
+}
+
 Chrnum_T
 Gregion_chrnum (T this) {
   return this->chrnum;
@@ -159,13 +177,13 @@ Gregion_chr (T this, IIT_T chromosome_iit) {
 }
 
 Genomicpos_T
-Gregion_chrpos (T this) {
-  return this->chrstart;
+Gregion_chroffset (T this) {
+  return this->chroffset;
 }
 
 Genomicpos_T
-Gregion_chroffset (T this) {
-  return this->chroffset;
+Gregion_chrhigh (T this) {
+  return this->chrhigh;
 }
 
 Genomicpos_T
@@ -219,8 +237,8 @@ Gregion_ncovered (T this) {
 
 T
 Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
-	     bool plusp, IIT_T chromosome_iit, int querystart, int queryend, int querylength,
-	     int matchsize, int trimstart, int trimend) {
+	     bool plusp, int genestrand, IIT_T chromosome_iit, int querystart, int queryend, int querylength,
+	     int matchsize, int trimstart, int trimend, int circular_typeint) {
   T new = (T) MALLOC(sizeof(*new));
 
   debug(printf("Creating gregion with genomicstart %u, genomicend %u\n",
@@ -233,19 +251,20 @@ Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
     new->chrlength = 0U;
   } else {
     new->chrnum = IIT_get_one(chromosome_iit,/*divstring*/NULL,genomicstart,genomicstart);
-    new->chroffset = Interval_low(IIT_interval(chromosome_iit,new->chrnum));
-    new->chrlength = Interval_high(IIT_interval(chromosome_iit,new->chrnum)) - new->chroffset;
+    /* new->chroffset = Interval_low(IIT_interval(chromosome_iit,new->chrnum)); */
+    /* new->chrhigh = Interval_high(IIT_interval(chromosome_iit,new->chrnum)); */
+    IIT_interval_bounds(&new->chroffset,&new->chrhigh,&new->chrlength,
+			chromosome_iit,new->chrnum,circular_typeint);
   }
   
   assert(genomicstart < genomicend);
-  new->genomicstart = genomicstart;
-  new->genomicend = genomicend;
   new->genomiclength = genomicend - genomicstart;
 
   new->chrstart = genomicstart - new->chroffset;
   new->chrend = new->chrstart + new->genomiclength;
 
   new->plusp = plusp;
+  new->genestrand = genestrand;
 
   if (plusp == true) {
     new->extentstart = new->chrstart - querystart;
@@ -308,8 +327,8 @@ Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
 
 
 T
-Gregion_new_from_matches (Match_T match5, Match_T match3, IIT_T chromosome_iit, 
-			  int querylength, int matchsize, int trimstart, int trimend) {
+Gregion_new_from_matches (Match_T match5, Match_T match3, int genestrand, IIT_T chromosome_iit, 
+			  int querylength, int matchsize, int trimstart, int trimend, int circular_typeint) {
   T gregion;
   Genomicpos_T genomicstart, genomicend;
   int querystart, queryend;
@@ -331,17 +350,16 @@ Gregion_new_from_matches (Match_T match5, Match_T match3, IIT_T chromosome_iit,
 #if 0
   if (chromosome_iit == NULL) {
     chroffset = 0U;
-    chrlength = 0U;
   } else {
     chroffset = Interval_low(IIT_interval(chromosome_iit,chrnum));
-    chrlength = Interval_high(IIT_interval(chromosome_iit,chrnum)) - chroffset;
   }
 #endif
 
   debug(printf("Coordinates are %u .. %u\n",genomicstart,genomicend));
 
-  gregion = Gregion_new(/*nexons*/0,genomicstart,genomicend,Match_forwardp(match5),chromosome_iit,
-			querystart,queryend,querylength,matchsize,trimstart,trimend);
+  gregion = Gregion_new(/*nexons*/0,genomicstart,genomicend,Match_forwardp(match5),genestrand,
+			chromosome_iit,querystart,queryend,querylength,matchsize,trimstart,trimend,
+			circular_typeint);
 
   gregion->weight = Match_weight(match5) * Match_weight(match3);
   Match_incr_npairings(match5);
@@ -409,8 +427,8 @@ Gregion_filter_unique (List_T gregionlist) {
   debug(
 	for (p = gregionlist, i = 0; p != NULL; p = p->rest, i++) {
 	  gregion = (T) p->first;
-	  printf("  Initial %d: %d..%d %u-%u (plusp = %d)\n",
-		 i,gregion->querystart,gregion->queryend,gregion->genomicstart,gregion->genomicend,gregion->plusp);
+	  printf("  Initial %d: %d..%d #%d:%u-%u (plusp = %d)\n",
+		 i,gregion->querystart,gregion->queryend,gregion->chrnum,gregion->chrstart,gregion->chrend,gregion->plusp);
 	}
 	);
 
@@ -440,12 +458,12 @@ Gregion_filter_unique (List_T gregionlist) {
   for (i = n-1; i >= 0; i--) {
     gregion = array[i];
     if (eliminate[i] == false) {
-      debug(printf("  Keeping %u-%u (plusp = %d)\n",
-		   gregion->genomicstart,gregion->genomicend,gregion->plusp));
+      debug(printf("  Keeping #%d:%u-%u (plusp = %d)\n",
+		   gregion->chrnum,gregion->chrstart,gregion->chrend,gregion->plusp));
       unique = List_push(unique,(void *) gregion);
     } else {
-      debug(printf("  Eliminating %u-%u (plusp = %d)\n",
-		   gregion->genomicstart,gregion->genomicend,gregion->plusp));
+      debug(printf("  Eliminating #%d:%u-%u (plusp = %d)\n",
+		   gregion->chrnum,gregion->chrstart,gregion->chrend,gregion->plusp));
       /*
       if (gregion->match5 != NULL) {
 	Match_decr_npairings(gregion->match5);
@@ -462,8 +480,8 @@ Gregion_filter_unique (List_T gregionlist) {
   debug(
 	for (p = unique, i = 0; p != NULL; p = p->rest, i++) {
 	  gregion = (T) p->first;
-	  printf("  Final %d: %u-%u (plusp = %d)\n",
-		 i,gregion->genomicstart,gregion->genomicend,gregion->plusp);
+	  printf("  Final %d: #%d:%u-%u (plusp = %d)\n",
+		 i,gregion->chrnum,gregion->chrstart,gregion->chrend,gregion->plusp);
 	}
 	);
 
@@ -471,8 +489,6 @@ Gregion_filter_unique (List_T gregionlist) {
 }
 
 
-#if 0
-/* Not used anymore */
 List_T
 Gregion_filter_support (List_T gregionlist, int boundary, double pct_max, int diff_max) {
   List_T good = NULL, p;
@@ -516,7 +532,6 @@ Gregion_filter_support (List_T gregionlist, int boundary, double pct_max, int di
   List_free(&gregionlist);
   return List_reverse(good);
 }
-#endif
 
 
 double
@@ -549,7 +564,7 @@ Gregion_extend (T this, Genomicpos_T extension5, Genomicpos_T extension3, int qu
   int extra_end;
 
   debug(printf("Entering Gregion_extend with extension5 %u and extension3 %u\n",extension5,extension3));
-  debug(printf("  genomicstart %u, genomiclength %u\n",this->genomicstart,this->genomiclength));
+  debug(printf("  #%d:%u..%u\n",this->chrnum,this->chrstart,this->chrlength));
   this->extension5 = extension5;
   this->extension3 = extension3;
   this->extendedp = true;
@@ -587,25 +602,29 @@ Gregion_extend (T this, Genomicpos_T extension5, Genomicpos_T extension3, int qu
     }
   }
 
+  /* printf("chrstart %u vs left %u\n",this->chrstart,left); */
   if (this->chrstart < left) {
     /* At beginning of chromosome */
-    this->genomicstart -= this->chrstart;
     this->chrstart = 0U;
   } else {
-    this->genomicstart -= left;
     this->chrstart -= left;
   }
 
-  if (this->chrend + right >= this->chrlength) {
+  /* printf("genomicend %u + right %u vs chrhigh %u\n",this->genomicend,right,this->chrhigh); */
+  if (this->chroffset + this->chrend + right >= this->chrhigh) {
     /* At end of chromosome */
-    this->genomicend = this->chroffset + this->chrlength;
     this->chrend = this->chrlength;
   } else {
-    this->genomicend += right;
     this->chrend += right;
   }
 
-  this->genomiclength = this->genomicend - this->genomicstart + 1U;
+  /* Prevent very large genomic segments */
+  if (this->chrend > this->chrstart + MAX_GENOMICLENGTH) {
+    this->chrend = this->chrstart + MAX_GENOMICLENGTH;
+  }
+
+  this->genomiclength = this->chrend - this->chrstart + 1U;
+  /* printf("chrstart %u, chrend %u, genomiclength %u\n",this->chrstart,this->chrend,this->genomiclength); */
 
 #ifdef PMAP
   debug5(printf("  Testing bound5+extension5 = %d - %u < %d + %d, bound3+extension3 = %d + %u > %d - %d\n",
@@ -629,7 +648,8 @@ Gregion_extend (T this, Genomicpos_T extension5, Genomicpos_T extension3, int qu
   }
 #endif
 
-  debug(printf("  genomicstart %u, genomiclength %u\n",this->genomicstart,this->genomiclength));
+  debug(printf("  #%d:%u..%u\n",this->chrnum,this->chrstart,this->chrend));
+
   return;
 }
 

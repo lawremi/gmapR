@@ -3,7 +3,7 @@ CLEANFILES = fa_coords gmap_process
 
 
 bin_PROGRAMS = gmap get-genome gmapindex iit_store iit_get iit_dump \
-               gsnap snpindex cmetindex atoiindex gsnap_tally 
+               gsnap uniqscan snpindex cmetindex atoiindex
 
 GMAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  except.c except.h assert.c assert.h mem.c mem.h \
@@ -11,9 +11,10 @@ GMAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
  interval.c interval.h uintlist.c uintlist.h \
  stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- md5.c md5.h complement.h sequence.c sequence.h reader.c reader.h \
+ md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h reader.c reader.h \
  genomicpos.c genomicpos.h compress.c compress.h \
  gbuffer.c gbuffer.h genome.c genome.h genome_hr.c genome_hr.h \
+ genome-write.c genome-write.h \
  indexdbdef.h indexdb.c indexdb.h indexdb_hr.c indexdb_hr.h \
  oligo.c oligo.h block.c block.h \
  chrom.c chrom.h segmentpos.c segmentpos.h \
@@ -21,6 +22,7 @@ GMAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  matchdef.h match.c match.h matchpool.c matchpool.h \
  diagnostic.c diagnostic.h stage1.c stage1.h \
  diagdef.h diag.c diag.h diagpool.c diagpool.h \
+ cmet.c cmet.h atoi.c atoi.h \
  orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h \
  scores.h intron.c intron.h maxent.c maxent.h maxent_hr.c maxent_hr.h samflags.h pairdef.h pair.c pair.h \
  pairpool.c pairpool.h stage2.c stage2.h \
@@ -40,7 +42,7 @@ GMAP_FILES = fopen.h bool.h types.h separator.h comp.h \
 gmap_CC = $(PTHREAD_CC)
 gmap_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(POPCNT_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 gmap_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-gmap_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
+gmap_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS)
 
 dist_gmap_SOURCES = $(GMAP_FILES)
 
@@ -51,7 +53,7 @@ GSNAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
  interval.c interval.h uintlist.c uintlist.h \
  stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- md5.c md5.h complement.h sequence.c sequence.h reader.c reader.h \
+ md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h reader.c reader.h \
  genomicpos.c genomicpos.h compress.c compress.h \
  genome.c genome.h genome_hr.c genome_hr.h \
  indexdbdef.h indexdb.c indexdb.h indexdb_hr.c indexdb_hr.h \
@@ -80,9 +82,43 @@ GSNAP_FILES = fopen.h bool.h types.h separator.h comp.h \
 gsnap_CC = $(PTHREAD_CC)
 gsnap_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(POPCNT_CFLAGS) $(GOBY_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" -DMAX_READLENGTH=$(MAX_READLENGTH) -DGSNAP=1
 gsnap_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(GOBY_LDFLAGS)
-gsnap_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(GOBY_LIBS)
+gsnap_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS) $(GOBY_LIBS)
 
 dist_gsnap_SOURCES = $(GSNAP_FILES)
+
+
+UNIQSCAN_FILES = fopen.h bool.h types.h separator.h comp.h \
+ except.c except.h assert.c assert.h mem.c mem.h \
+ intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
+ littleendian.c littleendian.h bigendian.c bigendian.h \
+ interval.c interval.h uintlist.c uintlist.h \
+ stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
+ md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h reader.c reader.h \
+ genomicpos.c genomicpos.h compress.c compress.h \
+ genome.c genome.h genome_hr.c genome_hr.h \
+ indexdbdef.h indexdb.c indexdb.h indexdb_hr.c indexdb_hr.h \
+ oligo.c oligo.h \
+ chrom.c chrom.h segmentpos.c segmentpos.h \
+ chrnum.c chrnum.h \
+ maxent_hr.c maxent_hr.h \
+ mapq.c mapq.h shortread.c shortread.h substring.c substring.h stage3hr.c stage3hr.h \
+ spanningelt.c spanningelt.h cmet.c cmet.h atoi.c atoi.h \
+ comp.h maxent.c maxent.h pairdef.h pair.c pair.h pairpool.c pairpool.h diag.c diag.h diagpool.c diagpool.h \
+ orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h stage2.c stage2.h \
+ intron.c intron.h boyer-moore.c boyer-moore.h changepoint.c changepoint.h pbinom.c pbinom.h \
+ dynprog.c dynprog.h translation.c translation.h smooth.c smooth.h \
+ chimera.c chimera.h sense.h stage3.c stage3.h \
+ splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ stage1hr.c stage1hr.h resulthr.c resulthr.h \
+ datadir.c datadir.h mode.h \
+ getopt.c getopt1.c getopt.h uniqscan.c
+
+uniqscan_CC = $(PTHREAD_CC)
+uniqscan_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" -DMAX_READLENGTH=$(MAX_READLENGTH) -DGSNAP=1
+uniqscan_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
+uniqscan_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS)
+
+dist_uniqscan_SOURCES = $(UNIQSCAN_FILES)
 
 
 GMAPINDEX_FILES = fopen.h bool.h types.h \
@@ -91,6 +127,7 @@ GMAPINDEX_FILES = fopen.h bool.h types.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
  interval.c interval.h uintlist.c uintlist.h \
  stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h iit-write.c iit-write.h \
+ md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h genome.c genome.h \
  genomicpos.c genomicpos.h compress.c compress.h genome-write.c genome-write.h \
  genome_hr.c genome_hr.h indexdbdef.h indexdb.c indexdb.h \
  table.c table.h tableint.c tableint.h \
@@ -100,7 +137,7 @@ GMAPINDEX_FILES = fopen.h bool.h types.h \
 gmapindex_CC = $(PTHREAD_CC)
 gmapindex_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS)
 gmapindex_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-gmapindex_LDADD = $(PTHREAD_LIBS)
+gmapindex_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS)
 dist_gmapindex_SOURCES = $(GMAPINDEX_FILES)
 
 
@@ -113,14 +150,14 @@ SNPINDEX_FILES = fopen.h bool.h types.h \
  genomicpos.c genomicpos.h compress.c compress.h \
  genome_hr.c genome_hr.h indexdbdef.h indexdb.c indexdb.h \
  chrom.c chrom.h \
- complement.h md5.c md5.h sequence.c sequence.h genome.c genome.h \
+ complement.h md5.c md5.h bzip2.c bzip2.h sequence.c sequence.h genome.c genome.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h snpindex.c
 
 snpindex_CC = $(PTHREAD_CC)
 snpindex_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DGMAPDB=\"$(GMAPDB)\"
 snpindex_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-snpindex_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
+snpindex_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS)
 dist_snpindex_SOURCES = $(SNPINDEX_FILES)
 
 
@@ -164,7 +201,7 @@ GET_GENOME_FILES = fopen.h bool.h types.h separator.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
  interval.c interval.h uintlist.c uintlist.h \
  stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- md5.c md5.h complement.h sequence.c sequence.h \
+ md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h \
  genome.c genome.h \
  genomicpos.c genomicpos.h chrom.c chrom.h \
  chrnum.c chrnum.h chrsubset.c chrsubset.h \
@@ -174,7 +211,7 @@ GET_GENOME_FILES = fopen.h bool.h types.h separator.h \
 get_genome_CC = $(PTHREAD_CC)
 get_genome_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DGMAPDB=\"$(GMAPDB)\"
 get_genome_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-get_genome_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
+get_genome_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(BZLIB_LIBS)
 dist_get_genome_SOURCES = $(GET_GENOME_FILES)
 
 
@@ -221,23 +258,5 @@ iit_dump_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS)
 iit_dump_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
 iit_dump_LDADD = $(PTHREAD_LIBS)
 dist_iit_dump_SOURCES = $(IIT_DUMP_FILES)
-
-
-GSNAP_TALLY_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- littleendian.c littleendian.h bigendian.c bigendian.h \
- interval.c interval.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- complement.h chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- gsnapread.c gsnapread.h \
- datadir.h datadir.c \
- getopt.c getopt1.c getopt.h gsnap_tally.c
-
-gsnap_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-gsnap_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-gsnap_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
-dist_gsnap_tally_SOURCES = $(GSNAP_TALLY_FILES)
 
 

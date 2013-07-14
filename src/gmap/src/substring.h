@@ -1,4 +1,4 @@
-/* $Id: substring.h 52221 2011-11-11 00:46:16Z twu $ */
+/* $Id: substring.h 92496 2013-04-11 18:15:12Z twu $ */
 #ifndef SUBSTRING_INCLUDED
 #define SUBSTRING_INCLUDED
 
@@ -15,20 +15,30 @@
 
 typedef enum {END, INS, DEL, DON, ACC, AMB_DON, AMB_ACC, TERM} Endtype_T;
 
+extern char *
+Endtype_string (Endtype_T endtype);
+
 extern void
 Substring_setup (bool print_nsnpdiffs_p_in, bool print_snplabels_p_in,
 		 bool show_refdiff_p_in, IIT_T snps_iit_in, int *snps_divint_crosstable_in,
 		 IIT_T genes_iit_in, int *genes_divint_crosstable_in,
 		 IIT_T splicesites_iit_in, int *splicesites_divint_crosstable_in,
 		 int donor_typeint_in, int acceptor_typeint_in, int trim_mismatch_score_in,
+		 bool novelsplicingp_in, bool knownsplicingp_in,
 		 bool output_sam_p_in, Mode_T mode_in);
 
 #define T Substring_T
 typedef struct T *T;
 
+extern void
+Substring_alias_circular (T this);
+extern void
+Substring_unalias_circular (T this);
+
 extern T
 Substring_new (int nmismatches_whole, Chrnum_T chrnum, Genomicpos_T chroffset,
-	       Genomicpos_T chrhigh, Genomicpos_T left, Genomicpos_T genomicstart, Genomicpos_T genomicend,
+	       Genomicpos_T chrhigh, Genomicpos_T chrlength,
+	       Genomicpos_T left, Genomicpos_T genomicstart, Genomicpos_T genomicend,
 	       Compress_T query_compress, Endtype_T start_endtype, Endtype_T end_endtype,
 	       int querystart, int queryend, int querylength,
 	       Genomicpos_T alignstart, Genomicpos_T alignend, int genomiclength,
@@ -36,7 +46,7 @@ Substring_new (int nmismatches_whole, Chrnum_T chrnum, Genomicpos_T chroffset,
 	       bool plusp, int genestrand, bool trim_left_p, bool trim_right_p, int minlength);
 
 extern double
-Substring_compute_mapq (T this, Compress_T query_compress, char *quality_string);
+Substring_compute_mapq (T this, Compress_T query_compress, char *quality_string, bool trim_terminals_p);
 
 extern int
 Substring_display_prep (char **deletion, T this, char *query, Compress_T query_compress_fwd, Compress_T query_compress_rev,
@@ -68,6 +78,8 @@ Substring_splicesites_i_D (T this);
 
 extern bool
 Substring_plusp (T this);
+extern int
+Substring_genestrand (T this);
 extern char *
 Substring_genomic_bothdiff (T this);
 extern char *
@@ -85,17 +97,23 @@ Substring_nmatches (T this);
 extern int
 Substring_nmatches_posttrim (T this);
 extern void
-Substring_set_nmismatches_terminal (T this, int nmismatches_whole);
+Substring_set_nmismatches_terminal (T this, int nmismatches_whole, int nmismatches_bothdiff);
 extern Endtype_T
 Substring_start_endtype (T this);
 extern Endtype_T
 Substring_end_endtype (T this);
+extern void
+Substring_set_endtypes (T this, Endtype_T start_endtype, Endtype_T end_endtype);
 extern double
 Substring_mapq_loglik (T this);
 extern int
 Substring_trim_left (T this);
 extern int
 Substring_trim_right (T this);
+extern bool
+Substring_trim_left_splicep (T this);
+extern bool
+Substring_trim_right_splicep (T this);
 extern int
 Substring_querystart (T this);
 extern int
@@ -117,6 +135,8 @@ extern Genomicpos_T
 Substring_chroffset (T this);
 extern Genomicpos_T
 Substring_chrhigh (T this);
+extern Genomicpos_T
+Substring_chrlength (T this);
 extern Genomicpos_T
 Substring_alignstart (T this);
 extern Genomicpos_T
@@ -151,8 +171,12 @@ extern int
 Substring_nchimera_known (T this);
 extern int
 Substring_nchimera_novel (T this);
+extern int
+Substring_chimera_sensedir (T this);
 extern bool
 Substring_chimera_sensep (T this);
+extern int
+Substring_circularpos (T this);
 
 
 extern T
@@ -162,12 +186,12 @@ extern T
 Substring_new_donor (int splicesites_i, int splicesites_offset, int donor_pos, int donor_nmismatches,
 		     double donor_prob, Genomicpos_T left, Compress_T query_compress,
 		     int querylength, bool plusp, int genestrand, bool sensep,
-		     Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh);
+		     Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh, Genomicpos_T chrlength);
 extern T
 Substring_new_acceptor (int splicesites_i, int splicesites_offset, int acceptor_pos, int acceptor_nmismatches,
 			double acceptor_prob, Genomicpos_T left, Compress_T query_compress,
 			int querylength, bool plusp, int genestrand, bool sensep,
-			Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh);
+			Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh, Genomicpos_T chrlength);
 extern T
 Substring_new_shortexon (int acceptor_splicesites_i, int donor_splicesites_i, int splicesites_offset,
 			 int acceptor_pos, int donor_pos, int nmismatches,
@@ -175,7 +199,7 @@ Substring_new_shortexon (int acceptor_splicesites_i, int donor_splicesites_i, in
 			 Compress_T query_compress, int querylength,
 			 bool plusp, int genestrand, bool sensep,
 			 bool acceptor_ambp, bool donor_ambp,
-			 Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh);
+			 Chrnum_T chrnum, Genomicpos_T chroffset, Genomicpos_T chrhigh, Genomicpos_T chrlength);
 
 extern List_T
 Substring_sort_chimera_halves (List_T hitlist, bool ascendingp);
@@ -242,6 +266,10 @@ Substring_assign_acceptor_prob (T acceptor);
 extern void
 Substring_assign_shortexon_prob (T shortexon);
 #endif
+
+extern int
+Substring_count_mismatches_region (T this, int trim_left, int trim_right,
+				   Compress_T query_compress_fwd, Compress_T query_compress_rev);
 
 #undef T
 #endif

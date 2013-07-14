@@ -3,7 +3,7 @@
 ============
 
 The source code for this package is available from
-http://share.gene.com/gmap.  License terms are provided in the
+http://research-pub.gene.com/gmap.  License terms are provided in the
 COPYING file.
 
 
@@ -16,6 +16,13 @@ compiler, and Perl
 Step 1: Set your site-specific variables by editing the file
 config.site.  In particular, you should set appropriate values for
 "prefix" and probably for "with_gmapdb", as explained in that file.
+If you are compiling this package on a Macintosh, you may need to edit
+CFLAGS to be
+
+CFLAGS = '-O3 -m64'
+
+since Macintosh machines will make only 32-bit executables by default.
+
 
 Step 2: Build, test, and install the programs, by running the
 following GNU commands
@@ -46,7 +53,7 @@ then refer to it like this
 
 Note 3: GSNAP is designed for short reads of a limited length, and
 relies upon a maximum read length variable MAX_READLENGTH defined at
-compile time (default 200).  You may set this variable by providing it
+compile time (default 250).  You may set this variable by providing it
 to configure like this
 
     ./configure MAX_READLENGTH=<length>
@@ -57,6 +64,9 @@ MAX_READLENGTH as an environment variable before calling ./configure.
 If you do not set MAX_READLENGTH, it will have the default value shown
 when you run "./configure --help".
 
+Note that MAX_READLENGTH applies only to GSNAP.  GMAP, on the other
+hand, can process queries up to 1 million bp.
+
 
 Note 4: GSNAP can read from gzip-compressed FASTA or FASTQ input
 files.  This feature requires the zlib library to be present
@@ -66,7 +76,15 @@ this feature, you can add "--disable-zlib" to the ./configure command
 or edit your config.site file to have the command "disable_zlib".
 
 
-Note 5: GSNAP optionally supports the Goby input and output file
+Note 5: GSNAP can read from bzip2-compressed FASTA or FASTQ input
+files.  This feature requires the bzlib library to be present.  The
+configure program will detect the availability of bzlib automatically.
+However, to disable this feature, you can add "--disable-bzlib" to the
+./configure command or edit your config.site file to have the command
+"disable_bzlib".
+
+
+Note 6: GSNAP optionally supports the Goby input and output file
 formats.  To implement this functionality, you need to obtain and
 compile the libraries from http://campagnelab.org/software/goby.  If
 the resulting header files are located in /path/to/goby/include and
@@ -108,18 +126,43 @@ databases.
 The old databases have the index files <genome>.ref3offsets and
 <genome>.ref3positions.  The new databases have the index files
 <genome>.ref12153gammaptrs, <genome>.ref12153offsetscomp, and
-<genome>.ref12153positions, if built using a base size of 12, a k-mer
+<genome>.ref153positions, if built using a base size of 12, a k-mer
 size of 15, and skipping every 3 bp in the genome.  If the k-mer size
 is equal to the base size, then the gammaptrs file will be absent.
+
+Also, the name of the positions file has changed starting with
+2012-02-14 version.  Previously, the file was named
+<genome>.ref12153positions, but it is now named
+<genome>.ref153positions, since the contents are independent of the
+base size.  If you create a database with a newer version of the
+package, and want older versions of the GMAP or GSNAP to work with
+these newer versions, you will need to make a symbolic link like this:
+
+    ln -s <genome>.ref153positions <genome>.ref12153.positions
 
 
 
 3.  Setting up to build a GMAP/GSNAP database (one chromosome per FASTA entry)
 ==============================================================================
 
-There are two utility programs provided for making a GMAP database.
+You can also build your own genomic database, using one of two utility
+programs provided with this package: gmap_build (the newer, one-step
+method) or gmap_setup (the older way that uses Makefile and requires
+multiple steps).  Note that the total sequence length in your database
+cannot exceed 2^32 = 4,294,967,296 (about 4 billion) bp.  This is
+because the format uses 32-bit pointers.  If your total sequence
+provided to the utility programs exceeds 4 billion bp, the programs
+will abort.  Below I use the "genome" and "chromosome", but the input
+sequences can be anything you wish to align to, including transcripts
+or small fragments.
+
 You will need to start with a set of FASTA files containing either
 entire chromosomes or contigs that represent pieces of chromosomes.
+For example, for the human genome, you can retrieve all of the FASTA
+files under the ftp directory at
+
+    ftp://hgdownload.cse.ucsc.edu/goldenPath/hg19/chromosomes/
+
 If your FASTA entries each contain a single chromosome, and the
 accession for each chromosome is the chromosome number/letter, you can
 simply run this command
@@ -152,11 +195,24 @@ required.  Therefore, you may want to build your genomic index on a
 computer with sufficient RAM, and distribute that index to be used by
 computers with less RAM.
 
+The amount of compression can be controlled using the -b or --basesize
+parameter to gmap_build.  By default, the value for k-mer size is 15,
+and the value for basesize is 12.  If you select a different value for
+k-mer size, then basesize is made by default to be equal to that k-mer
+size.
+
 If you want to build your genomic databases with more than one k-mer
 size, you can re-run gmap_build with different values of -k.  This
 will overwrite only the identical files from the previous runs.  You
 can then choose the k-mer size at run-time by using the -k flag for
 either GMAP or GSNAP.
+
+Finally, you can provide information to gmap_build that certain
+chromosomes are circular, with the -c or --circular flag.  The value
+for these flags is a list of chromosomes, separated by commas.  The
+gmap_build program will then allow GSNAP and GMAP to align reads
+across the ends of the chromosome.  For example, the mitochondrial
+genome in human beings is circular.
 
 
 
@@ -502,13 +558,26 @@ or
 
 
 For paired-end reads, the two corresponding FASTQ files should be
-given as command-line arguments, like this
+given as command-line arguments in pairs, like this
 
-    gsnap -d <genome> <fastq_file_1> <fastq_file_2>
+    gsnap -d <genome> <fastq_file_1> <fastq_file_2> [<fastq_file_3> <fastq_file_4>...]
 
 A pipe cannot work since GSNAP needs to access both FASTQ files in
 parallel.  The reads in FASTQ files may have varying lengths, if
-desired.
+desired.  Note that GSNAP can process multiple sets of paired-end
+reads, by adding the files in pairs.  If you want to provide multiple
+single-end files, you can either use "cat" to concatenate them into
+the stdin of gsnap, like this:
+
+    cat <fastq_file_1> [<fastq_file_2>...] | gsnap -d <genome>
+
+or you can provide them all on the command line with the
+--force-single-end flag, like this:
+
+    gsnap -d <genome> --force-single-end <fastq_file_1> [<fastq_file_2>...]
+
+which will process each FASTQ file one at a time as single-end reads,
+and not try to pair them up.
 
 GSNAP also has the ability to deal with files compressed with gzip, if
 the configure script at compile time can find a zlib library in your
@@ -516,11 +585,27 @@ system (see Note 3 in the section above about building and installing
 GMAP and GSNAP).  If so, and your files are gzipped, you can then read
 in gzipped files directly like this
 
-    gsnap --gunzip -d <genome> <fastq.gz>
+    gsnap --gunzip -d <genome> <fastq.gz>, or 
+    gsnap --gunzip -d <genome> --force-single-end <fastq1.gz> [<fastq2.gz>...]
 
 for single-end reads, or
 
-    gsnap --gunzip -d <genome> <fastq_1.gz> <fastq_2.gz>
+    gsnap --gunzip -d <genome> <fastq_1.gz> <fastq_2.gz> [<fastq_3.gz> <fastq_4.gz>...]
+
+for paired-end reads.
+
+Likewise, GSNAP can handle files compressed with bzip2, if the
+configure script at compile time can find a bzlib library in your
+system (see Note 3 in the section above about building and installing
+GMAP and GSNAP).  If so, and your files are bzip2-compressed, you can
+then read in those files directly like this
+
+    gsnap --bunzip2 -d <genome> <fastq.bz2>, or 
+    gsnap --bunzip2 -d <genome> --force-single-end <fastq1.bz2> [<fastq2.bz2>...]
+
+for single-end reads, or
+
+    gsnap --bunzip2 -d <genome> <fastq_1.bz2> <fastq_2.bz2> [<fastq_1.bz2> <fastq_2.bz2>...]
 
 for paired-end reads.
 
@@ -584,35 +669,73 @@ This extended FASTA format is useful if paired-end information needs
 to be piped into GSNAP via stdin.
 
 
-Output formats in GSNAP
+SAM output format
 =======================
 
-By default, GSNAP prints its output in a FASTA-like format, which we
-describe below.  We have also implemented SAM output format, which you
-can obtain by using the "-A sam" flag to GSNAP.
-
-In addition, GMAP can also print its alignments in SAM output, using
-the "-f samse" or "-f sampe" options, for single-end or paired-end
-data.  The sampe option will generate SAM flags to indicate whether
-the read is the first or second end of a pair, which requires that you
-provide GMAP with an extended FASTA format having a ">" or "<"
-character in the header to indicate that information.  However, the
-sampe option will change only the SAM flags, and not change the
+GSNAP can generate SAM output format, by providing the "-A sam" flag
+to GSNAP.  In addition, GMAP can also print its alignments in SAM
+output, using the "-f samse" or "-f sampe" options, for single-end or
+paired-end data.  The sampe option will generate SAM flags to indicate
+whether the read is the first or second end of a pair, which requires
+that you provide GMAP with an extended FASTA format having a ">" or
+"<" character in the header to indicate that information.  However,
+the sampe option will change only the SAM flags, and not change the
 underlying alignment algorithm.  GMAP does not know how to find
 concordance between paired-end reads like GSNAP does.
 
-GSNAP output has some advantages over SAM output, though, in showing
+GSNAP provides some special SAM flags as follows:
+
+XQ: A non-normalized mapping quality score
+
+X2: The second best XQ score among all multimapping alignments for a
+given read.  If there is only a single alignment, this value is 0.
+
+XB: Prints the barcode extracted from the end of the read.  Applies only
+if --barcode-length is not 0.
+
+XP: Prints the primer inferred from a paired-end read.  Applies only
+if the --adapter-strip flag is specified.
+
+XS: Prints the strand orientation (+ or -) for a splice.  Appears only
+if splicing is allowed (-N or -s flag provided), and only for reads
+containing a splice.  The value "+" means the expected GT-AG, GC-AG,
+or AT-AC dinucleotide pair is on the plus strand of the genome, and
+"-" means the dinucleotides are on the minus strand.  If the
+orientation is not obvious, because the dinucleotides do not match
+GT-AG, GC-AG, AT-AC, or their complements, then the program applies a
+probabilistic splice model to determine the orientation.  If the
+splice sites have low probability, then the program may not be able to
+determine an orientation, and the result will be printed as XS:A:?.
+To prevent this flag, which cannot be handled by such programs (such
+as Cufflinks), use the --force-xs-dir flag.  However, this flag will
+merely change occurrences of XS:A:? arbitrarily to XS:A:+.
+
+XT: Prints the intron dinucleotides and splice probabilities around a
+distant splicing event (genomic deletion, inversion, scramble, or
+translocation).
+
+XW and XV: Printed only when SNP-tolerant alignment is enabled.  XW
+provides the number of mismatches against both the reference and
+alternate alleles (or the "World" population).  Therefore, these are
+true mismatches.  XV provides the number of positions that are
+mismatches against the reference genome, but do match the alternate
+genome.  Therefore, these are known variant positions.  The sum of XW
+and XV provides the number of differences relative to the reference
+genome, and with the exception of indels, should equal the value of
+NM.
+
+
+GSNAP output format
+===================
+
+By default, GSNAP prints its output in a FASTA-like format, which we
+developed before we incorporated the SAM format.  The default GSNAP
+output has some advantages over SAM output, especially for debugging
+purposes.
+
 the orientation of splice junctions, in indicating translocations that
 occur in a single read, and in reflecting information about known
-splice sites or known SNPs.  To provide splice orientation, though,
-our SAM output includes information about splice orientation in an
-extra "XS" field, which has possible values "+" (meaning the expected
-GT-AG, GC-AG, or AT-AC dinucleotide pair is on the plus strand of the
-genome), "-" (the dinucleotides are on the minus strand), or "?" (the
-direction is unknown, because the dinucleotides do not match GT-AG,
-GC-AG, AT-AC, or their complements).  Likewise, for translocations,
-our SAM output includes an "XT" flag that provides information about
-the intron dinucleotides and splice site probabilities.
+splice sites or known SNPs.  
 
 Here is some output from GSNAP on a paired-end read:
 
@@ -944,8 +1067,17 @@ For SAM output format, all differences from the reference sequence are
 shown in the NM and MD fields, although the alignment scoring and
 mapping qualities are based on a SNP-tolerant alignment.
 
-To specify a set of known SNPs, you will need to create a file with the
-following format:
+Before deciding to use SNP-tolerant alignment, please note the
+following.  First, SNP-tolerant alignment requires more memory than
+standard alignment, perhaps twice as much.  Also, with longer reads
+now of 75 or more bp, GSNAP alignments are generally fine without
+SNP-tolerant alignment.  Finally, if your SNPs are incorrect (and many
+in the databases are), then they can lead SNP-tolerant alignment to
+favor the faulty SNPs.
+
+If you still wish to use SNP-tolerant alignment, you will need to
+specify a set of known SNPs by creating a file with the following
+format:
 
 >rs62211261 21:14379270 CG
 >rs62211262 21:14379281 CG
@@ -973,9 +1105,10 @@ separate lines at that position with the genotypes "WX" and "WY",
 where "W" is the reference allele and "X" and "Y" are two different
 alternate alleles.
 
-To help you generate the file, this package includes a program called
-dbsnp_iit that can process the dbsnp files from UCSC.  First, you will
-need to get a dbsnp file, like this
+To help you generate the file, this package includes programs that can
+process known SNP data, either from older dbSNP files or from newer
+files in VCF format.  The older dbSNP files can be obtained from UCSC,
+like this
 
     ftp://hgdownload.cse.ucsc.edu/goldenPath/hg18/database/snp130.txt.gz
 
@@ -984,7 +1117,8 @@ which will require this file:
 
     ftp://hgdownload.cse.ucsc.edu/goldenPath/hg18/database/snp130Exceptions.txt.gz
 
-You can then process these files using dbsnp_iit, like this:
+You can then process these files using our program dbsnp_iit, like
+this:
 
     gunzip -c snp130.txt.gz | dbsnp_iit [-w <weight>] [-e snp130Exceptions.txt.gz] > <snpfile>.txt, or
     gunzip -c snp130.txt.gz | dbsnp_iit [-w <weight>] [-e snp130Exceptions.txt] > <snpfile>.txt
@@ -1007,8 +1141,29 @@ However, if you want to include some types of exceptions, you will
 need to modify the dbsnp_iit program (written in Perl) to indicate a
 "1" for the type of exception you want to include.
 
-Once you have built a <snpfile>.txt file using dbsnp_iit, you create
-an IIT file by doing this
+The more recent SNP data are provided in VCF format, and can be
+retrieved like this:
+
+    ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606/VCF/00-All.vcf.gz
+
+You can process VCF files using our program vcf_iit, like this:
+
+    gunzip -c 00-All.vcf.gz | vcf_iit [-v <version>] > <snpfile>.txt
+
+The VCF file contains multiple versions of dbSNP, so if you want a
+particular version, such as 135, you would use the flag "-v 135".  The
+vcf_iit program tries to pick a subset of SNPs that somewhat parallel
+the ones without exceptions in the UCSC dbSNP file.  It keeps all SNPs
+that have been validated (marked in the VCF file as "VLD") or have a
+submitter link-out ("SLO").  Otherwise, it excludes SNPs that are
+individual genotypes ("GNO").  If none of these conditions hold, then
+the SNP is allowed.  These rules might not be the best ones; I made
+them up by trying to compare version 135 of the VCF data with
+version 135 of the UCSC dbSNP data.
+
+
+Once you have built a <snpfile>.txt file using either dbsnp_iit or
+vcf_iit, you create an IIT file by doing this
                                                                                                 
     cat <snpfile>.txt | iit_store -o <snpfile>
                                                                                                 
@@ -1072,9 +1227,22 @@ create the necessary index files by doing
 
 Then, you can align the reads by doing
 
-    gsnap -d <genome> --mode=cmet
+    gsnap -d <genome> --mode=cmet-stranded, or
+    gsnap -d <genome> --mode=cmet-nonstranded
 
-on your set of short reads.
+on your set of short reads.  The stranded flag works on data where
+the laboratory allows only reads that go from 5' to 3' on each strand
+of the genome, and excludes their reverse complement reads that would
+be produced by PCR amplification.  The resulting reads should have a
+preponderance of C's converted to T's.
+
+The non-stranded flag is for the laboratory protocol that allows both
+the 5'-to-3' genomic reads on each strand, as well as their reverse
+complements.  The reverse complemented reads will have the C-to-T
+conversion show up as a G-to-A change.  The resulting reads should
+have a preponderance of T's in half the reads, and a preponderance of
+A's in half the reads.
+
 
 
 RNA-editing tolerance in GSNAP
@@ -1093,7 +1261,11 @@ create the necessary index files by doing
 
 Then, you can align the reads by doing
 
-    gsnap -d <genome> --mode=atoi
+    gsnap -d <genome> --mode=atoi-stranded, or 
+    gsnap -d <genome> --mode=atoi-nonstranded
 
-on your set of short reads.
+on your set of short reads.  As with bisulfite sequencing, the
+stranded flag is for laboratory protocols that allow only the 5'-to-3'
+RNA, or sense, reads, and the non-stranded flag is for laboratory
+protocols that allow both sense and antisense reads.
 

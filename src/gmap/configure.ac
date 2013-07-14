@@ -20,12 +20,42 @@ AC_INIT([gmap],PKG_VERSION,[Thomas Wu <twu@gene.com>])
 AC_MSG_CHECKING(package version)
 AC_MSG_RESULT(PKG_VERSION)
 
+
+### Read defaults
+AC_MSG_CHECKING(CONFIG_SITE)
+if test -z "$CONFIG_SITE"; then
+  CONFIG_SITE="./config.site"
+else
+  CONFIG_SITE="$CONFIG_SITE"
+fi
+AC_MSG_RESULT($CONFIG_SITE)
+
+for ac_site_file in $CONFIG_SITE; do
+  if test -r "$ac_site_file"; then
+    echo "loading script $ac_site_file"
+    . "$ac_site_file"
+  fi
+done
+
+
+# Set default CFLAGS if not already set by user
+AC_MSG_CHECKING(CFLAGS)
+AC_ARG_VAR([CFLAGS], [Compiler flags (default: -O3)])
+if test x"$CFLAGS" = x; then
+        AC_MSG_RESULT(not set by user so using default -O3)
+        ACX_EXPAND(CFLAGS,'-O3')
+else
+	AC_MSG_RESULT($CFLAGS)
+fi
+
+
+
 AC_CONFIG_SRCDIR([src/gmap.c])
 AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_AUX_DIR([config])
 # For autotest: AC_CONFIG_TESTDIR([tests],[tests:src:util])
 
-AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_MACRO_DIR([config])
 
 AC_CANONICAL_SYSTEM
 AC_SYS_LARGEFILE
@@ -47,18 +77,6 @@ AC_ARG_ENABLE([maintainer],
                               [For use by program maintainer]),
 	      [enable_maintainer="yes"],
               [enable_maintainer="no"])
-
-### Read defaults
-if test -z "$CONFIG_SITE"; then
-  CONFIG_SITE=""
-fi
-CONFIG_SITE="./config.site $CONFIG_SITE"
-for ac_site_file in $CONFIG_SITE; do
-  if test -r "$ac_site_file"; then
-    echo "loading script $ac_site_file"
-    . "$ac_site_file"
-  fi
-done
 
 # For Perl scripts, because otherwise configure inserts 
 # @bindir@ => "${exec_prefix}/bin";
@@ -148,6 +166,7 @@ AC_TYPE_OFF_T
 AC_CHECK_TYPES([caddr_t])
 AC_CHECK_SIZEOF(unsigned long)
 AC_CHECK_SIZEOF(unsigned long long)
+AC_CHECK_SIZEOF(off_t)
 
 # Checks for library functions.
 #AC_FUNC_MALLOC -- Causes use of rpl_malloc
@@ -158,8 +177,30 @@ AC_FUNC_FSEEKO
 
 #AC_FUNC_MMAP        # Checks only private fixed mapping of already-mapped memory
 
-ACX_MMAP_FIXED   # Checks fixed mapping
-ACX_MMAP_VARIABLE   # Checks variable mapping
+AC_MSG_CHECKING(whether mmap is enabled)
+AC_ARG_ENABLE([mmap],
+	      AC_HELP_STRING([--enable-mmap],
+                             [Enable mmap (default=yes).  Recommend that you do not disable this unless absolutely necessary.]),
+              [answer="$enableval"],
+              [answer=""])
+case x"$answer" in
+     xyes)
+     AC_MSG_RESULT(enabled)
+     ACX_MMAP_FIXED   # Checks fixed mapping
+     ACX_MMAP_VARIABLE   # Checks variable mapping
+     ;;
+
+     xno)
+     AC_MSG_RESULT(disabled)
+     ;;
+
+     x)
+     AC_MSG_RESULT([not specified so enabled by default])
+     ACX_MMAP_FIXED   # Checks fixed mapping
+     ACX_MMAP_VARIABLE   # Checks variable mapping
+     ;;
+esac	
+
 
 if test x"$acx_mmap_fixed_ok" = xyes; then
   AC_DEFINE(HAVE_MMAP,1,[Define to 1 if you have a working 'mmap' system call.])
@@ -224,9 +265,9 @@ AC_MSG_RESULT($GMAPDB)
 
 # MAX_READLENGTH
 AC_MSG_CHECKING(MAX_READLENGTH)
-AC_ARG_VAR([MAX_READLENGTH], [Maximum read length for GSNAP (default 200)])
+AC_ARG_VAR([MAX_READLENGTH], [Maximum read length for GSNAP (default 250)])
 if test x"$MAX_READLENGTH" = x; then
-        ACX_EXPAND(MAX_READLENGTH,'200')
+        ACX_EXPAND(MAX_READLENGTH,'250')
 fi
 AC_MSG_RESULT($MAX_READLENGTH)
 
@@ -280,40 +321,45 @@ esac
 AC_SUBST(ZLIB_LIBS)
 
 
-# Samtools package
+# bzip2 package
 
-AC_MSG_CHECKING(for samtools library)
-AC_ARG_WITH([samtools],
-            AC_HELP_STRING([--with-samtools=DIR],
-                           [Location of samtools header and library files (both in DIR) (optional)]),
-            [answer="$withval"],
-            [answer=""])
-if test x"$answer" = x; then
-  SAMTOOLS_CFLAGS=""
-  SAMTOOLS_LDFLAGS=""
-  SAMTOOLS_LIBS=""
-  AC_MSG_RESULT(disabled)
-  samtools=false
-else
-  if test x$have_zlib = xno; then
-     SAMTOOLS_CFLAGS=""
-     SAMTOOLS_LDFLAGS=""
-     SAMTOOLS_LIBS=""
-     AC_MSG_RESULT(enabled, but zlib not enabled)
-     samtools=false
-  else
-     AC_DEFINE(HAVE_SAMTOOLS,1,[Define to 1 if you have a working Samtools library.])
-     SAMTOOLS_CFLAGS="-I$withval"
-     SAMTOOLS_LDFLAGS="-L$withval"
-     SAMTOOLS_LIBS="-lbam"
-     AC_MSG_RESULT(enabled)
-     samtools=true
-  fi
-fi
-AC_SUBST(SAMTOOLS_CFLAGS)
-AC_SUBST(SAMTOOLS_LDFLAGS)
-AC_SUBST(SAMTOOLS_LIBS)
-AM_CONDITIONAL([SAMTOOLS], [test "x$samtools" = xtrue])
+AC_MSG_CHECKING(for bzlib support)
+AC_ARG_ENABLE([bzlib],
+              AC_HELP_STRING([--enable-bzlib],
+                             [Enable bzlib support (option needed for uncompressing bzip2 files) (default=yes)]),
+              [answer="$enableval"],
+              [answer=""])
+case x"$answer" in
+   xno)
+   AC_MSG_RESULT(disabled)
+   BZLIB_LIBS=""
+   have_bzlib=no
+   ;;
+
+   *)
+   AC_MSG_RESULT(enabled)
+   failed=0;
+   passed=0;
+   AC_CHECK_HEADER(bzlib.h,passed=`expr $passed + 1`,failed=`expr $failed + 1`)
+   AC_CHECK_LIB(bz2,BZ2_bzReadOpen,passed=`expr $passed + 1`,failed=`expr $failed + 1`)
+   AC_CHECK_LIB(bz2,BZ2_bzRead,passed=`expr $passed + 1`,failed=`expr $failed + 1`)
+   AC_CHECK_LIB(bz2,BZ2_bzReadClose,passed=`expr $passed + 1`,failed=`expr $failed + 1`)
+   AC_MSG_CHECKING(if bzlib package is complete)
+   if test $failed -gt 0
+   then
+      AC_MSG_RESULT(no -- some components failed test)
+      BZLIB_LIBS=""
+      have_bzlib=no
+   else
+      AC_MSG_RESULT(working)
+      AC_DEFINE(HAVE_BZLIB,1,[Define to 1 if you have a working bzlib library.])
+      BZLIB_LIBS="-lbz2"
+      have_bzlib=yes
+   fi
+   ;;
+
+esac
+AC_SUBST(BZLIB_LIBS)
 
 
 # Goby package
@@ -363,6 +409,7 @@ AC_CONFIG_FILES([util/gff3_splicesites.pl])
 AC_CONFIG_FILES([util/gff3_introns.pl])
 AC_CONFIG_FILES([util/gff3_genes.pl])
 AC_CONFIG_FILES([util/dbsnp_iit.pl])
+AC_CONFIG_FILES([util/vcf_iit.pl])
 AC_CONFIG_FILES([tests/Makefile])
 AC_CONFIG_FILES([tests/align.test],[chmod +x tests/align.test])
 AC_CONFIG_FILES([tests/coords1.test],[chmod +x tests/coords1.test])

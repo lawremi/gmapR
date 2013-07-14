@@ -1,4 +1,4 @@
-/* $Id: shortread.h 52714 2011-11-17 17:35:30Z twu $ */
+/* $Id: shortread.h 90425 2013-03-27 16:27:35Z twu $ */
 #ifndef SHORTREAD_INCLUDED
 #define SHORTREAD_INCLUDED
 #include <stdio.h>
@@ -8,13 +8,17 @@
 #include <zlib.h>
 #endif
 
+#ifdef HAVE_BZLIB
+#include "bzip2.h"
+#endif
+
 
 #define T Shortread_T
 typedef struct T *T;
 
 extern void
 Shortread_setup (int acc_fieldi_start_in, int acc_fieldi_end_in,
-		 bool filter_chastity_p_in);
+		 bool force_singled_end_p_in, bool filter_chastity_p_in);
 
 extern char *
 Shortread_accession (T this);
@@ -31,6 +35,11 @@ Shortread_input_init (FILE *fp);
 #ifdef HAVE_ZLIB
 extern int
 Shortread_input_init_gzip (gzFile fp);
+#endif
+
+#ifdef HAVE_BZLIB
+extern int
+Shortread_input_init_bzip2 (Bzip2_T fp);
 #endif
 
 extern char *
@@ -75,7 +84,8 @@ Shortread_new (char *acc, char *restofheader, bool filterp,
 	       int barcode_length, bool invertp, bool copy_acc_p);
 
 extern T
-Shortread_read_fasta_shortreads (int *nextchar, T *queryseq2, FILE **input, char ***files, int *nfiles,
+Shortread_read_fasta_shortreads (int *nextchar, T *queryseq2, FILE **input1, FILE **input2,
+				 char ***files, int *nfiles,
 				 int barcode_length, bool invert_first_p, bool invert_second_p);
 extern T
 Shortread_read_fastq_shortreads (int *nextchar, T *queryseq2, FILE **input1, FILE **input2,
@@ -84,12 +94,24 @@ Shortread_read_fastq_shortreads (int *nextchar, T *queryseq2, FILE **input1, FIL
 
 #ifdef HAVE_ZLIB
 extern T
-Shortread_read_fasta_shortreads_gzip (int *nextchar, T *queryseq2, gzFile *input, char ***files, int *nfiles,
+Shortread_read_fasta_shortreads_gzip (int *nextchar, T *queryseq2, gzFile *input1, gzFile *input2,
+				      char ***files, int *nfiles,
 				      int barcode_length, bool invert_first_p, bool invert_second_p);
 extern T
 Shortread_read_fastq_shortreads_gzip (int *nextchar, T *queryseq2, gzFile *input1, gzFile *input2,
 				      char ***files, int *nfiles,
 				      int barcode_length, bool invert_first_p, bool invert_second_p);
+#endif
+
+#ifdef HAVE_BZLIB
+extern T
+Shortread_read_fasta_shortreads_bzip2 (int *nextchar, T *queryseq2, Bzip2_T *input1, Bzip2_T *input2,
+				       char ***files, int *nfiles,
+				       int barcode_length, bool invert_first_p, bool invert_second_p);
+extern T
+Shortread_read_fastq_shortreads_bzip2 (int *nextchar, T *queryseq2, Bzip2_T *input1, Bzip2_T *input2,
+				       char ***files, int *nfiles,
+				       int barcode_length, bool invert_first_p, bool invert_second_p);
 #endif
 
 

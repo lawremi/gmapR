@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: gsnap.c 53585 2011-12-02 18:55:24Z twu $";
+static char rcsid[] = "$Id: gsnap.c 90534 2013-03-28 03:26:26Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -21,6 +21,10 @@ static char rcsid[] = "$Id: gsnap.c 53585 2011-12-02 18:55:24Z twu $";
 #ifdef HAVE_ZLIB
 #include <zlib.h>
 #define GZBUFFER_SIZE 131072
+#endif
+
+#ifdef HAVE_BZLIB
+#include "bzip2.h"
 #endif
 
 #include <signal.h>
@@ -80,14 +84,15 @@ static char rcsid[] = "$Id: gsnap.c 53585 2011-12-02 18:55:24Z twu $";
  *   GMAP parameters
  ************************************************************************/
 
-static int gmap_mode = GMAP_PAIRSEARCH | GMAP_TERMINAL | GMAP_IMPROVEMENT;
+static int gmap_mode = GMAP_PAIRSEARCH | GMAP_INDEL_KNOWNSPLICE | GMAP_TERMINAL | GMAP_IMPROVEMENT;
+static int gmap_min_nconsecutive = 20;
 static int nullgap = 600;
-static int maxpeelback = 11;
+static int maxpeelback = 20;
 static int maxpeelback_distalmedial = 24;
 static int extramaterial_end = 10;
 static int extramaterial_paired = 8;
-static int max_gmap_pairsearch = 10;
-static int max_gmap_terminal = 5;
+static int max_gmap_pairsearch = 50; /* Will perform GMAP on up to this many hits5 or hits3 */
+static int max_gmap_terminal = 50;   /* Will perform GMAP on up to this many terminals5 or terminals3 */
 static int max_gmap_improvement = 5;
 
 static double microexon_spliceprob = 0.95;
@@ -106,7 +111,9 @@ static int max_deletionlength = 50;
  ************************************************************************/
 
 static IIT_T chromosome_iit = NULL;
+static int circular_typeint = -1;
 static int nchromosomes = 0;
+static bool *circularp = NULL;
 static Indexdb_T indexdb = NULL;
 static Indexdb_T indexdb2 = NULL; /* For cmet or atoi */
 static Genome_T genome = NULL;
@@ -132,9 +139,11 @@ static bool invert_first_p = false;
 static bool invert_second_p = true;
 static int acc_fieldi_start = 0;
 static int acc_fieldi_end = 0;
+static bool force_single_end_p = false;
 static bool filter_chastity_p = false;
 static bool filter_if_both_p = false;
 static bool gunzip_p = false;
+static bool bunzip2_p = false;
 
 /* Compute options */
 static bool chop_primers_p = false;
@@ -161,9 +170,6 @@ static int pairmax;
 static int pairmax_dna = 1000;
 static int pairmax_rna = 200000;
 
-static Genomicpos_T expected_pairlength = 200;
-static Genomicpos_T pairlength_deviation = 25;
-
 #ifdef HAVE_PTHREAD
 static pthread_t output_thread_id, *worker_thread_ids;
 static pthread_key_t global_request_key;
@@ -179,6 +185,7 @@ static int subopt_levels = 0;
 static double user_maxlevel_float = -1.0;
 
 static int terminal_threshold = 2;
+static bool user_terminal_threshold_p = false;
 
 /* Really have only one indel penalty */
 static int indel_penalty_middle = 2;
@@ -192,16 +199,22 @@ static int max_end_deletions = 6;
 static int min_indel_end_matches = 4;
 static Genomicpos_T shortsplicedist = 200000;
 static Genomicpos_T shortsplicedist_known;
+static Genomicpos_T shortsplicedist_novelend = 50000;
 static int localsplicing_penalty = 0;
-static int distantsplicing_penalty = 3;
+static int distantsplicing_penalty = 1;
 static int min_distantsplicing_end_matches = 16;
 static double min_distantsplicing_identity = 0.95;
 static int min_shortend = 2;
 /* static bool find_novel_doublesplices_p = true; */
 static int antistranded_penalty = 0; /* Most RNA-Seq is non-stranded */
 
+static int basesize;
+static int required_basesize = 0;
 static int index1part;
 static int required_index1part = 0;
+static int index1interval;
+static int required_index1interval = 0;
+static int spansize;
 static int indexdb_size_threshold;
 
 
@@ -247,7 +260,7 @@ static unsigned int *trieoffsets_max = NULL;
 static unsigned int *triecontents_max = NULL;
 
 
-/* Dibase and CMET */
+/* Cmet and AtoI */
 static bool dibasep = false;
 static char *user_cmetdir = NULL;
 static char *user_atoidir = NULL;
@@ -286,7 +299,8 @@ static int quality_shift = 0;   /* For printing, may want -31 */
 
 static bool exception_raise_p = true;
 static bool quiet_if_excessive_p = false;
-static int maxpaths = 100;
+static int maxpaths_search = 1000;
+static int maxpaths_report = 100;
 static bool orderedp = false;
 static bool failsonlyp = false;
 static bool nofailsp = false;
@@ -303,10 +317,14 @@ static bool merge_samechr_p = false;
 /* SAM */
 static int sam_headers_batch = -1;
 static bool sam_headers_p = true;
+static bool sam_insert_0M_p = false;
+static bool sam_multiple_primaries_p = false;
 static char *sam_read_group_id = NULL;
 static char *sam_read_group_name = NULL;
 static char *sam_read_group_library = NULL;
 static char *sam_read_group_platform = NULL;
+static bool force_xs_direction_p = false;
+static bool md_lowercase_variant_p = false;
 
 
 /* Goby */
@@ -319,6 +337,7 @@ static Gobywriter_T gobywriter = NULL;
 
 /* Input/output */
 static char *sevenway_root = NULL;
+static bool appendp = false;
 static Outbuffer_T outbuffer;
 static Inbuffer_T inbuffer;
 static unsigned int inbuffer_nspaces = 1000;
@@ -336,7 +355,9 @@ static struct option long_options[] = {
   /* Input options */
   {"dir", required_argument, 0, 'D'},	/* user_genomedir */
   {"db", required_argument, 0, 'd'}, /* dbroot */
+  {"basesize", required_argument, 0, 0}, /* required_basesize, basesize */
   {"kmer", required_argument, 0, 'k'}, /* required_index1part, index1part */
+  {"sampling", required_argument, 0, 0}, /* required_index1interval, index1interval */
   {"genomefull", no_argument, 0, 'G'}, /* uncompressedp */
   {"part", required_argument, 0, 'q'}, /* part_modulus, part_interval */
   {"orientation", required_argument, 0, 'o'}, /* invert_first_p, invert_second_p */
@@ -344,10 +365,15 @@ static struct option long_options[] = {
   {"barcode-length", required_argument, 0, 0},	  /* barcode_length */
   {"fastq-id-start", required_argument, 0, 0},	  /* acc_fieldi_start */
   {"fastq-id-end", required_argument, 0, 0},	  /* acc_fieldi_end */
+  {"force-single-end", no_argument, 0, 0},	  /* force_single_end_p */
   {"filter-chastity", required_argument, 0, 0},	/* filter_chastity_p, filter_if_both_p */
 
 #ifdef HAVE_ZLIB
   {"gunzip", no_argument, 0, 0}, /* gunzip_p */
+#endif
+
+#ifdef HAVE_BZLIB
+  {"bunzip2", no_argument, 0, 0}, /* bunzip2_p */
 #endif
 
   /* Compute options */
@@ -356,8 +382,6 @@ static struct option long_options[] = {
 #endif
   {"pairmax-dna", required_argument, 0, 0}, /* pairmax_dna */
   {"pairmax-rna", required_argument, 0, 0}, /* pairmax_rna */
-  {"pairexpect", required_argument, 0, 0}, /* expected_pairlength */
-  {"pairdev", required_argument, 0, 0}, /* pairlength_deviation */
 #ifdef HAVE_PTHREAD
   {"nthreads", required_argument, 0, 't'}, /* nworkers */
 #endif
@@ -371,7 +395,7 @@ static struct option long_options[] = {
   {"novelsplicing", required_argument, 0, 'N'}, /* novelsplicingp */
 
   {"max-mismatches", required_argument, 0, 'm'}, /* user_maxlevel_float */
-  {"terminal-threshold", required_argument, 0, 0}, /* terminal_threshold */
+  {"terminal-threshold", required_argument, 0, 0}, /* terminal_threshold, user_terminal_threshold_p */
 
 #if 0
   {"indel-penalty-middle", required_argument, 0, 'i'}, /* indel_penalty_middle */
@@ -389,6 +413,7 @@ static struct option long_options[] = {
   {"suboptimal-levels", required_argument, 0, 'M'}, /* subopt_levels */
 
   {"localsplicedist", required_argument, 0, 'w'}, /* shortsplicedist */
+  {"novelend-splicedist", required_argument, 0, 0}, /* shortsplicedist_novelend */
   {"splicingdir", required_argument, 0, 0},	  /* user_splicingdir */
   {"use-splicing", required_argument, 0, 's'}, /* splicing_iit, knownsplicingp */
   {"ambig-splice-noclip", no_argument, 0, 0},  /* amb_clip_p */
@@ -399,6 +424,7 @@ static struct option long_options[] = {
   {"distant-splice-penalty", required_argument, 0, 'E'}, /* distantsplicing_penalty */
   {"distant-splice-endlength", required_argument, 0, 'K'}, /* min_distantsplicing_end_matches */
   {"shortend-splice-endlength", required_argument, 0, 'l'}, /* min_shortend */
+  {"distant-splice-identity", required_argument, 0, 0}, /* min_distantsplicing_identity */
   {"antistranded-penalty", required_argument, 0, 0},	    /* antistranded_penalty */
   {"merge-distant-samechr", no_argument, 0, 0},		    /* merge_samechr_p */
 
@@ -417,6 +443,7 @@ static struct option long_options[] = {
 
   {"gmap-mode", required_argument, 0, 0}, /* gmap_mode */
   {"trigger-score-for-gmap", required_argument, 0, 0}, /* trigger_score_for_gmap */
+  {"gmap-min-match-length", required_argument, 0, 0},      /* gmap_min_nconsecutive */
   {"max-gmap-pairsearch", required_argument, 0, 0}, /* max_gmap_pairsearch */
   {"max-gmap-terminal", required_argument, 0, 0}, /* max_gmap_terminal */
   {"max-gmap-improvement", required_argument, 0, 0}, /* max_gmap_improvement */
@@ -433,13 +460,18 @@ static struct option long_options[] = {
   {"quality-print-shift", required_argument, 0, 'j'}, /* quality_shift */
   {"sam-headers-batch", required_argument, 0, 0},	/* sam_headers_batch */
   {"no-sam-headers", no_argument, 0, 0},	/* sam_headers_p */
+  {"sam-use-0M", no_argument, 0, 0},		/* sam_insert_0M_p */
+  {"sam-multiple-primaries", no_argument, 0, 0}, /* sam_multiple_primaries_p */
   {"read-group-id", required_argument, 0, 0},	/* sam_read_group_id */
   {"read-group-name", required_argument, 0, 0},	/* sam_read_group_name */
   {"read-group-library", required_argument, 0, 0},	/* sam_read_group_library */
   {"read-group-platform", required_argument, 0, 0},	/* sam_read_group_platform */
+  {"force-xs-dir", no_argument, 0, 0},			/* force_xs_direction_p */
+  {"md-lowercase-snp", no_argument, 0, 0},		/* md_lowercase_variant_p */
 
   {"noexceptions", no_argument, 0, '0'}, /* exception_raise_p */
-  {"npaths", required_argument, 0, 'n'}, /* maxpaths */
+  {"maxsearch", required_argument, 0, 0}, /* maxpaths_search */
+  {"npaths", required_argument, 0, 'n'}, /* maxpaths_report */
   {"quiet-if-excessive", no_argument, 0, 'Q'}, /* quiet_if_excessive_p */
   {"ordered", no_argument, 0, 'O'}, /* orderedp */
   {"clip-overlap", no_argument, 0, 0},	     /* clip_overlap_p */
@@ -449,6 +481,7 @@ static struct option long_options[] = {
   {"nofails", no_argument, 0, 0}, /* nofailsp */
   {"fails-as-input", no_argument, 0, 0}, /* fails_as_input_p */
   {"split-output", required_argument, 0, 0}, /* sevenway_root */
+  {"append-output", no_argument, 0, 0},	     /* appendp */
 
 #ifdef HAVE_GOBY
   /* Goby-specific options */
@@ -471,6 +504,8 @@ static struct option long_options[] = {
 
 static void
 print_program_version () {
+  char *genomedir;
+
   fprintf(stdout,"\n");
   fprintf(stdout,"GSNAP: Genomic Short Nucleotide Alignment Program\n");
   fprintf(stdout,"Part of GMAP package, version %s\n",PACKAGE_VERSION);
@@ -522,7 +557,10 @@ print_program_version () {
 
   fprintf(stdout,"Sizes: off_t (%lu), size_t (%lu), unsigned int (%lu), long int (%lu)\n",
 	  sizeof(off_t),sizeof(size_t),sizeof(unsigned int),sizeof(long int));
-  fprintf(stdout,"Default gmap directory: %s\n",GMAPDB);
+  fprintf(stdout,"Default gmap directory (compiled): %s\n",GMAPDB);
+  genomedir = Datadir_find_genomedir(/*user_genomedir*/NULL);
+  fprintf(stdout,"Default gmap directory (environment): %s\n",genomedir);
+  FREE(genomedir);
   fprintf(stdout,"Maximum read length: %d\n",MAX_READLENGTH);
   fprintf(stdout,"Thomas D. Wu, Genentech, Inc.\n");
   fprintf(stdout,"Contact: twu@gene.com\n");
@@ -555,7 +593,7 @@ process_request (Request_T request, Floors_T *floors_array,
   Stage3pair_T *stage3pairarray;
 
   int npaths, npaths5, npaths3, i;
-  int second_absmq, second_absmq5, second_absmq3;
+  int first_absmq, second_absmq, first_absmq5, second_absmq5, first_absmq3, second_absmq3;
   Pairtype_T final_pairtype;
   double worker_runtime;
 
@@ -570,8 +608,9 @@ process_request (Request_T request, Floors_T *floors_array,
   }
 
   if (queryseq2 == NULL) {
-    stage3array = Stage1_single_read(&npaths,&second_absmq,queryseq1,indexdb,indexdb2,indexdb_size_threshold,
-				     genome,floors_array,maxpaths,user_maxlevel_float,subopt_levels,
+    stage3array = Stage1_single_read(&npaths,&first_absmq,&second_absmq,
+				     queryseq1,indexdb,indexdb2,indexdb_size_threshold,
+				     genome,floors_array,user_maxlevel_float,subopt_levels,
 				     indel_penalty_middle,indel_penalty_end,
 				     max_middle_insertions,max_middle_deletions,
 				     allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
@@ -583,13 +622,13 @@ process_request (Request_T request, Floors_T *floors_array,
 				     /*keep_floors_p*/true);
 
     worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
-    return Result_single_read_new(jobid,(void **) stage3array,npaths,second_absmq,worker_runtime);
+    return Result_single_read_new(jobid,(void **) stage3array,npaths,first_absmq,second_absmq,worker_runtime);
 
-  } else if ((stage3pairarray = Stage1_paired_read(&npaths,&second_absmq,&final_pairtype,
-						   &stage3array5,&npaths5,&second_absmq5,
-						   &stage3array3,&npaths3,&second_absmq3,
+  } else if ((stage3pairarray = Stage1_paired_read(&npaths,&first_absmq,&second_absmq,&final_pairtype,
+						   &stage3array5,&npaths5,&first_absmq5,&second_absmq5,
+						   &stage3array3,&npaths3,&first_absmq3,&second_absmq3,
 						   queryseq1,queryseq2,indexdb,indexdb2,indexdb_size_threshold,
-						   genome,floors_array,/*maxpaths*/maxpaths,user_maxlevel_float,subopt_levels,
+						   genome,floors_array,user_maxlevel_float,subopt_levels,
 						   indel_penalty_middle,indel_penalty_end,
 						   max_middle_insertions,max_middle_deletions,
 						   allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
@@ -601,14 +640,15 @@ process_request (Request_T request, Floors_T *floors_array,
 						   pairmax,/*keep_floors_p*/true)) != NULL) {
     /* Paired or concordant hits found */
     worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
-    return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,second_absmq,final_pairtype,worker_runtime);
+    return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,first_absmq,second_absmq,
+				  final_pairtype,worker_runtime);
 
   } else if (chop_primers_p == false || Shortread_chop_primers(queryseq1,queryseq2) == false) {
     /* No paired or concordant hits found, and no adapters found */
     /* Report ends as unpaired */
     worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
-    return Result_paired_as_singles_new(jobid,(void **) stage3array5,npaths5,second_absmq5,
-					(void **) stage3array3,npaths3,second_absmq3,worker_runtime);
+    return Result_paired_as_singles_new(jobid,(void **) stage3array5,npaths5,first_absmq5,second_absmq5,
+					(void **) stage3array3,npaths3,first_absmq3,second_absmq3,worker_runtime);
 
   } else {
     /* Try with potential primers chopped.  queryseq1 and queryseq2 altered by Shortread_chop_primers. */
@@ -622,11 +662,11 @@ process_request (Request_T request, Floors_T *floors_array,
     }
     FREE_OUT(stage3array3);
 
-    if ((stage3pairarray = Stage1_paired_read(&npaths,&second_absmq,&final_pairtype,
-					      &stage3array5,&npaths5,&second_absmq5,
-					      &stage3array3,&npaths3,&second_absmq3,
+    if ((stage3pairarray = Stage1_paired_read(&npaths,&first_absmq,&second_absmq,&final_pairtype,
+					      &stage3array5,&npaths5,&first_absmq5,&second_absmq5,
+					      &stage3array3,&npaths3,&first_absmq3,&second_absmq3,
 					      queryseq1,queryseq2,indexdb,indexdb2,indexdb_size_threshold,
-					      genome,floors_array,/*maxpaths*/maxpaths,user_maxlevel_float,subopt_levels,
+					      genome,floors_array,user_maxlevel_float,subopt_levels,
 					      indel_penalty_middle,indel_penalty_end,
 					      max_middle_insertions,max_middle_deletions,
 					      allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
@@ -638,13 +678,14 @@ process_request (Request_T request, Floors_T *floors_array,
 					      pairmax,/*keep_floors_p*/false)) != NULL) {
       /* Paired or concordant hits found, after chopping adapters */
       worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
-      return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,second_absmq,final_pairtype,worker_runtime);
+      return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,first_absmq,second_absmq,
+				    final_pairtype,worker_runtime);
 
     } else {
       /* No paired or concordant hits found, after chopping adapters */
       worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
-      return Result_paired_as_singles_new(jobid,(void **) stage3array5,npaths5,second_absmq5,
-					  (void **) stage3array3,npaths3,second_absmq3,worker_runtime);
+      return Result_paired_as_singles_new(jobid,(void **) stage3array5,npaths5,first_absmq5,second_absmq5,
+					  (void **) stage3array3,npaths3,first_absmq3,second_absmq3,worker_runtime);
     }
   }
 }
@@ -1022,11 +1063,13 @@ add_gmap_mode (char *string) {
       gmap_mode |= GMAP_IMPROVEMENT;
     } else if (!strcmp(string,"terminal")) {
       gmap_mode |= GMAP_TERMINAL;
+    } else if (!strcmp(string,"indel_knownsplice")) {
+      gmap_mode |= GMAP_INDEL_KNOWNSPLICE;
     } else if (!strcmp(string,"pairsearch")) {
       gmap_mode |= GMAP_PAIRSEARCH;
     } else {
       fprintf(stderr,"Don't recognize gmap-mode type %s\n",string);
-      fprintf(stderr,"Allowed values are: none, improve, terminal, pairsearch\n");
+      fprintf(stderr,"Allowed values are: none, improve, terminal, indel_knownsplice, pairsearch\n");
       exit(9);
     }
     return 1;
@@ -1136,6 +1179,10 @@ main (int argc, char *argv[]) {
   gzFile gzipped = NULL, gzipped2 = NULL;
 #endif
 
+#ifdef HAVE_BZLIB
+  Bzip2_T bzipped = NULL, bzipped2 = NULL;
+#endif
+
   bool multiple_sequences_p = false;
   char **files;
   int nfiles, nextchar = '\0';
@@ -1191,11 +1238,20 @@ main (int argc, char *argv[]) {
 	print_program_usage();
 	exit(0);
 
+      } else if (!strcmp(long_name,"basesize")) {
+	required_basesize = atoi(check_valid_int(optarg));
+
+      } else if (!strcmp(long_name,"sampling")) {
+	required_index1interval = atoi(check_valid_int(optarg));
+
       } else if (!strcmp(long_name,"time")) {
 	timingp = true;
 
       } else if (!strcmp(long_name,"unload")) {
 	unloadp = true;
+
+      } else if (!strcmp(long_name,"maxsearch")) {
+	maxpaths_search = atoi(optarg);
 
       } else if (!strcmp(long_name,"mode")) {
 	if (!strcmp(optarg,"standard")) {
@@ -1217,6 +1273,9 @@ main (int argc, char *argv[]) {
 	user_cmetdir = optarg;
       } else if (!strcmp(long_name,"atoidir")) {
 	user_atoidir = optarg;
+
+      } else if (!strcmp(long_name,"novelend-splicedist")) {
+	shortsplicedist_novelend = strtoul(optarg,NULL,10);
 
       } else if (!strcmp(long_name,"splicingdir")) {
 	user_splicingdir = optarg;
@@ -1243,6 +1302,9 @@ main (int argc, char *argv[]) {
 
       } else if (!strcmp(long_name,"trigger-score-for-gmap")) {
 	trigger_score_for_gmap = atoi(check_valid_int(optarg));
+
+      } else if (!strcmp(long_name,"gmap-min-match-length")) {
+	gmap_min_nconsecutive = atoi(check_valid_int(optarg));
 
       } else if (!strcmp(long_name,"max-gmap-pairsearch")) {
 	max_gmap_pairsearch = atoi(check_valid_int(optarg));
@@ -1275,6 +1337,8 @@ main (int argc, char *argv[]) {
 	  fprintf(stderr,"Value for fastq-id-end must be 1 or greater\n");
 	  exit(9);
 	}
+      } else if (!strcmp(long_name,"force-single-end")) {
+	force_single_end_p = true;
       } else if (!strcmp(long_name,"filter-chastity")) {
 	if (!strcmp(optarg,"off")) {
 	  filter_chastity_p = false;
@@ -1294,18 +1358,20 @@ main (int argc, char *argv[]) {
       } else if (!strcmp(long_name,"gunzip")) {
 	gunzip_p = true;
 #endif
+#ifdef HAVE_BZLIB
+      } else if (!strcmp(long_name,"bunzip2")) {
+	bunzip2_p = true;
+#endif
       } else if (!strcmp(long_name,"split-output")) {
 	sevenway_root = optarg;
+      } else if (!strcmp(long_name,"append-output")) {
+	appendp = true;
       } else if (!strcmp(long_name,"fails-as-input")) {
 	fails_as_input_p = true;
       } else if (!strcmp(long_name,"pairmax-dna")) {
 	pairmax_dna = atoi(check_valid_int(optarg));
       } else if (!strcmp(long_name,"pairmax-rna")) {
 	pairmax_rna = atoi(check_valid_int(optarg));
-      } else if (!strcmp(long_name,"pairexpect")) {
-	expected_pairlength = atoi(check_valid_int(optarg));
-      } else if (!strcmp(long_name,"pairdev")) {
-	pairlength_deviation = atoi(check_valid_int(optarg));
       } else if (!strcmp(long_name,"indel-endlength")) {
 	min_indel_end_matches = atoi(check_valid_int(optarg));
 	if (min_indel_end_matches > 14) {
@@ -1314,6 +1380,7 @@ main (int argc, char *argv[]) {
 
       } else if (!strcmp(long_name,"terminal-threshold")) {
 	terminal_threshold = atoi(check_valid_int(optarg));
+	user_terminal_threshold_p = true;
 
       } else if (!strcmp(long_name,"antistranded-penalty")) {
 	antistranded_penalty = atoi(check_valid_int(optarg));
@@ -1356,6 +1423,10 @@ main (int argc, char *argv[]) {
 	sam_headers_p = false;
       } else if (!strcmp(long_name,"sam-headers-batch")) {
 	sam_headers_batch = atoi(check_valid_int(optarg));
+      } else if (!strcmp(long_name,"sam-use-0M")) {
+	sam_insert_0M_p = true;
+      } else if (!strcmp(long_name,"sam-multiple-primaries")) {
+	sam_multiple_primaries_p = true;
       } else if (!strcmp(long_name,"quality-protocol")) {
 	if (user_quality_score_adj == true) {
 	  fprintf(stderr,"Cannot specify both -J (--quality-zero-score) and --quality-protocol\n");
@@ -1380,6 +1451,10 @@ main (int argc, char *argv[]) {
 	  exit(9);
 	}
 
+      } else if (!strcmp(long_name,"force-xs-dir")) {
+	force_xs_direction_p = true;
+      } else if (!strcmp(long_name,"md-lowercase-snp")) {
+	md_lowercase_variant_p = true;
       } else if (!strcmp(long_name,"read-group-id")) {
 	sam_read_group_id = optarg;
       } else if (!strcmp(long_name,"read-group-name")) {
@@ -1428,10 +1503,8 @@ main (int argc, char *argv[]) {
       break;
     case 'k':
       required_index1part = atoi(check_valid_int(optarg));
-      if (required_index1part >= 12 && required_index1part <= 15) {
-	/* Okay */
-      } else {
-	fprintf(stderr,"The only values allowed for -k are 12, 13, 14, or 15\n");
+      if (required_index1part > 16) {
+	fprintf(stderr,"The value for k-mer size must be 16 or less\n");
 	exit(9);
       }
       break;
@@ -1457,7 +1530,7 @@ main (int argc, char *argv[]) {
       if (!strcmp(optarg,"paired")) {
 	chop_primers_p = true;
       } else if (!strcmp(optarg,"off")) {
-	chop_primers_p = true;
+	chop_primers_p = false;
       } else {
 	fprintf(stderr,"Currently allowed values for adapter stripping (-a): off, paired\n");
 	exit(9);
@@ -1506,6 +1579,10 @@ main (int argc, char *argv[]) {
       if (user_maxlevel_float > 1.0 && user_maxlevel_float != rint(user_maxlevel_float)) {
 	fprintf(stderr,"Cannot specify fractional value %f for --max-mismatches except between 0.0 and 1.0\n",user_maxlevel_float);
 	exit(9);
+      } else if (user_maxlevel_float > 0.10 && user_maxlevel_float < 1.0) {
+	fprintf(stderr,"Your value %f for --max-mismatches implies more than 10%% mismatches, which does not make sense\n",
+		user_maxlevel_float);
+	exit(9);
       }
       break;
 
@@ -1531,33 +1608,39 @@ main (int argc, char *argv[]) {
     case 'v': snps_root = optarg; break;
 
     case 'B':
-      if (!strcmp(optarg,"0")) {
-	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
-	positions_access = USE_MMAP_ONLY; /* was batch_positions_p = false */
-	genome_access = USE_MMAP_ONLY; /* was batch_genome_p = false */
-      } else if (!strcmp(optarg,"1")) {
-	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
-	positions_access = USE_MMAP_PRELOAD; /* was batch_positions_p = true */
-	genome_access = USE_MMAP_ONLY; /* was batch_genome_p = false */
-      } else if (!strcmp(optarg,"2")) {
-	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
-	positions_access = USE_MMAP_PRELOAD; /* was batch_positions_p = true */
-	genome_access = USE_MMAP_PRELOAD; /* was batch_genome_p = true */
-      } else if (!strcmp(optarg,"3")) {
-	offsetscomp_access = USE_ALLOCATE;
-	positions_access = USE_ALLOCATE;
-	genome_access = USE_MMAP_PRELOAD; /* was batch_genome_p = true */
-      } else if (!strcmp(optarg,"4")) {
-	offsetscomp_access = USE_ALLOCATE;
-	positions_access = USE_ALLOCATE;
-	genome_access = USE_ALLOCATE;
-      } else if (!strcmp(optarg,"5")) {
+      if (!strcmp(optarg,"5")) {
 	expand_offsets_p = true;
 	offsetscomp_access = USE_ALLOCATE; /* Doesn't matter */
 	positions_access = USE_ALLOCATE;
 	genome_access = USE_ALLOCATE;
+      } else if (!strcmp(optarg,"4")) {
+	offsetscomp_access = USE_ALLOCATE;
+	positions_access = USE_ALLOCATE;
+	genome_access = USE_ALLOCATE;
+#ifdef HAVE_MMAP
+      } else if (!strcmp(optarg,"3")) {
+	offsetscomp_access = USE_ALLOCATE;
+	positions_access = USE_ALLOCATE;
+	genome_access = USE_MMAP_PRELOAD; /* was batch_genome_p = true */
+      } else if (!strcmp(optarg,"2")) {
+	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
+	positions_access = USE_MMAP_PRELOAD; /* was batch_positions_p = true */
+	genome_access = USE_MMAP_PRELOAD; /* was batch_genome_p = true */
+      } else if (!strcmp(optarg,"1")) {
+	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
+	positions_access = USE_MMAP_PRELOAD; /* was batch_positions_p = true */
+	genome_access = USE_MMAP_ONLY; /* was batch_genome_p = false */
+      } else if (!strcmp(optarg,"0")) {
+	offsetscomp_access = USE_ALLOCATE; /* was batch_offsets_p = true */
+	positions_access = USE_MMAP_ONLY; /* was batch_positions_p = false */
+	genome_access = USE_MMAP_ONLY; /* was batch_genome_p = false */
+#endif
       } else {
+#ifdef HAVE_MMAP
 	fprintf(stderr,"Batch mode %s not recognized.  Only allow 0-5.  Run 'gsnap --help' for more information.\n",optarg);
+#else
+	fprintf(stderr,"Batch mode %s not recognized.  Only allow 4-5, since mmap is disabled.  Run 'gsnap --help' for more information.\n",optarg);
+#endif
 	exit(9);
       }
       break;
@@ -1599,7 +1682,7 @@ main (int argc, char *argv[]) {
       break;
 
     case '0': exception_raise_p = false; break; /* Allows signals to pass through */
-    case 'n': maxpaths = atoi(check_valid_int(optarg)); break;
+    case 'n': maxpaths_report = atoi(check_valid_int(optarg)); break;
     case 'Q': quiet_if_excessive_p = true; break;
 
     case 'O': orderedp = true; break;
@@ -1639,7 +1722,7 @@ main (int argc, char *argv[]) {
     fprintf(stderr,"--fastq-id-end must be equal to or greater than --fastq-id-start\n");
     exit(9);
   } else {
-    Shortread_setup(acc_fieldi_start,acc_fieldi_end,filter_chastity_p);
+    Shortread_setup(acc_fieldi_start,acc_fieldi_end,force_single_end_p,filter_chastity_p);
   }
 
   if (novelsplicingp == true && knownsplicingp == true) {
@@ -1662,6 +1745,13 @@ main (int argc, char *argv[]) {
     fprintf(stderr,"Neither novel splicing (-N) nor known splicing (-s) turned on => assume reads are DNA-Seq (genomic)\n");
     pairmax = pairmax_dna;
     shortsplicedist = shortsplicedist_known = 0U;
+    shortsplicedist_novelend = 0U;
+  }
+
+  if (shortsplicedist_novelend > shortsplicedist) {
+    fprintf(stderr,"The novelend-splicedist %d is greater than the localsplicedist %d.  Resetting novelend-splicedist to be %d\n",
+	    shortsplicedist_novelend,shortsplicedist,shortsplicedist);
+    shortsplicedist_novelend = shortsplicedist;
   }
 
   if (distantsplicing_penalty < localsplicing_penalty) {
@@ -1673,6 +1763,11 @@ main (int argc, char *argv[]) {
   if (fails_as_input_p == true && (sevenway_root == NULL && failsonlyp == false)) {
     fprintf(stderr,"The --fails-as-input option makes sense only with the --split-output or --failsonly option.  Turning it off.\n");
     fails_as_input_p = false;
+  }
+
+  if ((mode == CMET_STRANDED || mode == CMET_NONSTRANDED) && user_terminal_threshold_p == false) {
+    /* terminal alignments don't work well with bisulfite reads */
+    terminal_threshold = 100;
   }
 
   if (sam_headers_batch >= 0) {
@@ -1726,6 +1821,16 @@ main (int argc, char *argv[]) {
       }
 #endif
 
+    } else if (bunzip2_p == true) {
+#ifdef HAVE_BZLIB
+      if ((bzipped = Bzip2_new(files[0])) == NULL) {
+	fprintf(stderr,"Cannot open bzipped file %s\n",files[0]);
+	exit(9);
+      } else {
+	nextchar = Shortread_input_init_bzip2(bzipped);
+      }
+#endif
+
     } else {
       if ((input = FOPEN_READ_TEXT(files[0])) == NULL) {
 	fprintf(stderr,"Cannot open file %s\n",files[0]);
@@ -1771,9 +1876,12 @@ main (int argc, char *argv[]) {
 
   } else if (nextchar == '@') {
     /* Looks like a FASTQ file */
-    if (nfiles == 0) {
+    if (nfiles == 0 || force_single_end_p == true) {
 #ifdef HAVE_ZLIB
       gzipped2 = (gzFile) NULL;
+#endif
+#ifdef HAVE_BZLIB
+      bzipped2 = (Bzip2_T) NULL;
 #endif
       input2 = (FILE *) NULL;
     } else {
@@ -1789,6 +1897,17 @@ main (int argc, char *argv[]) {
 	  /* nextchar2 = */ Shortread_input_init_gzip(gzipped2);
 	}
 #endif
+
+      } else if (bunzip2_p == true) {
+#ifdef HAVE_BZLIB
+	if ((bzipped2 = Bzip2_new(files[0])) == NULL) {
+	  fprintf(stderr,"Cannot open bzip2 file %s\n",files[0]);
+	  exit(9);
+	} else {
+	  /* nextchar2 = */ Shortread_input_init_bzip2(bzipped2);
+	}
+#endif
+
       } else {
 	if ((input2 = FOPEN_READ_TEXT(files[0])) == NULL) {
 	  fprintf(stderr,"Cannot open file %s\n",files[0]);
@@ -1816,6 +1935,9 @@ main (int argc, char *argv[]) {
 #ifdef HAVE_ZLIB
 			  gzipped,gzipped2,
 #endif
+#ifdef HAVE_BZLIB
+			  bzipped,bzipped2,
+#endif
 #ifdef HAVE_GOBY
 			  gobyreader,
 #endif
@@ -1842,9 +1964,15 @@ main (int argc, char *argv[]) {
     /* multiple_sequences_p = false; */
     /* fprintf(stderr,"Note: only 1 sequence detected.  Ignoring batch (-B) command\n"); */
     expand_offsets_p = false;
+#ifdef HAVE_MMAP
     offsetscomp_access = USE_MMAP_ONLY;
     positions_access = USE_MMAP_ONLY;
     genome_access = USE_MMAP_ONLY;
+#else
+    offsetscomp_access = USE_ALLOCATE;
+    positions_access = USE_ALLOCATE;
+    genome_access = USE_ALLOCATE;
+#endif
   }
 
 
@@ -1861,6 +1989,8 @@ main (int argc, char *argv[]) {
     exit(9);
   } else {
     nchromosomes = IIT_total_nintervals(chromosome_iit);
+    circular_typeint = IIT_typeint(chromosome_iit,"circular");
+    circularp = IIT_circularp(chromosome_iit);
   }
   FREE(iitfile);
 
@@ -1870,8 +2000,9 @@ main (int argc, char *argv[]) {
     if (dibasep == true) {
       fprintf(stderr,"No longer supporting 2-base encoding\n");
       exit(9);
-      if ((indexdb = Indexdb_new_genome(&index1part,genomesubdir,fileroot,/*idx_filesuffix*/"dibase",/*snps_root*/NULL,
-					required_index1part,/*required_interval*/0,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					genomesubdir,fileroot,/*idx_filesuffix*/"dibase",/*snps_root*/NULL,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find offsets file %s.%s*offsets, needed for GSNAP color mode\n",fileroot,"dibase");
 	exit(9);
@@ -1886,15 +2017,17 @@ main (int argc, char *argv[]) {
 	modedir = user_cmetdir;
       }
 
-      if ((indexdb = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"metct",/*snps_root*/NULL,
-					required_index1part,/*required_interval*/3,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					modedir,fileroot,/*idx_filesuffix*/"metct",/*snps_root*/NULL,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find metct index file.  Need to run cmetindex first\n");
 	exit(9);
       }
 
-      if ((indexdb2 = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"metga",/*snps_root*/NULL,
-					 required_index1part,/*required_interval*/3,
+      if ((indexdb2 = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					 modedir,fileroot,/*idx_filesuffix*/"metga",/*snps_root*/NULL,
+					 required_basesize,required_index1part,required_index1interval,
 					 expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find metga index file.  Need to run cmetindex first\n");
 	exit(9);
@@ -1907,15 +2040,17 @@ main (int argc, char *argv[]) {
 	modedir = user_atoidir;
       }
 
-      if ((indexdb = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"a2iag",/*snps_root*/NULL,
-					required_index1part,/*required_interval*/3,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					modedir,fileroot,/*idx_filesuffix*/"a2iag",/*snps_root*/NULL,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find a2iag index file.  Need to run atoiindex first\n");
 	exit(9);
       }
 
-      if ((indexdb2 = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"a2itc",/*snps_root*/NULL,
-					 required_index1part,/*required_interval*/3,
+      if ((indexdb2 = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					 modedir,fileroot,/*idx_filesuffix*/"a2itc",/*snps_root*/NULL,
+					 required_basesize,required_index1part,required_index1interval,
 					 expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find a2itc index file.  Need to run atoiindex first\n");
 	exit(9);
@@ -1924,8 +2059,9 @@ main (int argc, char *argv[]) {
 
     } else {
       /* Standard behavior */
-      if ((indexdb = Indexdb_new_genome(&index1part,genomesubdir,fileroot,IDX_FILESUFFIX,/*snps_root*/NULL,
-					required_index1part,/*required_interval*/0,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					genomesubdir,fileroot,IDX_FILESUFFIX,/*snps_root*/NULL,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find offsets file %s.%s*offsets, needed for GSNAP\n",fileroot,IDX_FILESUFFIX);
 	exit(9);
@@ -1936,7 +2072,7 @@ main (int argc, char *argv[]) {
   } else {
     if (user_snpsdir == NULL) {
       snpsdir = genomesubdir;
-      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,dbroot);
+      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,fileroot);
     } else {
       snpsdir = user_snpsdir;
       mapdir = user_snpsdir;
@@ -1958,14 +2094,16 @@ main (int argc, char *argv[]) {
 	modedir = user_cmetdir;
       }
 
-      if ((indexdb = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"metct",snps_root,
-					required_index1part,/*required_interval*/3,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					modedir,fileroot,/*idx_filesuffix*/"metct",snps_root,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find metct index file.  Need to run cmetindex first\n");
 	exit(9);
       }
-      if ((indexdb2 = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"metga",snps_root,
-					 required_index1part,/*required_interval*/3,
+      if ((indexdb2 = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					 modedir,fileroot,/*idx_filesuffix*/"metga",snps_root,
+					 required_basesize,required_index1part,required_index1interval,
 					 expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find metga index file.  Need to run cmetindex first\n");
 	exit(9);
@@ -1978,22 +2116,25 @@ main (int argc, char *argv[]) {
 	modedir = user_atoidir;
       }
 
-      if ((indexdb = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"a2iag",snps_root,
-					required_index1part,/*required_interval*/3,
+      if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					modedir,fileroot,/*idx_filesuffix*/"a2iag",snps_root,
+					required_basesize,required_index1part,required_index1interval,
 					expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find a2iag index file.  Need to run atoiindex first\n");
 	exit(9);
       }
-      if ((indexdb2 = Indexdb_new_genome(&index1part,modedir,fileroot,/*idx_filesuffix*/"a2itc",snps_root,
-					 required_index1part,/*required_interval*/3,
+      if ((indexdb2 = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+					 modedir,fileroot,/*idx_filesuffix*/"a2itc",snps_root,
+					 required_basesize,required_index1part,required_index1interval,
 					 expand_offsets_p,offsetscomp_access,positions_access)) == NULL) {
 	fprintf(stderr,"Cannot find a2itc index file.  Need to run atoiindex first\n");
 	exit(9);
       }
 
     } else {
-      indexdb = Indexdb_new_genome(&index1part,snpsdir,fileroot,/*idx_filesuffix*/"ref",snps_root,
-				   required_index1part,/*required_interval*/3,
+      indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
+				   snpsdir,fileroot,/*idx_filesuffix*/"ref",snps_root,
+				   required_basesize,required_index1part,required_index1interval,
 				   expand_offsets_p,offsetscomp_access,positions_access);
       if (indexdb == NULL) {
 	fprintf(stderr,"Cannot find snps index file for %s in directory %s\n",snps_root,snpsdir);
@@ -2012,8 +2153,8 @@ main (int argc, char *argv[]) {
       if (user_snpsdir == NULL) {
 	fprintf(stderr,"Available files:\n");
 	Datadir_list_directory(stderr,genomesubdir);
-	fprintf(stderr,"Either install file %s or specify a full directory path\n",snps_root);
-	fprintf(stderr,"using the -D flag to gsnap.\n");
+	fprintf(stderr,"Either install file %s.iit or specify a directory for the IIT file\n",snps_root);
+	fprintf(stderr,"using the -M flag.\n");
 	exit(9);
       }
     }
@@ -2034,7 +2175,7 @@ main (int argc, char *argv[]) {
     exit(9);
   }
 
-  Dynprog_init(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
+  Dynprog_init(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired,mode);
   Compoundpos_init_positions_free(Indexdb_positions_fileio_p(indexdb));
   Spanningelt_init_positions_free(Indexdb_positions_fileio_p(indexdb));
   Stage1_init_positions_free(Indexdb_positions_fileio_p(indexdb));
@@ -2050,7 +2191,7 @@ main (int argc, char *argv[]) {
 			      /*divstring*/NULL,/*add_iit_p*/true,/*labels_read_p*/true)) != NULL) {
       fprintf(stderr,"Reading genes file %s locally...",genes_file);
     } else {
-      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,dbroot);
+      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,fileroot);
       iitfile = (char *) CALLOC(strlen(mapdir)+strlen("/")+
 				strlen(genes_file)+1,sizeof(char));
       sprintf(iitfile,"%s/%s",mapdir,genes_file);
@@ -2087,7 +2228,7 @@ main (int argc, char *argv[]) {
     }
 
     if (splicing_iit == NULL) {
-      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,dbroot);
+      mapdir = Datadir_find_mapdir(/*user_mapdir*/NULL,genomesubdir,fileroot);
       iitfile = (char *) CALLOC(strlen(mapdir)+strlen("/")+
 				strlen(splicing_file)+1,sizeof(char));
       sprintf(iitfile,"%s/%s",mapdir,splicing_file);
@@ -2286,21 +2427,23 @@ main (int argc, char *argv[]) {
   FREE(dbroot);
 
 
-  Genome_setup(genome);
+  Genome_setup(genome,genomealt,mode,circular_typeint);
   Genome_hr_setup(Genome_blocks(genome),/*snp_blocks*/genomealt ? Genome_blocks(genomealt) : NULL,
 		  query_unk_mismatch_p,genome_unk_mismatch_p,mode);
-  Maxent_hr_setup(Genome_blocks(genome));
+  Maxent_hr_setup(Genome_blocks(genome),/*snp_blocks*/genomealt ? Genome_blocks(genomealt) : NULL);
   Indexdb_setup(index1part);
   Indexdb_hr_setup(index1part);
   Oligo_setup(index1part);
   Splicetrie_setup(splicecomp,splicesites,splicefrags_ref,splicefrags_alt,
 		   trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
 		   /*snpp*/snps_iit ? true : false,amb_closest_p,amb_clip_p,min_shortend);
-  Stage1hr_setup(index1part,chromosome_iit,nchromosomes,
-		 genomealt,mode,terminal_threshold,
+  spansize = Spanningelt_setup(index1part,index1interval);
+  Stage1hr_setup(index1part,index1interval,spansize,chromosome_iit,nchromosomes,
+		 genomealt,mode,maxpaths_search,terminal_threshold,
 		 splicesites,splicetypes,splicedists,nsplicesites,
-		 novelsplicingp,knownsplicingp,shortsplicedist_known,
-		 nullgap,maxpeelback,maxpeelback_distalmedial,
+		 novelsplicingp,knownsplicingp,distances_observed_p,
+		 shortsplicedist_known,shortsplicedist_novelend,
+		 min_intronlength,nullgap,maxpeelback,maxpeelback_distalmedial,
 		 extramaterial_end,extramaterial_paired,gmap_mode,
 		 trigger_score_for_gmap,max_gmap_pairsearch,
 		 max_gmap_terminal,max_gmap_improvement,antistranded_penalty);
@@ -2309,23 +2452,29 @@ main (int argc, char *argv[]) {
 		  genes_iit,genes_divint_crosstable,
 		  splicing_iit,splicing_divint_crosstable,
 		  donor_typeint,acceptor_typeint,trim_mismatch_score,
-		  output_sam_p,mode);
-  Dynprog_setup(splicing_iit,splicing_divint_crosstable,donor_typeint,acceptor_typeint,
+		  novelsplicingp,knownsplicingp,output_sam_p,mode);
+  Dynprog_setup(novelsplicingp,splicing_iit,splicing_divint_crosstable,
+		donor_typeint,acceptor_typeint,
 		splicesites,splicetypes,splicedists,nsplicesites,
 		trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max);
-  Oligoindex_hr_setup(Genome_blocks(genome));
+  Oligoindex_hr_setup(Genome_blocks(genome),mode);
   Stage2_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,
-	       suboptimal_score_start,suboptimal_score_end);
-  Pair_setup(trim_mismatch_score,trim_indel_score);
-  Stage3_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,
-	       splicing_iit,splicing_divint_crosstable,donor_typeint,acceptor_typeint,
-	       splicesites,min_intronlength,max_deletionlength,
-	       expected_pairlength,pairlength_deviation);
+	       suboptimal_score_start,suboptimal_score_end,mode,/*snps_p*/snps_iit ? true : false);
+  Pair_setup(trim_mismatch_score,trim_indel_score,sam_insert_0M_p,
+	     force_xs_direction_p,md_lowercase_variant_p,
+	     /*snps_p*/snps_iit ? true : false);
+  Stage3_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,novelsplicingp,
+	       /*require_splicedir_p*/true,splicing_iit,splicing_divint_crosstable,
+	       donor_typeint,acceptor_typeint,
+	       splicesites,min_intronlength,max_deletionlength,output_sam_p);
   Stage3hr_setup(invert_first_p,invert_second_p,genes_iit,genes_divint_crosstable,
 		 tally_iit,tally_divint_crosstable,runlength_iit,runlength_divint_crosstable,
-		 distances_observed_p,pairmax,expected_pairlength,pairlength_deviation,
-		 antistranded_penalty,favor_multiexon_p);
-  SAM_setup(quiet_if_excessive_p,maxpaths);
+		 distances_observed_p,pairmax,
+		 localsplicing_penalty,indel_penalty_middle,antistranded_penalty,
+		 favor_multiexon_p,gmap_min_nconsecutive,index1part,index1interval,novelsplicingp,
+		 circularp);
+  SAM_setup(quiet_if_excessive_p,maxpaths_report,sam_multiple_primaries_p,
+	    force_xs_direction_p,md_lowercase_variant_p,snps_iit);
   Goby_setup(show_refdiff_p);
 
 
@@ -2344,7 +2493,18 @@ main (int argc, char *argv[]) {
     }
   }
 
-  outbuffer = Outbuffer_new(output_buffer_size,nread,sevenway_root,
+#ifdef HAVE_GOBY
+  if (gobywriter && fails_as_input_p) {
+      fprintf(stderr,"Goby output doesn't support the --fails-as-input option.  Turning it off.\n");
+      fails_as_input_p = false;
+  }
+  if (gobywriter && sevenway_root != NULL) {
+      fprintf(stderr,"Goby output doesn't support the --split-output option.  Turning it off.\n");
+      sevenway_root = NULL;
+  }
+#endif
+
+  outbuffer = Outbuffer_new(output_buffer_size,nread,sevenway_root,appendp,
 #ifdef USE_OLD_MAXENT
 			    genome,
 #endif
@@ -2353,7 +2513,7 @@ main (int argc, char *argv[]) {
 			    sam_read_group_library,sam_read_group_platform,
 			    gobywriter,nofailsp,failsonlyp,fails_as_input_p,
 			    fastq_format_p,clip_overlap_p,merge_samechr_p,
-			    maxpaths,quiet_if_excessive_p,quality_shift,
+			    maxpaths_report,quiet_if_excessive_p,quality_shift,
 			    invert_first_p,invert_second_p,pairmax);
 
   Inbuffer_set_outbuffer(inbuffer,outbuffer);
@@ -2506,6 +2666,10 @@ main (int argc, char *argv[]) {
     IIT_free(&snps_iit);
   }
 
+  if (circularp != NULL) {
+    FREE(circularp);
+  }
+
   if (chromosome_iit != NULL) {
     IIT_free(&chromosome_iit);
   }
@@ -2527,9 +2691,15 @@ Usage: gsnap [OPTIONS...] <FASTA file>, or\n\
   fprintf(stdout,"\
   -D, --dir=directory            Genome directory\n\
   -d, --db=STRING                Genome database\n\
-  -k, --kmer=INT                 kmer size to use in genome database\n\
-                                   (allowed values: 12-15).  If not specified, the program will\n\
-                                   find the highest available kmer size in the genome database\n\
+  -k, --kmer=INT                 kmer size to use in genome database (allowed values: 16 or less)\n\
+                                   If not specified, the program will find the highest available\n\
+                                   kmer size in the genome database\n\
+  --basesize=INT                 Base size to use in genome database.  If not specified, the program\n\
+                                   will find the highest available base size in the genome database\n\
+                                   within selected k-mer size\n\
+  --sampling=INT                 Sampling to use in genome database.  If not specified, the program\n\
+                                   will find the smallest available sampling value in the genome database\n\
+                                   within selected basesize and k-mer size\n\
   -q, --part=INT/INT             Process only the i-th out of every n sequences\n\
                                    e.g., 0/100 or 99/100 (useful for distributing jobs\n\
                                    to a computer farm).\n\
@@ -2549,6 +2719,8 @@ Usage: gsnap [OPTIONS...] <FASTA file>, or\n\
                                       start=1, end=1  => identifier is SRR001666.1\n\
                                       start=2, end=2  => identifier is 071112_SLXA-EAS1_s_7:5:1:817:345\n\
                                       start=1, end=2  => identifier is SRR001666.1 071112_SLXA-EAS1_s_7:5:1:817:345\n\
+  --force-single-end             When multiple FASTQ files are provided on the command line, GSNAP assumes\n\
+                                    they are match paired-end files.  This flag treats each file as single-end.\n\
   --filter-chastity=STRING       Skips reads marked by the Illumina chastity program.  Expecting a string\n\
                                    after the accession having a 'Y' after the first colon, like this:\n\
                                          @accession 1:Y:0:CTTGTA\n\
@@ -2560,6 +2732,11 @@ Usage: gsnap [OPTIONS...] <FASTA file>, or\n\
 #ifdef HAVE_ZLIB
   fprintf(stdout,"\
   --gunzip                       Uncompress gzipped input files\n\
+");
+#endif
+#ifdef HAVE_BZLIB
+  fprintf(stdout,"\
+  --bunzip2                      Uncompress bzip2-compressed input files\n\
 ");
 #endif
   fprintf(stdout,"\n");
@@ -2588,11 +2765,21 @@ is still designed to be fast.\n\
                            Note: For a single sequence, all data structures use mmap\n\
                            If mmap not available and allocate not chosen, then will use fileio (very slow)\n\
 ");
-
+#else
+  fprintf(stdout,"\
+  -B, --batch=INT                Batch mode (default = 4, modes 0-3 disallowed because program configured without mmap)\n\
+                                 Mode     Offsets       Positions       Genome\n\
+                      (default)    4      allocate      allocate        allocate\n\
+                                   5      expand        allocate        allocate\n\
+");
 #endif
+
   fprintf(stdout,"\
   -m, --max-mismatches=FLOAT     Maximum number of mismatches allowed (if not specified, then\n\
-                                   defaults to the ultrafast level of ((readlength+2)/12 - 2))\n\
+                                   defaults to the ultrafast level of ((readlength+index_interval-1)/kmer - 2))\n\
+                                   (By default, the genome index interval is 3, but this can be changed\n \
+                                   by providing a different value for -q to gmap_build when processing\n\
+                                   the genome.)\n			\
                                    If specified between 0.0 and 1.0, then treated as a fraction\n\
                                    of each read length.  Otherwise, treated as an integral number\n\
                                    of mismatches (including indel and splicing penalties)\n\
@@ -2602,6 +2789,10 @@ is still designed to be fast.\n\
                                    (0=no (default), 1=yes)\n\
   --genome-unk-mismatch=INT      Whether to count unknown (N) characters in the genome as a mismatch\n\
                                    (0=no, 1=yes (default))\n\
+  --maxsearch=INT                Maximum number of alignments to find (default 1000).\n\
+                                   Must be larger than --npaths, which is the number to report.\n\
+                                   Keeping this number large will allow for random selection among multiple alignments.\n\
+                                   Reducing this number can speed up the program.\n\
 ");
 
 #if 0
@@ -2616,7 +2807,9 @@ is still designed to be fast.\n\
 #else
   fprintf(stdout,"\
   --terminal-threshold=INT       Threshold for searching for a terminal alignment (from one end of the\n\
-                                   read to the best possible position at the other end) (default 2).\n\
+                                   read to the best possible position at the other end) (default 2\n\
+                                   for standard, atoi-stranded, and atoi-nonstranded mode; default 100\n\
+                                   for cmet-stranded and cmet-nonstranded mode).\n\
                                    For example, if this value is 2, then if GSNAP finds an exact or\n\
                                    1-mismatch alignment, it will not try to find a terminal alignment.\n\
                                    Note that this default value may not be low enough if you want to\n\
@@ -2655,9 +2848,8 @@ is still designed to be fast.\n\
   -M, --suboptimal-levels=INT    Report suboptimal hits beyond best hit (default 0)\n\
                                    All hits with best score plus suboptimal-levels are reported\n\
   -a, --adapter-strip=STRING     Method for removing adapters from reads.  Currently allowed values: off, paired.\n\
-                                   Default is \"paired\", which removes adapters from paired-end reads if a\n\
-                                   concordant or paired alignment cannot be found from the original read.\n\
-                                   To turn off, use the value \"off\".\n\
+                                   Default is \"off\".  To turn on, specify \"paired\", which removes adapters\n\
+                                   from paired-end reads if they appear to be present.\n\
   --trim-mismatch-score=INT      Score to use for mismatches when trimming at ends (default is -3;\n\
                                    to turn off trimming, specify 0).  Warning: turning trimming off\n\
                                    will give false positive mismatches at the ends of reads\n\
@@ -2668,9 +2860,9 @@ is still designed to be fast.\n\
                                    location of genome index files specified using -D and -d)\n \
   -v, --use-snps=STRING          Use database containing known SNPs (in <STRING>.iit, built\n\
                                    previously using snpindex) for tolerance to SNPs\n\
-  -cmetdir=STRING                Directory for methylcytosine index files (created using cmetindex)\n\
+  --cmetdir=STRING               Directory for methylcytosine index files (created using cmetindex)\n\
                                    (default is location of genome index files specified using -D, -V, and -d)\n\
-  -atoidir=STRING                Directory for A-to-I RNA editing index files (created using atoiindex)\n\
+  --atoidir=STRING               Directory for A-to-I RNA editing index files (created using atoiindex)\n\
                                    (default is location of genome index files specified using -D, -V, and -d)\n\
   --mode=STRING                  Alignment mode: standard (default), cmet-stranded, cmet-nonstranded,\n\
                                     atoi-stranded, or atoi-nonstranded.  Non-standard modes requires you\n\
@@ -2703,16 +2895,18 @@ is still designed to be fast.\n\
   fprintf(stdout,"Options for GMAP alignment within GSNAP\n");
   fprintf(stdout,"\
   --gmap-mode=STRING             Cases to use GMAP for complex alignments containing multiple splices or indels\n\
-                                 Allowed values: none, pairsearch, terminal, improve (or multiple,\n\
-                                    separated by commas).  Default: pairsearch,terminal,improve\n\
+                                 Allowed values: none, pairsearch, indel_knownsplice, terminal, improve\n\
+                                   (or multiple values, separated by commas).\n\
+                                   Default: all on, i.e., pairsearch,indel_knownsplice,terminal,improve\n\
   --trigger-score-for-gmap=INT   Try GMAP pairsearch on nearby genomic regions if best score (the total\n\
-                                   of both ends if paired-end) exceeds this value (default 5)\n \
+                                   of both ends if paired-end) exceeds this value (default 5)\n\
+  --gmap-min-match-length=INT    Keep GMAP hit only if it has this many consecutive matches (default 20)\n\
   --max-gmap-pairsearch=INT      Perform GMAP pairsearch on nearby genomic regions up to this many\n\
-                                   many candidate ends (default 3).  Requires pairsearch in --gmap-mode\n\
+                                   many candidate ends (default 10).  Requires pairsearch in --gmap-mode\n\
   --max-gmap-terminal=INT        Perform GMAP terminal on nearby genomic regions up to this many\n\
-                                   candidate ends (default 3).  Requires terminal in --gmap-mode\n\
+                                   candidate ends (default 5).  Requires terminal in --gmap-mode\n\
   --max-gmap-improvement=INT     Perform GMAP improvement on nearby genomic regions up to this many\n\
-                                   candidate ends (default 3).  Requires improve in --gmap-mode\n\
+                                   candidate ends (default 5).  Requires improve in --gmap-mode\n\
   --microexon-spliceprob=FLOAT   Allow microexons only if one of the splice site probabilities is\n\
                                    greater than this value (default 0.90)\n\
 ");
@@ -2750,8 +2944,9 @@ is still designed to be fast.\n\
                                          sense only if you provide the --use-splicing flag, and you are trying\n\
                                          to eliminate all soft clipping with --trim-mismatch-score=0\n\
   -w, --localsplicedist=INT            Definition of local novel splicing event (default 200000)\n\
+  --novelend-splicedist=INT            Distance to look for novel splices at the ends of reads (default 50000)\n\
   -e, --local-splice-penalty=INT       Penalty for a local splice (default 0).  Counts against mismatches allowed\n\
-  -E, --distant-splice-penalty=INT     Penalty for a distant splice (default 3).  A distant splice is one where\n\
+  -E, --distant-splice-penalty=INT     Penalty for a distant splice (default 1).  A distant splice is one where\n\
                                          the intron length exceeds the value of -w, or --localsplicedist, or is an\n\
                                          inversion, scramble, or translocation between two different chromosomes\n\
                                          Counts against mismatches allowed\n\
@@ -2761,7 +2956,8 @@ is still designed to be fast.\n\
                                          but unless known splice sites are provided with the -s flag, GSNAP may still\n\
                                          need the end length to be the value of -k, or kmer size to find a given splice\n\
   --distant-splice-identity=FLOAT      Minimum identity at end required for distant spliced alignments (default 0.95)\n\
-  --antistranded-penalty=INT           Penalty for antistranded splicing when using stranded RNA-Seq protocols.\n\
+  --antistranded-penalty=INT           (Not currently implemented)\n\
+                                         Penalty for antistranded splicing when using stranded RNA-Seq protocols.\n\
                                          A positive value, such as 1, expects antisense on the first read\n\
                                          and sense on the second read.  Default is 0, which treats sense and antisense\n\
                                          equally well\n\
@@ -2780,10 +2976,6 @@ is still designed to be fast.\n\
   --pairmax-rna=INT              Max total genomic length for RNA-Seq paired reads, or other reads\n\
                                    that could have a splice (default 200000).  Used if -N or -s is specified.\n\
                                    Should probably match the value for -w, --localsplicedist.\n\
-  --pairexpect=INT               Expected paired-end length, used for calling splices in medial part of\n\
-                                   paired-end reads (default 200)\n\
-  --pairdev=INT                  Allowable deviation from expected paired-end length, used for\n\
-                                   calling splices in medial part of paired-end reads (default 25)\n\
 ");
   fprintf(stdout,"\n");
 
@@ -2821,8 +3013,7 @@ is still designed to be fast.\n\
                                    (not fully implemented yet)\n\
   --failsonly                    Print only failed alignments, those with no results\n\
   --nofails                      Exclude printing of failed alignments\n\
-  --fails-as-input=STRING        Print completely failed alignments as input FASTA or FASTQ format\n\
-                                   Allowed values: yes, no\n\
+  --fails-as-input               Print completely failed alignments as input FASTA or FASTQ format\n\
 ");
 
 #ifdef HAVE_GOBY
@@ -2844,6 +3035,8 @@ is still designed to be fast.\n\
                                    halfmapping_uniq, halfmapping_mult, unpaired_uniq, unpaired_mult,\n\
                                    paired_uniq, paired_mult, concordant_uniq, and concordant_mult results (up to 9 files,\n\
                                    or 10 if --fails-as-input is selected, or 3 for single-end reads)\n\
+  --append-output                When --split-output is given, this flag will append output to the\n\
+                                   existing files.  Otherwise, the default is to create new files.\n\
   --output-buffer-size=INT       Buffer size, in queries, for output thread (default 1000).  When the number\n\
                                    of results to be printed exceeds this size, the worker threads are halted\n\
                                    until the backlog is cleared\n\
@@ -2855,6 +3048,18 @@ is still designed to be fast.\n\
   fprintf(stdout,"\
   --no-sam-headers               Do not print headers beginning with '@'\n\
   --sam-headers-batch=INT        Print headers only for this batch, as specified by -q\n\
+  --sam-use-0M                   Insert 0M in CIGAR between adjacent insertions and deletions\n\
+                                   Required by Picard, but can cause errors in other tools\n\
+  --sam-multiple-primaries       Allows multiple alignments to be marked as primary if they\n\
+                                   have equally good mapping scores\n\
+  --force-xs-dir                 For RNA-Seq alignments, disallows XS:A:? when the sense direction\n\
+                                   is unclear, and replaces this value arbitrarily with XS:A:+.\n\
+                                   May be useful for some programs, such as Cufflinks, that cannot\n\
+                                   handle XS:A:?.  However, if you use this flag, the reported value\n\
+                                   of XS:A:+ in these cases will not be meaningful.\n\
+  --md-lowercase-snp             In MD string, when known SNPs are given by the -v flag,\n\
+                                   prints difference nucleotides as lower-case when they,\n\
+                                   differ from reference but match a known alternate allele\n\
   --read-group-id=STRING         Value to put into read-group id (RG-ID) field\n\
   --read-group-name=STRING       Value to put into read-group name (RG-SM) field\n\
   --read-group-library=STRING    Value to put into read-group library (RG-LB) field\n\

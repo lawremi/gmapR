@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: inbuffer.c 49442 2011-10-08 01:32:38Z twu $";
+static char rcsid[] = "$Id: inbuffer.c 90425 2013-03-27 16:27:35Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -45,6 +45,14 @@ struct T {
 #else
   void *gzipped;
   void *gzipped2;
+#endif
+
+#ifdef HAVE_BZLIB
+  Bzip2_T bzipped;
+  Bzip2_T bzipped2;
+#else
+  void *bzipped;
+  void *bzipped2;
 #endif
 
   char **files;
@@ -124,6 +132,9 @@ Inbuffer_new (int nextchar, FILE *input,
 #ifdef HAVE_ZLIB
 	      gzFile gzipped, gzFile gzipped2,
 #endif
+#ifdef HAVE_BZLIB
+	      Bzip2_T bzipped, Bzip2_T bzipped2,
+#endif
 #ifdef HAVE_GOBY
 	      Gobyreader_T gobyreader,
 #endif
@@ -151,6 +162,13 @@ Inbuffer_new (int nextchar, FILE *input,
 #else
   new->gzipped = (void *) NULL;
   new->gzipped2 = (void *) NULL;
+#endif
+#ifdef HAVE_BZLIB
+  new->bzipped = bzipped;
+  new->bzipped2 = bzipped2;
+#else
+  new->bzipped = (void *) NULL;
+  new->bzipped2 = (void *) NULL;
 #endif
 #ifdef HAVE_GOBY
   new->gobyreader = gobyreader;
@@ -271,6 +289,47 @@ fill_buffer (T this) {
       }
 #endif
 
+    } else if (this->bzipped != NULL) {
+#ifdef HAVE_BZLIB    
+      /* FASTQ input, bzip2-compressed */
+      while (nread < this->nspaces &&
+#if 0
+	     nchars < this->maxchars &&
+#endif
+	     (queryseq1 = Shortread_read_fastq_shortreads_bzip2(&this->nextchar,&queryseq2,&this->bzipped,&this->bzipped2,
+								&this->files,&this->nfiles,
+								this->barcode_length,this->invert_first_p,this->invert_second_p)) != NULL) {
+	if (this->inputid % this->part_interval != this->part_modulus) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else if (this->filter_if_both_p == true &&
+		   Shortread_filterp(queryseq1) == true && (queryseq2 == NULL || Shortread_filterp(queryseq2) == true)) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else if (this->filter_if_both_p == false &&
+		   (Shortread_filterp(queryseq1) == true || (queryseq2 != NULL && Shortread_filterp(queryseq2) == true))) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else {
+	  this->buffer[nread++] = Request_new(this->requestid++,queryseq1,queryseq2);
+	  nchars += Shortread_fulllength(queryseq1);
+	  if (queryseq2 != NULL) {
+	    nchars += Shortread_fulllength(queryseq2);
+	  }
+	}
+	this->inputid++;
+      }
+#endif
+
     } else {
       /* FASTQ input, text */
       while (nread < this->nspaces &&
@@ -359,8 +418,50 @@ fill_buffer (T this) {
 #if 0
 	     nchars < this->maxchars &&
 #endif
-	     (queryseq1 = Shortread_read_fasta_shortreads_gzip(&this->nextchar,&queryseq2,&this->gzipped,&this->files,&this->nfiles,
+	     (queryseq1 = Shortread_read_fasta_shortreads_gzip(&this->nextchar,&queryseq2,&this->gzipped,&this->gzipped2,
+							       &this->files,&this->nfiles,
 							       this->barcode_length,this->invert_first_p,this->invert_second_p)) != NULL) {
+	if (this->inputid % this->part_interval != this->part_modulus) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else if (this->filter_if_both_p == true &&
+		   Shortread_filterp(queryseq1) == true && (queryseq2 == NULL || Shortread_filterp(queryseq2) == true)) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else if (this->filter_if_both_p == false &&
+		   (Shortread_filterp(queryseq1) == true || (queryseq2 != NULL && Shortread_filterp(queryseq2) == true))) {
+	  Shortread_free(&queryseq1);
+	  if (queryseq2 != NULL) {
+	    Shortread_free(&queryseq2);
+	  }
+
+	} else {
+	  this->buffer[nread++] = Request_new(this->requestid++,queryseq1,queryseq2);
+	  nchars += Shortread_fulllength(queryseq1);
+	  if (queryseq2 != NULL) {
+	    nchars += Shortread_fulllength(queryseq2);
+	  }
+	}
+	this->inputid++;
+      }
+#endif
+
+    } else if (this->bzipped != NULL) {
+#ifdef HAVE_BZLIB    
+      /* FASTA input, bzip2-compressed */
+      while (nread < this->nspaces &&
+#if 0
+	     nchars < this->maxchars &&
+#endif
+	     (queryseq1 = Shortread_read_fasta_shortreads_bzip2(&this->nextchar,&queryseq2,&this->bzipped,&this->bzipped2,
+								&this->files,&this->nfiles,
+								this->barcode_length,this->invert_first_p,this->invert_second_p)) != NULL) {
 	if (this->inputid % this->part_interval != this->part_modulus) {
 	  Shortread_free(&queryseq1);
 	  if (queryseq2 != NULL) {
@@ -398,7 +499,8 @@ fill_buffer (T this) {
 #if 0
 	     nchars < this->maxchars &&
 #endif
-	     (queryseq1 = Shortread_read_fasta_shortreads(&this->nextchar,&queryseq2,&this->input,&this->files,&this->nfiles,
+	     (queryseq1 = Shortread_read_fasta_shortreads(&this->nextchar,&queryseq2,&this->input,&this->input2,
+							  &this->files,&this->nfiles,
 							  this->barcode_length,this->invert_first_p,this->invert_second_p)) != NULL) {
 	if (this->inputid % this->part_interval != this->part_modulus) {
 	  Shortread_free(&queryseq1);
@@ -489,7 +591,12 @@ Inbuffer_fill_init (T this) {
 
 
 Request_T
-Inbuffer_get_request (T this) {
+#ifdef GSNAP
+Inbuffer_get_request (T this)
+#else
+Inbuffer_get_request (Sequence_T *usersegment, T this, bool user_pairalign_p)
+#endif
+{
   Request_T request;
   unsigned int nread;
 
@@ -503,6 +610,16 @@ Inbuffer_get_request (T this) {
 
   } else {
     debug(printf("inbuffer filling\n"));
+#ifndef GSNAP
+    if (user_pairalign_p == true) {
+      /* assert(nspaces == 1) */
+      if (*usersegment != NULL) {
+	Sequence_free(&(*usersegment));
+      }
+      *usersegment = Sequence_read_unlimited(&this->nextchar,stdin);
+      debug(printf("  but first reading usersegment, got nextchar %c\n",this->nextchar));
+    }
+#endif
     nread = fill_buffer(this);
     Outbuffer_add_nread(this->outbuffer,nread);
     debug(printf("inbuffer read %d sequences\n",nread));
@@ -523,4 +640,41 @@ Inbuffer_get_request (T this) {
   return request;
 }
 
+
+
+/* Same as Inbuffer_get_request, but leaves sequence in buffer */
+Request_T
+Inbuffer_first_request (T this) {
+  Request_T request;
+  unsigned int nread;
+
+#ifdef HAVE_PTHREAD
+  pthread_mutex_lock(&this->lock);
+#endif
+  
+  if (this->nleft > 0) {
+    request = this->buffer[this->ptr/*++*/];
+    /* this->nleft -= 1; */
+
+  } else {
+    debug(printf("inbuffer filling\n"));
+    nread = fill_buffer(this);
+    Outbuffer_add_nread(this->outbuffer,nread);
+    debug(printf("inbuffer read %d sequences\n",nread));
+    
+    if (nread == 0) {
+      /* Still empty */
+      request = NULL;
+    } else {
+      request = this->buffer[this->ptr/*++*/];
+      /* this->nleft -= 1; */
+    }
+  }
+
+#ifdef HAVE_PTHREAD
+  pthread_mutex_unlock(&this->lock);
+#endif
+
+  return request;
+}
 

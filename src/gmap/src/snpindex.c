@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: snpindex.c 44869 2011-08-13 18:55:02Z twu $";
+static char rcsid[] = "$Id: snpindex.c 83596 2013-01-16 23:01:47Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -63,7 +63,6 @@ static char rcsid[] = "$Id: snpindex.c 44869 2011-08-13 18:55:02Z twu $";
 #include "datadir.h"
 #include "iit-read.h"
 #include "indexdb.h"
-#include "indexdbdef.h"
 #include "getopt.h"
 
 
@@ -93,11 +92,14 @@ static char *user_destdir = NULL;
 static char *dbroot = NULL;
 static char *fileroot = NULL;
 static int offsetscomp_basesize = 12;
+static int required_basesize = 0;
 static int index1part = 15;
 static int required_index1part = 0;
 static int index1interval = 3;
+static int required_interval = 0;
 
 static char *dbversion = NULL;
+static int circular_typeint = -1;
 
 static char *snps_root = NULL;
 static bool show_warnings_p = true;
@@ -108,6 +110,9 @@ static struct option long_options[] = {
   /* Input options */
   {"sourcedir", required_argument, 0, 'D'},	/* user_sourcedir */
   {"db", required_argument, 0, 'd'}, /* dbroot */
+  {"basesize", required_argument, 0, 'b'}, /* required_basesize */
+  {"kmer", required_argument, 0, 'k'},	   /* required_index1part */
+  {"sampling", required_argument, 0, 'q'},  /* required_interval */
   {"destdir", required_argument, 0, 'V'},	/* user_destdir */
   {"snpsdb", required_argument, 0, 'v'}, /* snps_root */
 
@@ -138,9 +143,10 @@ print_program_usage ();
 
 
 
-static int
+static Oligospace_T
 power (int base, int exponent) {
-  int result = 1, i;
+  Oligospace_T result = 1UL;
+  int i;
 
   for (i = 0; i < exponent; i++) {
     result *= base;
@@ -182,18 +188,17 @@ shortoligo_nt (Storedoligomer_T oligo, int oligosize) {
 }
 
 static char
-check_acgt (char nt, IIT_T snps_iit, int divno, int i) {
-  int index;
+check_acgt (char nt, IIT_T snps_iit, int divno, char *divstring,
+	    int origindex, Interval_T interval) {
   char *label;
   bool allocp;
 
   if (nt == 'N') {
     return nt;
   } else if (nt != 'A' && nt != 'C' && nt != 'G' && nt != 'T') {
-    index = IIT_index(snps_iit,divno,i);
-    label = IIT_label(snps_iit,index,&allocp);
-    fprintf(stderr,"\nFor %s, alternate allele %c is not ACGT, so using 'N' as alternate allele",
-	    label,nt);
+    label = IIT_label(snps_iit,origindex,&allocp);
+    fprintf(stderr,"\nFor %s at %s:%u, alternate allele %c is not ACGT, so using 'N' as alternate allele",
+	    label,divstring,Interval_low(interval),nt);
     if (allocp) {
       FREE(label);
     }
@@ -232,9 +237,44 @@ samep (char *string1, char *string2, int length) {
 }
 #endif
 
+
+typedef struct Labeled_interval_T *Labeled_interval_T;
+struct Labeled_interval_T {
+  int origindex;
+  Interval_T interval;
+};
+
+static Labeled_interval_T
+Labeled_interval_new (int origindex, Interval_T interval) {
+  Labeled_interval_T new = (Labeled_interval_T) MALLOC(sizeof(*new));
+
+  new->origindex = origindex;
+  new->interval = interval;
+  return new;
+}
+
+static void
+Labeled_interval_free (Labeled_interval_T *old, bool free_interval_p) {
+  if (free_interval_p == true) {
+    Interval_free(&((*old)->interval));
+  }
+  FREE(*old);
+  return;
+}
+
+static int
+Labeled_interval_cmp (const void *a, const void *b) {
+  Labeled_interval_T x = * (Labeled_interval_T *) a;
+  Labeled_interval_T y = * (Labeled_interval_T *) b;
+
+  return Interval_cmp((const void *) &(x->interval),(const void *) &(y->interval));
+}
+
+
+
 static int
 process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positions,
-		   Interval_T *intervals, int nintervals,
+		   Labeled_interval_T *intervals, int nintervals,
 		   Genomicpos_T chroffset, Genome_T genome,
 		   UINT4 *snp_blocks, int divno, char *divstring, int intervali,
 		   IIT_T snps_iit, IIT_T chromosome_iit, int index1part) {
@@ -264,8 +304,8 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
 
 
   /* Subtract 1 because snps_iit is 1-based */
-  first_snppos = Interval_low(intervals[0]) - 1U;
-  last_snppos = Interval_low(intervals[nintervals-1]) - 1U;
+  first_snppos = Interval_low(intervals[0]->interval) - 1U;
+  last_snppos = Interval_low(intervals[nintervals-1]->interval) - 1U;
   debug1(
 	 if (nintervals == 1) {
 	   printf("Processing snp at chrpos %s:%u\n",divstring,first_snppos+1U);
@@ -287,13 +327,21 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
   refstring = (char *) CALLOC(length + 1,sizeof(char));
   altstring = (char *) CALLOC(length + 1,sizeof(char));
 
+#if 0
+  /* Doesn't work with circular chromosomes */
   Genome_fill_buffer(&chrnum,&nunknowns,genome,/*left*/startposition,length,
 		     refstring,chromosome_iit);
+#else
+  Genome_fill_buffer_simple(genome,/*left*/startposition,length,refstring);
+#endif
 
   for (i = 0; i < nintervals; i++) {
-    interval = intervals[i];
+    interval = intervals[i]->interval;
     snpposition = chroffset + Interval_low(interval) - 1U; /* Subtract 1 because snps_iit is 1-based */
-    debug1(printf("  Neighbor at %s:%u\n",divstring,Interval_low(interval)));
+
+    debug1(label = IIT_label(snps_iit,intervals[i]->origindex,&allocp));
+    debug1(printf("  Neighbor %s at %s:%u\n",label,divstring,Interval_low(interval)));
+
     stringi = snpposition - startposition;
 
     snptype = IIT_typestring(snps_iit,Interval_type(interval));
@@ -306,8 +354,7 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
 	if (altstring[stringi] != '\0' && altstring[stringi] != snptype[1]) {
 	  nerrors++;
 	  if (show_warnings_p == true) {
-	    index = IIT_index(snps_iit,divno,intervali+i);
-	    label = IIT_label(snps_iit,index,&allocp);
+	    label = IIT_label(snps_iit,intervals[i]->origindex,&allocp);
 	    fprintf(stderr,"\nFor %s at %s:%u, saw two different alternate alleles %c and %c, so using N as alternate allele.",
 		    label,divstring,Interval_low(interval),altstring[stringi],snptype[1]);
 	    if (allocp == true) {
@@ -320,14 +367,13 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
 	  }
 	  altnt = 'N';
 	} else {
-	  altnt = check_acgt(snptype[1],snps_iit,divno,intervali+i);
+	  altnt = check_acgt(snptype[1],snps_iit,divno,divstring,intervals[i]->origindex,intervals[i]->interval);
 	}
       } else if (refnt == snptype[1]) {
 	if (altstring[stringi] != '\0' && altstring[stringi] != snptype[0]) {
 	  nerrors++;
 	  if (show_warnings_p == true) {
-	    index = IIT_index(snps_iit,divno,intervali+i);
-	    label = IIT_label(snps_iit,index,&allocp);
+	    label = IIT_label(snps_iit,intervals[i]->origindex,&allocp);
 	    fprintf(stderr,"\nFor %s at %s:%u, saw two different alternate alleles %c and %c, so using N as alternate allele.",
 		    label,divstring,Interval_low(interval),altstring[stringi],snptype[0]);
 	    if (allocp == true) {
@@ -340,13 +386,12 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
 	  }
 	  altnt = 'N';
 	} else {
-	  altnt = check_acgt(snptype[0],snps_iit,divno,intervali+i);
+	  altnt = check_acgt(snptype[0],snps_iit,divno,divstring,intervals[i]->origindex,intervals[i]->interval);
 	}
       } else {
 	nerrors++;
 	if (show_warnings_p == true) {
-	  index = IIT_index(snps_iit,divno,intervali+i);
-	  label = IIT_label(snps_iit,index,&allocp);
+	  label = IIT_label(snps_iit,intervals[i]->origindex,&allocp);
 	  fprintf(stderr,"\nFor %s at %s:%u, snptype %s not consistent with reference allele %c, so ignoring.",
 		  label,divstring,Interval_low(interval),snptype,refstring[stringi]);
 	  if (allocp == true) {
@@ -440,7 +485,7 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
   
   for (starti = 0, position = startposition, chrpos = startposition - chroffset; 
        position <= endposition-index1part+1U; starti++, position++, chrpos++) {
-    if (chrpos % 3 == 0) {
+    if (chrpos % index1interval == 0) {
       /* chrpos % 3 == 0 is same as the condition in indexdb.c for storing a position */
       nsnps = 0;
       badcharp = false;
@@ -544,14 +589,17 @@ process_snp_block (int *nwarnings, Positionsptr_T *offsets, Genomicpos_T *positi
 
 static Positionsptr_T *
 compute_offsets (IIT_T snps_iit, IIT_T chromosome_iit, Genome_T genome, UINT4 *snp_blocks,
-		 int oligospace, int index1part) {
+		 Oligospace_T oligospace, int index1part) {
   Positionsptr_T *offsets;
 
-  Interval_T *intervals;
-  int nintervals, nerrors, divno, i, j;
+  Labeled_interval_T *intervals;
+  int origindex;
+  Interval_T interval, copy;
+  int nintervals, nintervals_alias, nerrors, divno, i, j;
+  Oligospace_T oligoi;
   char *divstring;
   Chrnum_T chrnum;
-  Genomicpos_T chroffset;
+  Genomicpos_T chroffset, chrlength;
   int nwarnings = 0;
 
   offsets = (Positionsptr_T *) CALLOC(oligospace+1,sizeof(Positionsptr_T));
@@ -565,24 +613,54 @@ compute_offsets (IIT_T snps_iit, IIT_T chromosome_iit, Genome_T genome, UINT4 *s
       nerrors = 0;
       fprintf(stderr,"has %d snps...",IIT_nintervals(snps_iit,divno));
       chroffset = IIT_interval_low(chromosome_iit,chrnum);
-
+      chrlength = IIT_interval_length(chromosome_iit,chrnum);
       nintervals = IIT_nintervals(snps_iit,divno);
-      intervals = (Interval_T *) CALLOC(nintervals,sizeof(Interval_T));
-      for (i = 0; i < nintervals; i++) {
-	intervals[i] = &(snps_iit->intervals[divno][i]);
+
+      if (IIT_interval_type(chromosome_iit,chrnum) == circular_typeint) {
+	fprintf(stderr,"and is circular...");
+	nintervals_alias = 2*nintervals;
+	intervals = (Labeled_interval_T *) CALLOC(nintervals_alias,sizeof(Labeled_interval_T));
+	for (i = 0; i < nintervals; i++) {
+	  origindex = IIT_index(snps_iit,divno,i);
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/&(snps_iit->intervals[divno][i]));
+	}
+	for (j = 0; i < nintervals_alias; i++, j++) {
+	  origindex = IIT_index(snps_iit,divno,j);
+	  interval = intervals[j]->interval;
+	  copy = Interval_new(/*low*/Interval_low(interval) + chrlength,
+			      /*high*/Interval_high(interval) + chrlength,
+			      Interval_type(interval));
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/copy);
+	}
+
+      } else {
+	nintervals_alias = nintervals;
+	intervals = (Labeled_interval_T *) CALLOC(nintervals,sizeof(Labeled_interval_T));
+	for (i = 0; i < nintervals; i++) {
+	  origindex = IIT_index(snps_iit,divno,i);
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/&(snps_iit->intervals[divno][i]));
+	}
       }
-      qsort(intervals,nintervals,sizeof(Interval_T),Interval_cmp);
+
+      qsort(intervals,nintervals,sizeof(Labeled_interval_T),Labeled_interval_cmp);
 
       i = 0;
-      while (i < nintervals) {
+      while (i < nintervals_alias) {
 	j = i + 1;
-	while (j < nintervals && Interval_low(intervals[j]) < Interval_low(intervals[j-1]) + index1part) {
+	while (j < nintervals_alias && Interval_low(intervals[j]->interval) < Interval_low(intervals[j-1]->interval) + index1part) {
 	  j++;
 	}
-	nerrors += process_snp_block(&nwarnings,offsets,/*positions*/NULL,&(intervals[i]),j-i,
+	nerrors += process_snp_block(&nwarnings,offsets,/*positions*/NULL,&(intervals[i]),/*nintervals*/j-i,
 				     chroffset,genome,snp_blocks,
 				     divno,divstring,/*intervali*/i,snps_iit,chromosome_iit,index1part);
 	i = j;
+      }
+
+      for (i = nintervals; i < nintervals_alias; i++) {
+	Labeled_interval_free(&(intervals[i]),/*free_interval_p*/true);
+      }
+      for (i = 0; i < nintervals; i++) {
+	Labeled_interval_free(&(intervals[i]),/*free_interval_p*/false);
       }
 
       FREE(intervals);
@@ -592,10 +670,10 @@ compute_offsets (IIT_T snps_iit, IIT_T chromosome_iit, Genome_T genome, UINT4 *s
 
   /* Do not add extra for sentinel */
 
-  for (i = 1; i <= oligospace; i++) {
-    offsets[i] = offsets[i] + offsets[i-1];
-    debug(if (offsets[i] != offsets[i-1]) {
-	    printf("Offset for %06X: %u\n",i,offsets[i]);
+  for (oligoi = 1; oligoi <= oligospace; oligoi++) {
+    offsets[oligoi] = offsets[oligoi] + offsets[oligoi-1];
+    debug(if (offsets[oligoi] != offsets[oligoi-1]) {
+	    printf("Offset for %lX: %u\n",oligoi,offsets[oligoi]);
 	  });
   }
 
@@ -605,14 +683,17 @@ compute_offsets (IIT_T snps_iit, IIT_T chromosome_iit, Genome_T genome, UINT4 *s
 
 static Genomicpos_T *
 compute_positions (Positionsptr_T *offsets, IIT_T snps_iit, IIT_T chromosome_iit,
-		   Genome_T genome, int oligospace) {
+		   Genome_T genome, Oligospace_T oligospace) {
   Genomicpos_T *positions;
 
-  Interval_T *intervals;
-  int nintervals, divno, i, j;
+  Labeled_interval_T *intervals;
+  int origindex;
+  Interval_T interval, copy;
+  int nintervals, nintervals_alias, divno, i, j;
+  Oligospace_T oligoi;
   char *divstring;
   Chrnum_T chrnum;
-  Genomicpos_T chroffset;
+  Genomicpos_T chroffset, chrlength;
   Positionsptr_T *pointers, totalcounts, block_start, block_end, npositions;
   int nwarnings = 0;
 
@@ -650,24 +731,54 @@ compute_positions (Positionsptr_T *offsets, IIT_T snps_iit, IIT_T chromosome_iit
     } else {
       fprintf(stderr,"has %d snps...",IIT_nintervals(snps_iit,divno));
       chroffset = IIT_interval_low(chromosome_iit,chrnum);
-
+      chrlength = IIT_interval_length(chromosome_iit,chrnum);
       nintervals = IIT_nintervals(snps_iit,divno);
-      intervals = (Interval_T *) CALLOC(nintervals,sizeof(Interval_T));
-      for (i = 0; i < nintervals; i++) {
-	intervals[i] = &(snps_iit->intervals[divno][i]);
+
+      if (IIT_interval_type(chromosome_iit,chrnum) == circular_typeint) {
+	fprintf(stderr,"and is circular...");
+	nintervals_alias = 2*nintervals;
+	intervals = (Labeled_interval_T *) CALLOC(nintervals_alias,sizeof(Labeled_interval_T));
+	for (i = 0; i < nintervals; i++) {
+	  origindex = IIT_index(snps_iit,divno,i);
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/&(snps_iit->intervals[divno][i]));
+	}
+	for (j = 0; i < nintervals_alias; i++, j++) {
+	  origindex = IIT_index(snps_iit,divno,j);
+	  interval = intervals[j]->interval;
+	  copy = Interval_new(/*low*/Interval_low(interval) + chrlength,
+			      /*high*/Interval_high(interval) + chrlength,
+			      Interval_type(interval));
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/copy);
+	}
+
+      } else {
+	nintervals_alias = nintervals;
+	intervals = (Labeled_interval_T *) CALLOC(nintervals,sizeof(Labeled_interval_T));
+	for (i = 0; i < nintervals; i++) {
+	  origindex = IIT_index(snps_iit,divno,i);
+	  intervals[i] = Labeled_interval_new(origindex,/*interval*/&(snps_iit->intervals[divno][i]));
+	}
       }
-      qsort(intervals,nintervals,sizeof(Interval_T),Interval_cmp);
+
+      qsort(intervals,nintervals,sizeof(Labeled_interval_T),Labeled_interval_cmp);
 
       i = 0;
-      while (i < nintervals) {
+      while (i < nintervals_alias) {
 	j = i + 1;
-	while (j < nintervals && Interval_low(intervals[j]) < Interval_low(intervals[j-1]) + index1part) {
+	while (j < nintervals_alias && Interval_low(intervals[j]->interval) < Interval_low(intervals[j-1]->interval) + index1part) {
 	  j++;
 	}
-	process_snp_block(&nwarnings,/*offsets*/pointers,positions,&(intervals[i]),
-			  /*nintervals*/j-i,chroffset,genome,/*snp_blocks*/NULL,
+	process_snp_block(&nwarnings,/*offsets*/pointers,positions,&(intervals[i]),/*nintervals*/j-i,
+			  chroffset,genome,/*snp_blocks*/NULL,
 			  divno,divstring,/*intervali*/i,snps_iit,chromosome_iit,index1part);
 	i = j;
+      }
+
+      for (i = nintervals; i < nintervals_alias; i++) {
+	Labeled_interval_free(&(intervals[i]),/*free_interval_p*/true);
+      }
+      for (i = 0; i < nintervals; i++) {
+	Labeled_interval_free(&(intervals[i]),/*free_interval_p*/false);
       }
 
       FREE(intervals);
@@ -678,9 +789,9 @@ compute_positions (Positionsptr_T *offsets, IIT_T snps_iit, IIT_T chromosome_iit
   FREE(pointers);
 
   /* Sort positions in each block */
-  for (i = 0; i < oligospace; i++) {
-    block_start = offsets[i];
-    block_end = offsets[i+1];
+  for (oligoi = 0; oligoi < oligospace; oligoi++) {
+    block_start = offsets[oligoi];
+    block_end = offsets[oligoi+1];
     if ((npositions = block_end - block_start) > 1) {
       qsort(&(positions[block_start]),npositions,sizeof(Genomicpos_T),Genomicpos_compare);
     }
@@ -692,7 +803,7 @@ compute_positions (Positionsptr_T *offsets, IIT_T snps_iit, IIT_T chromosome_iit
 
 static void
 merge_positions (FILE *positions_fp, Genomicpos_T *start1, Genomicpos_T *end1,
-		 Genomicpos_T *start2, Genomicpos_T *end2, Positionsptr_T oligo, int index1part) {
+		 Genomicpos_T *start2, Genomicpos_T *end2, Storedoligomer_T oligo, int index1part) {
   Genomicpos_T *ptr1 = start1, *ptr2 = start2;
   char *nt;
 #ifdef WORDS_BIGENDIAN
@@ -772,10 +883,16 @@ main (int argc, char *argv[]) {
   char *sourcedir = NULL, *destdir = NULL, *mapdir = NULL;
   IIT_T chromosome_iit, snps_iit;
   Genome_T genome;
-  Positionsptr_T *offsets, *snp_offsets, *ref_offsets, npositions;
+  Positionsptr_T *offsets, *snp_offsets, *ref_offsets;
+#ifdef EXTRA_ALLOCATION
+  Positionsptr_T npositions;
+#endif
   Genomicpos_T *snp_positions, *ref_positions, nblocks;
   UINT4 *snp_blocks;
-  int oligospace, i;
+  Oligospace_T oligospace, oligoi;
+#ifndef HAVE_MMAP
+  double seconds;
+#endif
 
   char *filename, *filename1, *filename2;
   char *gammaptrs_filename, *offsetscomp_filename, *positions_filename,
@@ -794,7 +911,7 @@ main (int argc, char *argv[]) {
   int long_option_index = 0;
   const char *long_name;
 
-  while ((opt = getopt_long(argc,argv,"D:d:k:V:v:w:",
+  while ((opt = getopt_long(argc,argv,"D:d:b:k:q:V:v:w:",
 			    long_options,&long_option_index)) != -1) {
     switch (opt) {
     case 0: 
@@ -814,7 +931,9 @@ main (int argc, char *argv[]) {
 
     case 'D': user_sourcedir = optarg; break;
     case 'd': dbroot = optarg; break;
+    case 'b': required_basesize = atoi(optarg); break;
     case 'k': required_index1part = atoi(optarg); break;
+    case 'q': required_interval = atoi(optarg); break;
     case 'V': user_destdir = optarg; break;
     case 'v': snps_root = optarg; break;
     case 'w': max_warnings = atoi(optarg); break;
@@ -885,6 +1004,8 @@ main (int argc, char *argv[]) {
 				 /*labels_read_p*/true)) == NULL) {
     fprintf(stderr,"IIT file %s is not valid\n",filename);
     exit(9);
+  } else {
+    circular_typeint = IIT_typeint(chromosome_iit,"circular");
   }
   FREE(filename);
 
@@ -908,6 +1029,7 @@ main (int argc, char *argv[]) {
   } else {
     destdir = user_destdir;
   }
+  fprintf(stderr,"Writing snpindex files to %s\n",destdir);
 
   if (max_warnings == 0) {
     show_warnings_p = false;
@@ -919,7 +1041,7 @@ main (int argc, char *argv[]) {
 			&gammaptrs_index1info_ptr,&offsetscomp_index1info_ptr,&positions_index1info_ptr,
 			&offsetscomp_basesize,&index1part,&index1interval,
 			sourcedir,fileroot,IDX_FILESUFFIX,/*snps_root*/NULL,
-			required_index1part,/*required_interval*/0);
+			required_basesize,required_index1part,required_interval);
 
   /* Compute offsets and write genome */
   oligospace = power(4,index1part);
@@ -935,6 +1057,7 @@ main (int argc, char *argv[]) {
   fprintf(stderr,"Writing filename %s...",filename);
   FWRITE_UINTS(snp_blocks,nblocks*3,genome_fp);
   fclose(genome_fp);
+  FREE(snp_blocks);
   FREE(filename);
   fprintf(stderr,"done\n");
 
@@ -945,32 +1068,52 @@ main (int argc, char *argv[]) {
 
 
   /* Read reference offsets and update */
+#ifdef EXTRA_ALLOCATION
   ref_offsets = Indexdb_offsets_from_gammas(gammaptrs_filename,offsetscomp_filename,offsetscomp_basesize,index1part);
-
   offsets = (Positionsptr_T *) CALLOC(oligospace+1,sizeof(Positionsptr_T));
   offsets[0] = 0U;
-  for (i = 1; i <= oligospace; i++) {
+  for (oligoi = 1; oligoi <= oligospace; oligoi++) {
 #ifdef WORDS_BIGENDIAN
-    npositions = (Bigendian_convert_uint(ref_offsets[i]) - Bigendian_convert_uint(ref_offsets[i-1])) + 
-      (snp_offsets[i] - snp_offsets[i-1]);
+    npositions = (Bigendian_convert_uint(ref_offsets[oligoi]) - Bigendian_convert_uint(ref_offsets[oligoi-1])) + 
+      (snp_offsets[oligoi] - snp_offsets[oligoi-1]);
 #else
-    npositions = (ref_offsets[i] - ref_offsets[i-1]) + (snp_offsets[i] - snp_offsets[i-1]);
+    npositions = (ref_offsets[oligoi] - ref_offsets[oligoi-1]) + (snp_offsets[oligoi] - snp_offsets[oligoi-1]);
 #endif
-    offsets[i] = offsets[i-1] + npositions;
+    offsets[oligoi] = offsets[oligoi-1] + npositions;
   }
+
+#else
+  /* This version saves on one allocation of oligospace * sizeof(Positionsptr_T) */
+  offsets = Indexdb_offsets_from_gammas(gammaptrs_filename,offsetscomp_filename,offsetscomp_basesize,index1part);
+  for (oligoi = oligospace; oligoi >= 1; oligoi--) {
+#ifdef WORDS_BIGENDIAN
+    offsets[oligoi] = Bigendian_convert_uint(offsets[oligoi]) - Bigendian_convert_uint(offsets[oligoi-1]);
+#else
+    offsets[oligoi] = offsets[oligoi] - offsets[oligoi-1];
+#endif
+  }
+
+  for (oligoi = 1; oligoi <= oligospace; oligoi++) {
+    offsets[oligoi] = offsets[oligoi-1] + offsets[oligoi] + (snp_offsets[oligoi] - snp_offsets[oligoi-1]);
+  }
+#endif
 
 
   /* Write offsets */
-  filename1 = (char *) CALLOC(strlen(destdir)+strlen("/")+strlen(gammaptrs_basename_ptr)+
-			      strlen(".")+strlen(snps_root)+1,sizeof(char));
-  sprintf(filename1,"%s/%s.%s",destdir,gammaptrs_basename_ptr,snps_root);
+  if (gammaptrs_basename_ptr == NULL) {
+    filename1 = (char *) NULL;
+  } else {
+    filename1 = (char *) CALLOC(strlen(destdir)+strlen("/")+strlen(gammaptrs_basename_ptr)+
+				strlen(".")+strlen(snps_root)+1,sizeof(char));
+    sprintf(filename1,"%s/%s.%s",destdir,gammaptrs_basename_ptr,snps_root);
+  }
 
   filename2 = (char *) CALLOC(strlen(destdir)+strlen("/")+strlen(offsetscomp_basename_ptr)+
-			     strlen(".")+strlen(snps_root)+1,sizeof(char));
+			      strlen(".")+strlen(snps_root)+1,sizeof(char));
   sprintf(filename2,"%s/%s.%s",destdir,offsetscomp_basename_ptr,snps_root);
 
 
-  fprintf(stderr,"Writing %d offsets with %u total positions\n",oligospace+1,offsets[oligospace]);
+  fprintf(stderr,"Writing %lu offsets with %u total positions\n",oligospace+1,offsets[oligospace]);
 #ifdef PRE_GAMMAS
   FWRITE_UINTS(offsets,oligospace+1,offsets_fp);
 #else
@@ -978,7 +1121,9 @@ main (int argc, char *argv[]) {
 			  /*blocksize*/power(4,index1part - offsetscomp_basesize));
 #endif
   FREE(filename2);
-  FREE(filename1);
+  if (filename1 != NULL) {
+    FREE(filename1);
+  }
   FREE(offsets);
 
 
@@ -989,8 +1134,15 @@ main (int argc, char *argv[]) {
   } else {
     fclose(ref_positions_fp);
   }
+
+#ifdef HAVE_MMAP
   ref_positions = (Genomicpos_T *) Access_mmap(&ref_positions_fd,&ref_positions_len,
 					       positions_filename,sizeof(Genomicpos_T),/*randomp*/false);
+#else
+  ref_positions = (Genomicpos_T *) Access_allocated(&ref_positions_len,&seconds,
+						    positions_filename,sizeof(Genomicpos_T));
+#endif
+
 
   filename = (char *) CALLOC(strlen(destdir)+strlen("/")+strlen(positions_basename_ptr)+
 			     strlen(".")+strlen(snps_root)+1,sizeof(char));
@@ -1002,24 +1154,34 @@ main (int argc, char *argv[]) {
   FREE(filename);
 
   fprintf(stderr,"Merging snp positions with reference positions\n");
-  for (i = 0; i < oligospace; i++) {
+#ifndef EXTRA_ALLOCATION
+  ref_offsets = Indexdb_offsets_from_gammas(gammaptrs_filename,offsetscomp_filename,offsetscomp_basesize,index1part);
+#endif
+
+  for (oligoi = 0; oligoi < oligospace; oligoi++) {
 
 #ifdef WORDS_BIGENDIAN
-    offset1 = Bigendian_convert_uint(ref_offsets[i]);
-    offset2 = Bigendian_convert_uint(ref_offsets[i+1]);
-    merge_positions(positions_fp,&(snp_positions[snp_offsets[i]]),&(snp_positions[snp_offsets[i+1]]),
-		    &(ref_positions[offset1]),&(ref_positions[offset2]),i,index1part);
+    offset1 = Bigendian_convert_uint(ref_offsets[oligoi]);
+    offset2 = Bigendian_convert_uint(ref_offsets[oligoi+1]);
+    merge_positions(positions_fp,&(snp_positions[snp_offsets[oligoi]]),&(snp_positions[snp_offsets[oligoi+1]]),
+		    &(ref_positions[offset1]),&(ref_positions[offset2]),oligoi,index1part);
 #else
-    merge_positions(positions_fp,&(snp_positions[snp_offsets[i]]),&(snp_positions[snp_offsets[i+1]]),
-		    &(ref_positions[ref_offsets[i]]),&(ref_positions[ref_offsets[i+1]]),i,index1part);
+    merge_positions(positions_fp,&(snp_positions[snp_offsets[oligoi]]),&(snp_positions[snp_offsets[oligoi+1]]),
+		    &(ref_positions[ref_offsets[oligoi]]),&(ref_positions[ref_offsets[oligoi+1]]),oligoi,index1part);
 #endif
   }
+  FREE(ref_offsets);
   fclose(positions_fp);
 
 
   /* Clean up */
+#ifdef HAVE_MMAP
   munmap((void *) ref_positions,ref_positions_len);
   close(ref_positions_fd);
+#else
+  FREE(ref_positions);
+#endif
+
 
   FREE(snp_positions);
   FREE(snp_offsets);
@@ -1044,16 +1206,41 @@ main (int argc, char *argv[]) {
     sprintf(filename,"%s/%s.iit",destdir,snps_root);
   }
 
+  FREE(dbversion);
+  FREE(fileroot);
+  FREE(sourcedir);
+
+
+  fprintf(stderr,"SNP genome indices created.\n");
   if (Access_file_exists_p(filename) == true) {
-    fprintf(stderr,"SNP genome indices created.  IIT file already present as %s\n",filename);
+    if (Access_file_equal(filename,argv[1]) == false) {
+      fprintf(stderr,"IIT file already present as %s, but it is different from the given file %s\n",
+	      filename,argv[1]);
+      fprintf(stderr,"Please copy file %s as %s\n",argv[1],filename);
+    } else {
+      fprintf(stderr,"IIT file already present as %s, and it is the same as given file %s\n",
+	      filename,argv[1]);
+    }
+
   } else if (argc > 1) {
-    fprintf(stderr,"SNP genome indices created.  Need to install IIT file %s as %s\n",
+    fprintf(stderr,"Now installing IIT file %s as %s...",
 	    argv[1],filename);
+    Access_file_copy(/*dest*/filename,/*source*/argv[1]);
+    fprintf(stderr,"done\n");
+
   } else {
-    fprintf(stderr,"SNP genome indices created.  Need to copy IIT file from %s/%s.iit to %s\n",
+    fprintf(stderr,"Now copying IIT file from %s/%s.iit to %s...",
 	    mapdir,snps_root,filename);
+    filename1 = (char *) CALLOC(strlen(mapdir)+strlen("/")+
+				strlen(snps_root)+strlen(".iit")+1,sizeof(char));
+    sprintf(filename1,"%s/%s.iit",mapdir,snps_root);
+    Access_file_copy(/*dest*/filename,/*source*/filename1);
+    fprintf(stderr,"done\n");
+    FREE(filename1);
     FREE(mapdir);
   }
+
+  FREE(filename);
 
   return 0;
 }
@@ -1076,6 +1263,15 @@ for <genome>.\n\
   -D, --sourcedir=directory      Directory where to read genome index files (default is\n\
                                    GMAP genome directory specified at compile time)\n\
   -d, --db=STRING                Genome database\n\
+  -k, --kmer=INT                 kmer size to use in genome database (allowed values: 16 or less).\n\
+                                   If not specified, the program will find the highest available\n\
+                                   kmer size in the genome database\n\
+  -b, --basesize=INT             Base size to use in genome database.  If not specified, the program\n\
+                                   will find the highest available base size in the genome database\n\
+                                   within selected k-mer size\n\
+  -q, --sampling=INT             Sampling to use in genome database.  If not specified, the program\n\
+                                   will find the smallest available sampling value in the genome database\n\
+                                   within selected basesize and k-mer size\n\
   -V, --destdir=directory        Directory where to write SNP index files (default is\n\
                                    GMAP genome directory specified at compile time)\n\
   -v, --snpsdb=STRING            Name of SNP database\n\

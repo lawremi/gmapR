@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: stage1.c 53380 2011-11-30 13:36:11Z twu $";
+static char rcsid[] = "$Id: stage1.c 82071 2012-12-19 21:43:45Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -23,6 +23,12 @@ static char rcsid[] = "$Id: stage1.c 53380 2011-11-30 13:36:11Z twu $";
 #include "match.h"
 #include "chrsubset.h"
 #include "gregion.h"
+#include "orderstat.h"
+
+
+/* Restoring old scan_ends algorithm, removed on 2012-05-14, to get
+   ends correctly (e.g., NM_004449) */
+#define SCAN_ENDS 1
 
 
 #define MAX_INDELS 15
@@ -63,7 +69,6 @@ static char rcsid[] = "$Id: stage1.c 53380 2011-11-30 13:36:11Z twu $";
 
 #define COLLAPSE_DISTANCE 12
 #define SUBOPTIMAL 36
-#define NBEST 100
 
 #define MAX_GREGIONS_PRE_UNIQUE 1000
 #define MAX_GREGIONS_POST_UNIQUE 100
@@ -88,6 +93,13 @@ static IIT_T global_chromosome_iit;
 static char *queryuc_ptr;
 #else
 #define debug(x)
+#endif
+
+/* final results */
+#ifdef DEBUG0
+#define debug0(x) x
+#else
+#define debug0(x)
 #endif
 
 /* show positions.  Should also specify DEBUG */
@@ -158,36 +170,42 @@ static char *queryuc_ptr;
 #ifdef PMAP
 static int index1part_aa;
 static int leftreadshift;
-static int msb;
-
-static int
-power (int base, int exponent) {
-  int result = 1, i;
-
-  for (i = 0; i < exponent; i++) {
-    result *= base;
-  }
-  return result;
-}
+static Genomicpos_T maxextension;
+static Genomicpos_T maxtotallen_bound;
+static int min_extra_end;
+static int circular_typeint;
 
 void
-Stage1_setup (int index1part_aa_in) {
+Stage1_setup (int index1part_aa_in, Genomicpos_T maxextension_in, Genomicpos_T maxtotallen_bound_in,
+	      int min_extra_end_in, int circular_typeint_in) {
   index1part_aa = index1part_aa_in;
   leftreadshift = 32 - 2*index1part_aa_in; /* chars are shifted into left of a 32 bit word */
-  msb = power(NAMINOACIDS,index1part_aa_in-1);
+  maxextension = maxextension_in;
+  maxtotallen_bound = maxtotallen_bound_in;
+  min_extra_end = min_extra_end_in;
+  circular_typeint = circular_typeint_in;
   return;
 }
 
 #else
 static int index1part;
 static int leftreadshift;
+static Genomicpos_T maxextension;
+static Genomicpos_T maxtotallen_bound;
+static int min_extra_end;
 static Storedoligomer_T oligobase_mask;
+static int circular_typeint;
 
 void
-Stage1_setup (int index1part_in) {
+Stage1_setup (int index1part_in, Genomicpos_T maxextension_in, Genomicpos_T maxtotallen_bound_in,
+	      int min_extra_end_in, int circular_typeint_in) {
   index1part = index1part_in;
   leftreadshift = 32 - 2*index1part_in; /* chars are shifted into left of a 32 bit word */
-  oligobase_mask = ~(~0U << 2*index1part_in);
+  oligobase_mask = ~(~0UL << 2*index1part_in);
+  maxextension = maxextension_in;
+  maxtotallen_bound = maxtotallen_bound_in;
+  min_extra_end = min_extra_end_in;
+  circular_typeint = circular_typeint_in;
   return;
 }
 #endif
@@ -304,15 +322,13 @@ Stage1_new (Sequence_T queryuc, int maxtotallen, int maxentries) {
   debug(Sequence_print(stdout,queryuc,/*uppercasep*/true,/*wraplength*/50,/*trimmedp*/true));
 #endif
 #ifdef PMAP
-  reader = Reader_new(Sequence_fullpointer(queryuc),new->querystart,new->queryend,
-		      /*reader_overlap*/index1part_aa);
-  new->block5 = Block_new(FIVE,index1part_aa,msb,reader,3*new->querylength);
-  new->block3 = Block_new(THREE,index1part_aa,msb,reader,3*new->querylength);
+  reader = Reader_new(Sequence_fullpointer(queryuc),new->querystart,new->queryend);
+  new->block5 = Block_new(FIVE,/*oligosize*/index1part_aa,reader,3*new->querylength);
+  new->block3 = Block_new(THREE,/*oligosize*/index1part_aa,reader,3*new->querylength);
 #else
-  reader = Reader_new(Sequence_fullpointer(queryuc),new->querystart,new->queryend,
-		      /*reader_overlap*/index1part);
-  new->block5 = Block_new(FIVE,index1part,leftreadshift,reader,new->querylength);
-  new->block3 = Block_new(THREE,index1part,leftreadshift,reader,new->querylength);
+  reader = Reader_new(Sequence_fullpointer(queryuc),new->querystart,new->queryend);
+  new->block5 = Block_new(FIVE,/*oligosize*/index1part,leftreadshift,reader,new->querylength);
+  new->block3 = Block_new(THREE,/*oligosize*/index1part,leftreadshift,reader,new->querylength);
 #endif
   new->matches5 = NULL;
   new->matches3 = NULL;
@@ -460,8 +476,8 @@ connectable_p (Match_T match5, Match_T match3, int maxtotallen) {
 /* Updates a list of Stage1_T objects */
 static List_T
 pair_up (bool *foundpairp, List_T gregionlist, int matchsize, int oligosize,
-	 List_T newmatches5, List_T newmatches3, 
-	 List_T matches5, List_T matches3, IIT_T chromosome_iit, int querylength,
+	 List_T newmatches5, List_T newmatches3, List_T matches5, List_T matches3,
+	 int genestrand, IIT_T chromosome_iit, int querylength,
 	 int maxtotallen, int trimstart, int trimend, int trimlength) {
   List_T p, q, s, new_gregions = NULL;
   Match_T match5, match3;
@@ -483,8 +499,9 @@ pair_up (bool *foundpairp, List_T gregionlist, int matchsize, int oligosize,
 #if 1
 	    if (Match_acceptable_pair(match5,match3,trimlength,matchsize) == true) {
 #endif
-	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,chromosome_iit,
-									     querylength,matchsize,trimstart,trimend));
+	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,genestrand,chromosome_iit,
+									     querylength,matchsize,trimstart,trimend,
+									     circular_typeint));
 #if 1
 	    }
 #endif
@@ -505,8 +522,9 @@ pair_up (bool *foundpairp, List_T gregionlist, int matchsize, int oligosize,
 #if 1
 	    if (Match_acceptable_pair(match5,match3,trimlength,matchsize) == true) {
 #endif
-	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,chromosome_iit,
-									     querylength,matchsize,trimstart,trimend));
+	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,genestrand,chromosome_iit,
+									     querylength,matchsize,trimstart,trimend,
+									     circular_typeint));
 #if 1
 	    }
 #endif
@@ -527,8 +545,9 @@ pair_up (bool *foundpairp, List_T gregionlist, int matchsize, int oligosize,
 #if 1
 	    if (Match_acceptable_pair(match5,match3,trimlength,matchsize) == true) {
 #endif
-	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,chromosome_iit,
-									     querylength,matchsize,trimstart,trimend));
+	      new_gregions = List_push(new_gregions,Gregion_new_from_matches(match5,match3,genestrand,chromosome_iit,
+									     querylength,matchsize,trimstart,trimend,
+									     circular_typeint));
 #if 1
 	    }
 #endif
@@ -1302,12 +1321,7 @@ check_fraction_paired (List_T matches5, List_T matches3) {
 
 static List_T
 stutter (List_T gregionlist, T this, int matchsize,
-#ifdef PMAP
-	 Indexdb_T indexdb_fwd,
-	 Indexdb_T indexdb_rev,
-#else
-	 Indexdb_T indexdb, 
-#endif
+	 Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int genestrand,
 	 IIT_T chromosome_iit, Chrsubset_T chrsubset, 
 	 Matchpool_T matchpool, int stutterhits) {
   List_T newmatches5 = NULL, newmatches3 = NULL;
@@ -1338,15 +1352,9 @@ stutter (List_T gregionlist, T this, int matchsize,
 	 stutterdist5 < maxbases && n5hits < stutterhits) {
     this->querystart = Block_querypos(this->block5);
     if (this->processedp[this->querystart] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
 			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
 			  this->block5,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
-			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
-			  this->block5,indexdb);
-#endif
       debug(printf("stutter: Processing 5' position %d: %d plus, %d minus",
 		   this->querystart,this->plus_npositions[this->querystart],this->minus_npositions[this->querystart]));
       debug1(
@@ -1378,15 +1386,9 @@ stutter (List_T gregionlist, T this, int matchsize,
 	 stutterdist3 < maxbases && n3hits < stutterhits) {
     this->queryend = Block_querypos(this->block3);
     if (this->processedp[this->queryend] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
 			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
 			  this->block3,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
-			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
-			  this->block3,indexdb);
-#endif
       debug(printf("stutter: Processing 3' position %d: %d plus, %d minus",
 		   this->queryend,this->plus_npositions[this->queryend],this->minus_npositions[this->queryend]));
       debug1(
@@ -1416,7 +1418,8 @@ stutter (List_T gregionlist, T this, int matchsize,
   debug(printf("*** Ending stutter ***\n"));
 
   gregionlist = pair_up(&foundpairp,gregionlist,matchsize,this->oligosize,newmatches5,newmatches3,
-			this->matches5,this->matches3,chromosome_iit,this->querylength,this->maxtotallen,
+			this->matches5,this->matches3,genestrand,chromosome_iit,
+			this->querylength,this->maxtotallen,
 			this->trimstart,this->trimend,this->trimlength);
 
   this->matches5 = Matchpool_transfer(this->matches5,newmatches5);
@@ -1429,12 +1432,7 @@ stutter (List_T gregionlist, T this, int matchsize,
 /* Tries to find matches on the 5' end to unpaired hits from the 3' end */
 static List_T
 fill_in_5 (List_T gregionlist, T this, int matchsize, List_T dangling3,
-#ifdef PMAP
-	   Indexdb_T indexdb_fwd,
-	   Indexdb_T indexdb_rev,
-#else
-	   Indexdb_T indexdb, 
-#endif
+	   Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int genestrand,
 	   IIT_T chromosome_iit, Chrsubset_T chrsubset, 
 	   Matchpool_T matchpool) {
   List_T newmatches5 = NULL;
@@ -1456,15 +1454,9 @@ fill_in_5 (List_T gregionlist, T this, int matchsize, List_T dangling3,
 	 fillindist5 < maxbases && foundpairp == false) {
     this->querystart = Block_querypos(this->block5);
     if (this->processedp[this->querystart] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
 			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
 			  this->block5,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
-			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
-			  this->block5,indexdb);
-#endif
       debug(printf("fill_in_5: Processing 5' position %d: %d plus, %d minus",
 		   this->querystart,this->plus_npositions[this->querystart],this->minus_npositions[this->querystart]));
       debug1(
@@ -1488,7 +1480,8 @@ fill_in_5 (List_T gregionlist, T this, int matchsize, List_T dangling3,
     if (nnew > 0) {
       gregionlist = pair_up(&foundpairp,gregionlist,matchsize,this->oligosize,
 			    newmatches5,/*newmatches3*/(List_T) NULL,
-			    (List_T) NULL,dangling3,chromosome_iit,this->querylength,this->maxtotallen,
+			    (List_T) NULL,dangling3,genestrand,chromosome_iit,
+			    this->querylength,this->maxtotallen,
 			    this->trimstart,this->trimend,this->trimlength);
       debug(printf("   Foundpairp = %d\n",foundpairp));
     }
@@ -1497,7 +1490,8 @@ fill_in_5 (List_T gregionlist, T this, int matchsize, List_T dangling3,
   /* Mark newmatches5 as being pairedp if they match non-dangling matches3 */
   gregionlist = pair_up(&foundpairp,gregionlist,matchsize,this->oligosize,
 			newmatches5,/*newmatches3*/(List_T) NULL,
-			(List_T) NULL,this->matches3,chromosome_iit,this->querylength,this->maxtotallen,
+			(List_T) NULL,this->matches3,genestrand,chromosome_iit,
+			this->querylength,this->maxtotallen,
 			this->trimstart,this->trimend,this->trimlength);
 
   this->matches5 = Matchpool_transfer(this->matches5,newmatches5);
@@ -1510,12 +1504,7 @@ fill_in_5 (List_T gregionlist, T this, int matchsize, List_T dangling3,
 /* Tries to find matches on the 5' end to unpaired hits from the 3' end */
 static List_T
 fill_in_3 (List_T gregionlist, T this, int matchsize, List_T dangling5, 
-#ifdef PMAP
-	   Indexdb_T indexdb_fwd,
-	   Indexdb_T indexdb_rev,
-#else
-	   Indexdb_T indexdb,
-#endif
+	   Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int genestrand,
 	   IIT_T chromosome_iit, Chrsubset_T chrsubset,
 	   Matchpool_T matchpool) {
   List_T newmatches3 = NULL;
@@ -1537,15 +1526,9 @@ fill_in_3 (List_T gregionlist, T this, int matchsize, List_T dangling5,
 	 fillindist3 < maxbases && foundpairp == false) {
     this->queryend = Block_querypos(this->block3);
     if (this->processedp[this->queryend] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
 			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
 			  this->block3,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
-			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
-			  this->block3,indexdb);
-#endif
       debug(printf("fill_in_3: Processing 3' position %d: %d plus, %d minus",
 		   this->queryend,this->plus_npositions[this->queryend],this->minus_npositions[this->queryend]));
       debug1(
@@ -1569,7 +1552,8 @@ fill_in_3 (List_T gregionlist, T this, int matchsize, List_T dangling5,
     if (nnew > 0) {
       gregionlist = pair_up(&foundpairp,gregionlist,matchsize,this->oligosize,
 			    /*newmatches5*/(List_T) NULL,newmatches3,
-			    dangling5,(List_T) NULL,chromosome_iit,this->querylength,this->maxtotallen,
+			    dangling5,(List_T) NULL,genestrand,chromosome_iit,
+			    this->querylength,this->maxtotallen,
 			    this->trimstart,this->trimend,this->trimlength);
       debug(printf("   Foundpairp = %d\n",foundpairp));
     }
@@ -1578,7 +1562,8 @@ fill_in_3 (List_T gregionlist, T this, int matchsize, List_T dangling5,
   /* Mark newmatches3 as being pairedp if they match non-dangling matches5 */
   gregionlist = pair_up(&foundpairp,gregionlist,matchsize,this->oligosize,
 			/*newmatches5*/(List_T) NULL,newmatches3,
-			this->matches5,(List_T) NULL,chromosome_iit,this->querylength,this->maxtotallen,
+			this->matches5,(List_T) NULL,genestrand,chromosome_iit,
+			this->querylength,this->maxtotallen,
 			this->trimstart,this->trimend,this->trimlength);
 
   this->matches3 = Matchpool_transfer(this->matches3,newmatches3);
@@ -1590,14 +1575,7 @@ fill_in_3 (List_T gregionlist, T this, int matchsize, List_T dangling5,
 
 #if 0
 static void
-sample (T this,
-#ifdef PMAP
-	Indexdb_T indexdb_fwd,
-	Indexdb_T indexdb_rev,
-#else
-	Indexdb_T indexdb,
-#endif
-	int nskip) {
+sample (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int nskip) {
   int mod5 = 0, mod3 = 0;
 #ifdef DEBUG1
   int i;
@@ -1609,15 +1587,9 @@ sample (T this,
   while (Block_next(this->block5) == true) {
     this->querystart = Block_querypos(this->block5);
     if (this->processedp[this->querystart] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
 			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
 			  this->block5,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
-			  &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
-			  this->block5,indexdb);
-#endif
       debug(printf("sample: Processing 5' position %d: %d plus, %d minus",
 		   this->querystart,this->plus_npositions[this->querystart],this->minus_npositions[this->querystart]));
       debug1(
@@ -1641,15 +1613,9 @@ sample (T this,
   while (Block_next(this->block3) == true) {
     this->queryend = Block_querypos(this->block3);
     if (this->processedp[this->queryend] == false) {
-#ifdef PMAP
       Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
 			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
 			  this->block3,indexdb_fwd,indexdb_rev);
-#else
-      Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
-			  &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
-			  this->block3,indexdb);
-#endif
       debug(printf("sample: Processing 3' position %d: %d plus, %d minus",
 		   this->queryend,this->plus_npositions[this->queryend],this->minus_npositions[this->queryend]));
       debug1(
@@ -1720,7 +1686,7 @@ find_range (int **querypositions, int *ninrange, int starti, int endi,
 
 static void
 find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
-		 Gregion_T gregion, int maxintronlen_bound, bool continuousp) {
+		 Gregion_T gregion, bool continuousp) {
   int *querypositions, querystart, queryend, ninrange, i, j, lastj;
   Genomicpos_T *range, leftbound, rightbound, best_start, best_end, expectedi, expectedj;
   int best_concentration, concentration;
@@ -1731,7 +1697,7 @@ find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
 
   querystart = Gregion_querystart(gregion);
   queryend = Gregion_queryend(gregion);
-  debug2(printf("Entering Stage1_find_extensions with querystart = %d, queryend = %d, querylength %d\n",
+  debug2(printf("Entering find_extensions with querystart = %d, queryend = %d, querylength %d\n",
 		querystart,queryend,this->querylength));
 
   debug2(printf("continuousp = %d, this->trimlength %d (vs %d), querystart %d (vs %d)\n",
@@ -1739,7 +1705,7 @@ find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
   if (continuousp == true || this->trimlength < SINGLEEXONLENGTH || querystart < NOEXTENDLEN) {
     maxintronlen5 = querystart + 20;
   } else {
-    maxintronlen5 = maxintronlen_bound;
+    maxintronlen5 = maxextension;
   }
 
   debug2(printf("continuousp = %d, this->trimlength %d (vs %d), this->trimlength - queryend %d (vs %d)\n",
@@ -1747,7 +1713,7 @@ find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
   if (continuousp == true || this->trimlength < SINGLEEXONLENGTH || this->trimlength - queryend < NOEXTENDLEN) {
     maxintronlen3 = this->querylength - queryend + 20;
   } else {
-    maxintronlen3 = maxintronlen_bound;
+    maxintronlen3 = maxextension;
   }
   debug2(printf("Set maxintronlen5 = %u, maxintronlen3 = %u\n",maxintronlen5,maxintronlen3));
 
@@ -1808,7 +1774,7 @@ find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
       concentration = 1;
       lastj = i;
       for (j = i+1; j < ninrange; j++) {
-	debug2(printf("  %u%d",range[j],querypositions[j]));
+	debug2(printf("  %u@%d",range[j],querypositions[j]));
 	expectedi = range[j] + querypositions[j] - querypositions[i];
 	if (range[i] + 20 > expectedi && range[i] < expectedi + 20) {
 	  concentration++;
@@ -1922,12 +1888,7 @@ find_extensions (Genomicpos_T *extension5, Genomicpos_T *extension3, T this,
 
 static List_T
 find_first_pair (bool *foundpairp, List_T gregionlist, T this, int matchsize,
-#ifdef PMAP
-		 Indexdb_T indexdb_fwd,
-		 Indexdb_T indexdb_rev,
-#else
-		 Indexdb_T indexdb,
-#endif
+		 Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int genestrand,
 		 IIT_T chromosome_iit, Chrsubset_T chrsubset,
 		 Matchpool_T matchpool, int maxattempts) {
   List_T newmatches5 = NULL, newmatches3 = NULL;
@@ -1955,17 +1916,14 @@ find_first_pair (bool *foundpairp, List_T gregionlist, T this, int matchsize,
       } else {
 	this->querystart = Block_querypos(this->block5);
 	if (this->processedp[this->querystart] == false) {
-#ifdef PMAP
 	  Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
 			      &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
 			      this->block5,indexdb_fwd,indexdb_rev);
+#ifdef PMAP
 	  debug(printf("find_first_pair: Processing 5' position %d (aaindex %u): %d plus, %d minus",
 		       this->querystart,Block_aaindex(this->block5),
 		       this->plus_npositions[this->querystart],this->minus_npositions[this->querystart]));
 #else
-	  Block_process_oligo(&(this->plus_positions[this->querystart]),&(this->plus_npositions[this->querystart]),
-			      &(this->minus_positions[this->querystart]),&(this->minus_npositions[this->querystart]),
-			      this->block5,indexdb);
 	  debug(printf("find_first_pair: Processing 5' position %d (forward %06X, revcomp %06X): %d plus, %d minus",
 		       this->querystart,Block_forward(this->block5),Block_revcomp(this->block5),
 		       this->plus_npositions[this->querystart],this->minus_npositions[this->querystart]));
@@ -1992,7 +1950,7 @@ find_first_pair (bool *foundpairp, List_T gregionlist, T this, int matchsize,
 	  debug(printf("    n5hits: %.1f, n3hits: %.1f\n",n5hits,n3hits));
 	  gregionlist = pair_up(&(*foundpairp),gregionlist,matchsize,this->oligosize,
 				newmatches5,/*newmatches3*/NULL,
-				this->matches5,this->matches3,chromosome_iit,
+				this->matches5,this->matches3,genestrand,chromosome_iit,
 				this->querylength,this->maxtotallen,
 				this->trimstart,this->trimend,this->trimlength);
 	  this->matches5 = Matchpool_transfer(this->matches5,newmatches5);
@@ -2006,17 +1964,14 @@ find_first_pair (bool *foundpairp, List_T gregionlist, T this, int matchsize,
       } else {
 	this->queryend = Block_querypos(this->block3);
 	if (this->processedp[this->queryend] == false) {
-#ifdef PMAP
 	  Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
 			      &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
 			      this->block3,indexdb_fwd,indexdb_rev);
+#ifdef PMAP
 	  debug(printf("find_first_pair: Processing 3' position %d (aaindex %u): %d plus, %d minus",
 		       this->queryend,Block_aaindex(this->block3),
 		       this->plus_npositions[this->queryend],this->minus_npositions[this->queryend]));
 #else
-	  Block_process_oligo(&(this->plus_positions[this->queryend]),&(this->plus_npositions[this->queryend]),
-			      &(this->minus_positions[this->queryend]),&(this->minus_npositions[this->queryend]),
-			      this->block3,indexdb);
 	  debug(printf("find_first_pair: Processing 3' position %d (forward %06X, revcomp %06X): %d plus, %d minus",
 		       this->queryend,Block_forward(this->block3),Block_revcomp(this->block3),
 		       this->plus_npositions[this->queryend],this->minus_npositions[this->queryend]));
@@ -2043,7 +1998,7 @@ find_first_pair (bool *foundpairp, List_T gregionlist, T this, int matchsize,
 	  debug(printf("    n5hits: %.1f, n3hits: %.1f\n",n5hits,n3hits));
 	  gregionlist = pair_up(&(*foundpairp),gregionlist,matchsize,this->oligosize,
 				/*newmatches5*/NULL,newmatches3,
-				this->matches5,this->matches3,chromosome_iit,
+				this->matches5,this->matches3,genestrand,chromosome_iit,
 				this->querylength,this->maxtotallen,
 				this->trimstart,this->trimend,this->trimlength);
 	  this->matches3 = Matchpool_transfer(this->matches3,newmatches3);
@@ -2140,8 +2095,7 @@ read_oligos (T this, Sequence_T queryuc) {
   this->validp = (bool *) CALLOC(this->querylength,sizeof(bool));
 #ifdef PMAP
   this->oligos = (Storedoligomer_T *) CALLOC(this->querylength,sizeof(Storedoligomer_T));
-  reader = Reader_new(Sequence_fullpointer(queryuc),/*querystart*/0,/*queryend*/this->querylength,
-		      /*reader_overlap*/index1part_aa);
+  reader = Reader_new(Sequence_fullpointer(queryuc),/*querystart*/0,/*queryend*/this->querylength);
   /* Prevents us from processing invalid query 12-mers */
   for (querypos = 0; querypos <= this->querylength - index1part_aa; querypos++) {
     this->validp[querypos] = false;
@@ -2149,8 +2103,7 @@ read_oligos (T this, Sequence_T queryuc) {
 #else
   this->forward_oligos = (Storedoligomer_T *) CALLOC(this->querylength,sizeof(Storedoligomer_T));
   this->revcomp_oligos = (Storedoligomer_T *) CALLOC(this->querylength,sizeof(Storedoligomer_T));
-  reader = Reader_new(Sequence_fullpointer(queryuc),/*querystart*/0,/*queryend*/this->querylength,
-		      /*reader_overlap*/index1part);
+  reader = Reader_new(Sequence_fullpointer(queryuc),/*querystart*/0,/*queryend*/this->querylength);
   debug(printf("oligobase is %d, oligobase_mask is %08X\n",index1part,oligobase_mask));
   /* Prevents us from processing invalid query 12-mers */
   for (querypos = 0; querypos <= this->querylength - index1part; querypos++) {
@@ -2161,9 +2114,9 @@ read_oligos (T this, Sequence_T queryuc) {
   /* Note: leftshifting is done here, rather than in Oligo_lookup */
   while ((last_state = Oligo_next(last_state,&querypos,
 #ifdef PMAP
-				  &aaindex,index1part_aa,msb,
+				  &aaindex,
 #else
-				  &forward,&revcomp,index1part,
+				  &forward,&revcomp,
 #endif
 				  reader,/*cdnaend*/FIVE)) != DONE) {
     
@@ -2311,14 +2264,13 @@ check_old_new (Genomicpos_T *old_positions, int old_npositions, Genomicpos_T *ne
 #endif
 
 
-#define SIZELIMIT 1
+/* Whether to use indexdb_size_threshold */
+/* #define SIZELIMIT 1 */
 
 #ifdef PMAP
 static void
 sample_oligos (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int querylength, int oligobase) {
   int querypos;
-  int plus_npositions, minus_npositions;
-  Genomicpos_T *plus_positions, *minus_positions;
 
   for (querypos = 0; querypos < querylength - oligobase; querypos++) {
 #if 0
@@ -2351,47 +2303,122 @@ sample_oligos (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int queryle
 
   return;
 }
-#else
+
+/* This procedure is equivalent to sample_oligos */
 static void
-sample_oligos (T this, Indexdb_T indexdb, int querylength, int oligobase, int indexdb_size_threshold) {
+sample_oligos_nolimit (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int querylength, int oligobase) {
   int querypos;
-#if 0
-  Genomicpos_T *plus_positions, *minus_positions;
-  int plus_npositions, minus_npositions;
-#endif
 
   for (querypos = 0; querypos < querylength - oligobase; querypos++) {
-#if 0
-    if (this->validp[querypos] == true && this->processedp[querypos] == true) {
-      printf("sample_oligos: Querypos %d, oligos are %06X and %06X\n",querypos,this->forward_oligos[querypos],this->revcomp_oligos[querypos]);
-      plus_positions = Indexdb_read_with_diagterm(&plus_npositions,indexdb,this->forward_oligos[querypos],
-						  /*diagterm*/querylength-querypos);
-      check_old_new(this->plus_positions[querypos],this->plus_npositions[querypos],plus_positions,plus_npositions);
-
-      minus_positions = Indexdb_read_with_diagterm(&minus_npositions,indexdb,this->revcomp_oligos[querypos],
-						   /*diagterm*/querypos + index1part);
-      check_old_new(this->minus_positions[querypos],this->minus_npositions[querypos],minus_positions,minus_npositions);
-
-    }
-#endif
-
     /* FORMULA */
     if (this->validp[querypos] == true && this->processedp[querypos] == false) {
-#ifdef SIZELIMIT
       this->plus_positions[querypos] = 
-	Indexdb_read_with_diagterm_sizelimit(&(this->plus_npositions[querypos]),indexdb,this->forward_oligos[querypos],
+	Indexdb_read_with_diagterm(&(this->plus_npositions[querypos]),indexdb_fwd,this->oligos[querypos],
+				   /*diagterm*/querylength-querypos);
+
+      this->minus_positions[querypos] =
+	Indexdb_read_with_diagterm(&(this->minus_npositions[querypos]),indexdb_rev,this->oligos[querypos],
+				   /*diagterm*/querypos + index1part_aa*3);
+
+      debug(printf("Sampling at querypos %d, plus_npositions = %d, minus_npositions = %d\n",
+		   querypos,this->plus_npositions[querypos],this->minus_npositions[querypos]));
+      this->processedp[querypos] = true;
+    }
+  }
+
+  return;
+}
+
+#else
+
+static void
+sample_oligos_sizelimit (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int querylength, int oligobase,
+			 int indexdb_size_threshold) {
+  int querypos;
+
+  for (querypos = 0; querypos < querylength - oligobase; querypos++) {
+    /* FORMULA */
+    if (this->validp[querypos] == true && this->processedp[querypos] == false) {
+      this->plus_positions[querypos] = 
+	Indexdb_read_with_diagterm_sizelimit(&(this->plus_npositions[querypos]),indexdb_fwd,this->forward_oligos[querypos],
 					     /*diagterm*/querylength-querypos,indexdb_size_threshold);
       this->minus_positions[querypos] =
-	Indexdb_read_with_diagterm_sizelimit(&(this->minus_npositions[querypos]),indexdb,this->revcomp_oligos[querypos],
+	Indexdb_read_with_diagterm_sizelimit(&(this->minus_npositions[querypos]),indexdb_rev,this->revcomp_oligos[querypos],
 					     /*diagterm*/querypos + index1part,indexdb_size_threshold);
-#else
+      debug(printf("Sampling at querypos %d, plus_npositions = %d, minus_npositions = %d\n",
+		   querypos,this->plus_npositions[querypos],this->minus_npositions[querypos]));
+      this->processedp[querypos] = true;
+    }
+  }
+
+  return;
+}
+
+
+static void
+sample_oligos_findlimit (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int querylength, int oligobase) {
+  int querypos;
+
+  int *counts_plus, *counts_minus, threshold;
+  int n;
+  
+  n = querylength-oligobase;
+  counts_plus = (int *) CALLOC(n,sizeof(int));
+  counts_minus = (int *) CALLOC(n,sizeof(int));
+
+  for (querypos = 0; querypos < querylength - oligobase; querypos++) {
+    /* FORMULA */
+    if (this->validp[querypos] == true && this->processedp[querypos] == false) {
       this->plus_positions[querypos] = 
-	Indexdb_read_with_diagterm(&(this->plus_npositions[querypos]),indexdb,this->forward_oligos[querypos],
+	Indexdb_read_with_diagterm(&(this->plus_npositions[querypos]),indexdb_fwd,this->forward_oligos[querypos],
 				   /*diagterm*/querylength-querypos);
+      counts_plus[querypos] = this->plus_npositions[querypos];
+
       this->minus_positions[querypos] =
-	Indexdb_read_with_diagterm(&(this->minus_npositions[querypos]),indexdb,this->revcomp_oligos[querypos],
+	Indexdb_read_with_diagterm(&(this->minus_npositions[querypos]),indexdb_rev,this->revcomp_oligos[querypos],
 				   /*diagterm*/querypos + index1part);
-#endif
+      counts_minus[querypos] = this->minus_npositions[querypos];
+
+      debug(printf("Sampling at querypos %d, plus_npositions = %d, minus_npositions = %d\n",
+		   querypos,this->plus_npositions[querypos],this->minus_npositions[querypos]));
+      this->processedp[querypos] = true;
+    }
+  }
+
+  /* Compute own size thresholds here */
+  threshold = Orderstat_int_pct_inplace(counts_plus,n,/*percentile*/0.90);
+  for (querypos = 0; querypos < n; querypos++) {
+    if (counts_plus[querypos] > threshold) {
+      this->plus_npositions[querypos] = 0;
+    }
+  }
+
+  threshold = Orderstat_int_pct_inplace(counts_minus,n,/*percentile*/0.90);
+  for (querypos = 0; querypos < n; querypos++) {
+    if (counts_minus[querypos] > threshold) {
+      this->minus_npositions[querypos] = 0;
+    }
+  }
+
+  return;
+}
+
+
+static void
+sample_oligos_nolimit (T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int querylength, int oligobase) {
+  int querypos;
+
+  for (querypos = 0; querypos < querylength - oligobase; querypos++) {
+    /* FORMULA */
+    if (this->validp[querypos] == true && this->processedp[querypos] == false) {
+      this->plus_positions[querypos] = 
+	Indexdb_read_with_diagterm(&(this->plus_npositions[querypos]),indexdb_fwd,this->forward_oligos[querypos],
+				   /*diagterm*/querylength-querypos);
+
+      this->minus_positions[querypos] =
+	Indexdb_read_with_diagterm(&(this->minus_npositions[querypos]),indexdb_rev,this->revcomp_oligos[querypos],
+				   /*diagterm*/querypos + index1part);
+
       debug(printf("Sampling at querypos %d, plus_npositions = %d, minus_npositions = %d\n",
 		   querypos,this->plus_npositions[querypos],this->minus_npositions[querypos]));
       this->processedp[querypos] = true;
@@ -3084,13 +3111,161 @@ find_best_scores (int **nthbest, int **plus_scores, int plus_nscores,
 }
 
 
+static int *
+find_best_scores_nonstranded (int **nthbest, int **plus_scores_fwd, int plus_nscores_fwd,
+			      int **minus_scores_fwd, int minus_nscores_fwd,
+			      int **plus_scores_rev, int plus_nscores_rev,
+			      int **minus_scores_rev, int minus_nscores_rev,
+			      int maxexons, int n) {
+  int *bestscores;
+  int ninserted = 0, k, j, i;
+  int *heap, newscore;
+  int parenti, smallesti, righti;
+
+  bestscores = (int *) CALLOC(maxexons+1,sizeof(int));
+  *nthbest = (int *) CALLOC(maxexons+1,sizeof(int));
+  heap = (int *) CALLOC(2*n+1+1,sizeof(int));
+
+  for (k = 1; k <= maxexons; k++) {
+    /* Initialize heap */
+    heap[1] = 0;
+    for (i = 2; i < 2*n+1+1; i++) {
+      heap[i] = 1000000000;
+    }
+
+    /* plus_fwd */
+    for (j = 0; j < plus_nscores_fwd; j++) {
+      if ((newscore = plus_scores_fwd[k][j]) > heap[1]) {
+	if (ninserted < n) {
+	  /* put new score at bottom and heapify up */
+	  i = ++ninserted;
+	  while (i > 1 && heap[PARENT(i)] > newscore) {
+	    heap[i] = heap[PARENT(i)];
+	    i = PARENT(i);
+	  }
+	  heap[i] = newscore;
+
+	} else {
+	  /* replace nth largest with new score and heapify down */
+	  parenti = 1;
+	  smallesti = 2 + (heap[3] < heap[2]);
+	  while (newscore > heap[smallesti]) {
+	    heap[parenti] = heap[smallesti];
+	    parenti = smallesti;
+	    smallesti = LEFT(parenti);
+	    righti = smallesti+1;
+	    smallesti += heap[righti] < heap[smallesti];
+	  }
+	  heap[parenti] = newscore;
+	}
+      }
+    }
+
+    /* minus_fwd */
+    for (j = 0; j < minus_nscores_fwd; j++) {
+      if ((newscore = minus_scores_fwd[k][j]) > heap[1]) {
+	if (ninserted < n) {
+	  /* put new score at bottom and heapify up */
+	  i = ++ninserted;
+	  while (i > 1 && heap[PARENT(i)] > newscore) {
+	    heap[i] = heap[PARENT(i)];
+	    i = PARENT(i);
+	  }
+	  heap[i] = newscore;
+
+	} else {
+	  /* replace nth largest with new score and heapify down */
+	  parenti = 1;
+	  smallesti = 2 + (heap[3] < heap[2]);
+	  while (newscore > heap[smallesti]) {
+	    heap[parenti] = heap[smallesti];
+	    parenti = smallesti;
+	    smallesti = LEFT(parenti);
+	    righti = smallesti+1;
+	    smallesti += heap[righti] < heap[smallesti];
+	  }
+	  heap[parenti] = newscore;
+	}
+      }
+    }
+
+    /* plus_rev */
+    for (j = 0; j < plus_nscores_rev; j++) {
+      if ((newscore = plus_scores_rev[k][j]) > heap[1]) {
+	if (ninserted < n) {
+	  /* put new score at bottom and heapify up */
+	  i = ++ninserted;
+	  while (i > 1 && heap[PARENT(i)] > newscore) {
+	    heap[i] = heap[PARENT(i)];
+	    i = PARENT(i);
+	  }
+	  heap[i] = newscore;
+
+	} else {
+	  /* replace nth largest with new score and heapify down */
+	  parenti = 1;
+	  smallesti = 2 + (heap[3] < heap[2]);
+	  while (newscore > heap[smallesti]) {
+	    heap[parenti] = heap[smallesti];
+	    parenti = smallesti;
+	    smallesti = LEFT(parenti);
+	    righti = smallesti+1;
+	    smallesti += heap[righti] < heap[smallesti];
+	  }
+	  heap[parenti] = newscore;
+	}
+      }
+    }
+
+    /* minus_rev */
+    for (j = 0; j < minus_nscores_rev; j++) {
+      if ((newscore = minus_scores_rev[k][j]) > heap[1]) {
+	if (ninserted < n) {
+	  /* put new score at bottom and heapify up */
+	  i = ++ninserted;
+	  while (i > 1 && heap[PARENT(i)] > newscore) {
+	    heap[i] = heap[PARENT(i)];
+	    i = PARENT(i);
+	  }
+	  heap[i] = newscore;
+
+	} else {
+	  /* replace nth largest with new score and heapify down */
+	  parenti = 1;
+	  smallesti = 2 + (heap[3] < heap[2]);
+	  while (newscore > heap[smallesti]) {
+	    heap[parenti] = heap[smallesti];
+	    parenti = smallesti;
+	    smallesti = LEFT(parenti);
+	    righti = smallesti+1;
+	    smallesti += heap[righti] < heap[smallesti];
+	  }
+	  heap[parenti] = newscore;
+	}
+      }
+    }
+
+    (*nthbest)[k] = heap[1];
+    bestscores[k] = 0;
+    for (j = 1; j <= ninserted; j++) {
+      if (heap[j] > bestscores[k]) {
+	bestscores[k] = heap[j];
+      }
+    }
+    debug8(printf("For %d exons, best score is %d, %dth best is %d\n",bestscores[k],n,(*nthbest)[k]));
+  }
+
+  FREE(heap);
+  return bestscores;
+}
+
 
 
 static List_T
 find_good_paths (List_T gregionlist, int nexons, int *prev, int *scores, 
 		 struct Segment_T *segments, int nsegments, int threshold_score,
 		 IIT_T chromosome_iit, int querylength,
-		 int trimstart, int trimend, bool plusp) {
+		 int trimstart, int trimend, bool plusp, int genestrand) {
   int bestj, besti;
   int querystart, queryend;
   Genomicpos_T genomicstart, genomicend;
@@ -3122,13 +3297,15 @@ find_good_paths (List_T gregionlist, int nexons, int *prev, int *scores,
 	  debug9(printf("Pushing gregion for %d plus: %d..%d: %u..%u, score=%d\n",
 			bestj,querystart,queryend,genomicstart,genomicend,scores[bestj]));
 #ifdef PMAP
-	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/true,chromosome_iit,
-							  querystart,queryend,querylength,
-							  /*matchsize*/index1part_aa,trimstart,trimend));
+	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/true,genestrand,
+							  chromosome_iit,querystart,queryend,querylength,
+							  /*matchsize*/index1part_aa,trimstart,trimend,
+							  circular_typeint));
 #else
-	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/true,chromosome_iit,
-							  querystart,queryend,querylength,
-							  /*matchsize*/index1part,trimstart,trimend));
+	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/true,genestrand,
+							  chromosome_iit,querystart,queryend,querylength,
+							  /*matchsize*/index1part,trimstart,trimend,
+							  circular_typeint));
 #endif
 	}
       } else if (plusp == false) {
@@ -3140,13 +3317,15 @@ find_good_paths (List_T gregionlist, int nexons, int *prev, int *scores,
 	  debug9(printf("Pushing gregion for %d minus: %d..%d: %u..%u, score=%d\n",
 			bestj,querystart,queryend,genomicstart,genomicend,scores[bestj]));
 #ifdef PMAP
-	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/false,chromosome_iit,
-							  querystart,queryend,querylength,
-							  /*matchsize*/index1part_aa,trimstart,trimend));
+	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/false,genestrand,
+							  chromosome_iit,querystart,queryend,querylength,
+							  /*matchsize*/index1part_aa,trimstart,trimend,
+							  circular_typeint));
 #else
-	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/false,chromosome_iit,
-							  querystart,queryend,querylength,
-							  /*matchsize*/index1part,trimstart,trimend));
+	  gregionlist = List_push(gregionlist,Gregion_new(nexons,genomicstart,genomicend,/*plusp*/false,genestrand,
+							  chromosome_iit,querystart,queryend,querylength,
+							  /*matchsize*/index1part,trimstart,trimend,
+							  circular_typeint));
 #endif
 	}
       } else {
@@ -3167,16 +3346,10 @@ find_good_paths (List_T gregionlist, int nexons, int *prev, int *scores,
    so we should rely on our other method */
 
 static List_T
-scan_ends (T this,
-#ifdef PMAP
-	   Indexdb_T indexdb_fwd,
-	   Indexdb_T indexdb_rev,
-#else
-	   Indexdb_T indexdb,
-#endif
+scan_ends (List_T oldlist, T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev, int genestrand,
 	   IIT_T chromosome_iit, Chrsubset_T chrsubset, Matchpool_T matchpool,
 	   int stutterhits, Diagnostic_T diagnostic, bool iteratep) {
-  List_T gregionlist = NULL;
+  List_T newlist = NULL;
   double dangling5_pct, dangling3_pct;
   List_T dangling5, dangling3;
   bool foundpairp = false, loopp = true;
@@ -3188,38 +3361,33 @@ scan_ends (T this,
 #ifdef PMAP
   matchsize = this->oligosize + this->oligosize;
 #else
-  /* Originally set for 12-mers, but now allow for 13, 14, and 15-mers */
-  matchsize = index1part + 12;
+  if (index1part < 12) {
+    matchsize = index1part + index1part;
+  } else {
+    /* Originally set for 12-mers, but now allow for 13, 14, and 15-mers */
+    matchsize = index1part + 12;
+  }
 #endif
 
   while (loopp && matchsize >= this->oligosize && foundpairp == false) {
+    newlist = find_first_pair(&foundpairp,newlist,this,matchsize,
+			      indexdb_fwd,indexdb_rev,genestrand,chromosome_iit,
+			      chrsubset,matchpool,maxattempts);
+    if (matchsize == this->oligosize) {
+      loopp = false;
+    } else if (foundpairp == false) {
 #ifdef PMAP
-    gregionlist = find_first_pair(&foundpairp,gregionlist,this,matchsize,
-				  indexdb_fwd,indexdb_rev,chromosome_iit,
-				  chrsubset,matchpool,maxattempts);
-    if (matchsize == this->oligosize) {
-      loopp = false;
-    } else if (foundpairp == false) {
       matchsize -= this->oligosize;
-      maxattempts += MAX_ATTEMPTS_UNIT;
-      stutterhits *= 2;
-    }
 #else
-    gregionlist = find_first_pair(&foundpairp,gregionlist,this,matchsize,
-				  indexdb,chromosome_iit,chrsubset,
-				  matchpool,maxattempts);
-    if (matchsize == this->oligosize) {
-      loopp = false;
-    } else if (foundpairp == false) {
       matchsize -= 6;  /* Originally set for 12-mers to be this->oligosize/2, but now allow for 13..15-mers */
       if (matchsize < this->oligosize) {
 	/* Allows for 24, 18, 12..15 when we have 12..15-mers */
 	matchsize = this->oligosize;
       }
+#endif
       maxattempts += MAX_ATTEMPTS_UNIT;
       stutterhits *= 2;
     }
-#endif
     if (iteratep == false) {
       loopp = false;
     }
@@ -3245,17 +3413,12 @@ scan_ends (T this,
     diagnostic->firstpair_found_5 = Block_querypos(this->block5);
     diagnostic->firstpair_found_3 = Block_querypos(this->block3);
 
-#ifdef PMAP
-    gregionlist = stutter(gregionlist,this,matchsize,indexdb_fwd,indexdb_rev,
-			  chromosome_iit,chrsubset,matchpool,stutterhits);
-#else
-    gregionlist = stutter(gregionlist,this,matchsize,indexdb,
-			  chromosome_iit,chrsubset,matchpool,stutterhits);
-#endif
+    newlist = stutter(newlist,this,matchsize,indexdb_fwd,indexdb_rev,
+		      genestrand,chromosome_iit,chrsubset,matchpool,stutterhits);
 
     diagnostic->stutter_searched_5 = Block_querypos(this->block5);
     diagnostic->stutter_searched_3 = Block_querypos(this->block3);
-    diagnostic->stutter_nmatchpairs = List_length(gregionlist);
+    diagnostic->stutter_nmatchpairs = List_length(newlist);
   
     diagnostic->stutter_matches_5 = List_length(this->matches5);
     diagnostic->stutter_matches_3 = List_length(this->matches3);
@@ -3271,38 +3434,28 @@ scan_ends (T this,
 
     if (dangling5_pct > MAX_DANGLING_PCT) {
       dangling5 = get_dangling(this->matches5,matchpool);
-#ifdef PMAP
-      gregionlist = fill_in_3(gregionlist,this,matchsize,dangling5,indexdb_fwd,indexdb_rev,
-			      chromosome_iit,chrsubset,matchpool);
-#else
-      gregionlist = fill_in_3(gregionlist,this,matchsize,dangling5,indexdb,
-			      chromosome_iit,chrsubset,matchpool);
-#endif
+      newlist = fill_in_3(newlist,this,matchsize,dangling5,indexdb_fwd,indexdb_rev,
+			  genestrand,chromosome_iit,chrsubset,matchpool);
       /* Not necessary to free */
       /* List_free(&dangling5); */
     }
 
     if (dangling3_pct > MAX_DANGLING_PCT) {
       dangling3 = get_dangling(this->matches3,matchpool);
-#ifdef PMAP
-      gregionlist = fill_in_5(gregionlist,this,matchsize,dangling3,indexdb_fwd,indexdb_rev,
-			      chromosome_iit,chrsubset,matchpool);
-#else
-      gregionlist = fill_in_5(gregionlist,this,matchsize,dangling3,indexdb,
-			      chromosome_iit,chrsubset,matchpool);
-#endif
+      newlist = fill_in_5(newlist,this,matchsize,dangling3,indexdb_fwd,indexdb_rev,
+			  genestrand,chromosome_iit,chrsubset,matchpool);
       /* Not necessary to free */
       /* List_free(&dangling3); */
     }
 
 #if 0
-    gregionlist = Gregion_filter_unique(gregionlist);
+    newlist = Gregion_filter_unique(newlist);
 #endif
-    diagnostic->dangling_nmatchpairs = List_length(gregionlist);
+    diagnostic->dangling_nmatchpairs = List_length(newlist);
   }
 
-  debug(printf("Returning %d elements in gregionlist\n",List_length(gregionlist)));
-  return gregionlist;
+  debug(printf("Returning %d elements in newlist\n",List_length(newlist)));
+  return List_append(newlist,oldlist);
 }
 
 
@@ -3328,23 +3481,19 @@ sufficient_gregion_p (List_T gregionlist) {
 
 
 List_T
-Stage1_compute (bool *lowidentityp, Sequence_T queryuc, 
-#ifdef PMAP
-		Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev,
-#else
-		Indexdb_T indexdb,
-#endif
+Stage1_compute (bool *lowidentityp, Sequence_T queryuc, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev,
 		int indexdb_size_threshold, IIT_T chromosome_iit, Chrsubset_T chrsubset,
-		Matchpool_T matchpool, int maxintronlen_bound, int maxtotallen_bound, int min_extra_end,
-		int stutterhits, Diagnostic_T diagnostic, Stopwatch_T stopwatch) {
+		Matchpool_T matchpool, int stutterhits, Diagnostic_T diagnostic, Stopwatch_T stopwatch,
+		int nbest) {
   List_T gregionlist = NULL, p, q;
   T this = NULL;
-  int trimlength, trimstart, trimend, maxtotallen, matchsize, maxentries, i;
+  int trimlength, trimstart, trimend, matchsize, maxentries, i;
+  Genomicpos_T maxtotallen;
   Genomicpos_T extension5, extension3;
   Gregion_T gregion;
 
   struct Segment_T *plus_segments = NULL, *minus_segments = NULL;
-  int plus_nsegments, minus_nsegments, maxexons, k;
+  int plus_nsegments = 0, minus_nsegments = 0, maxexons, k;
   int *nthbest, *bestscores;
   int **plus_prev = NULL, **plus_scores = NULL, **minus_prev = NULL, **minus_scores = NULL;
 
@@ -3403,14 +3552,14 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
   read_oligos(this,queryuc);
 #ifdef PMAP
   identify_repeated_oligos(this,/*oligobase*/index1part_aa,this->querylength);
-  gregionlist = scan_ends(this,indexdb_fwd,indexdb_rev,chromosome_iit,chrsubset,matchpool,
-			  stutterhits,diagnostic,/*iteratep*/false);
 #else
   identify_repeated_oligos(this,/*oligobase*/index1part,this->querylength);
-  gregionlist = scan_ends(this,indexdb,chromosome_iit,chrsubset,matchpool,
-			  stutterhits,diagnostic,/*iteratep*/false);
 #endif
+#ifdef SCAN_ENDS
+  gregionlist = scan_ends(gregionlist,this,indexdb_fwd,indexdb_rev,/*genestrand*/0,chromosome_iit,chrsubset,
+			  matchpool,stutterhits,diagnostic,/*iteratep*/false);
   debug(printf("\nDangling5 = %f, Dangling3 = %f\n",dangling_pct(this->matches5),dangling_pct(this->matches3)));
+#endif
 
   if (gregionlist == NULL) {
     /* Don't use dangling to determine lowidentityp */
@@ -3456,7 +3605,8 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
 				   this->oligos,/*oligobase*/index1part_aa,this->querylength,
 				   /*threshold_score*/27,/*plusp*/false);
 #else
-    sample_oligos(this,indexdb,this->querylength,/*oligobase*/index1part,indexdb_size_threshold);
+    sample_oligos_sizelimit(this,indexdb_fwd,indexdb_rev,this->querylength,/*oligobase*/index1part,
+			    indexdb_size_threshold);
     collapse_diagonals(this->plus_positions,this->plus_npositions,this->forward_oligos,
 		       /*oligobase*/index1part,this->querylength);
     plus_segments = find_segments(&plus_nsegments,this->plus_positions,this->plus_npositions,
@@ -3475,7 +3625,7 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
     minus_scores = compute_paths(&minus_prev,minus_segments,minus_nsegments,maxexons,/*plusp*/false);
 
     bestscores = find_best_scores(&nthbest,plus_scores,/*plus_nscores*/plus_nsegments,
-				  minus_scores,/*minus_nscores*/minus_nsegments,maxexons,/*n*/NBEST);
+				  minus_scores,/*minus_nscores*/minus_nsegments,maxexons,/*n*/nbest);
 
     for (k = 1; k <= maxexons; k++) {
       if (nthbest[k] < bestscores[k] - SUBOPTIMAL) {
@@ -3485,13 +3635,13 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
 	gregionlist = find_good_paths(gregionlist,/*nexons*/k,plus_prev[k],plus_scores[k],
 				      plus_segments,plus_nsegments,/*threshold_score*/nthbest[k],
 				      chromosome_iit,this->querylength,
-				      trimstart,trimend,/*plusp*/true);
+				      trimstart,trimend,/*plusp*/true,/*genestrand*/0);
       }
       if (minus_nsegments > 0) {
 	gregionlist = find_good_paths(gregionlist,/*nexons*/k,minus_prev[k],minus_scores[k],
 				      minus_segments,minus_nsegments,/*threshold_score*/nthbest[k],
 				      chromosome_iit,this->querylength,
-				      trimstart,trimend,/*plusp*/false);
+				      trimstart,trimend,/*plusp*/false,/*genestrand*/0);
       }
     }
 
@@ -3523,7 +3673,7 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
     gregion = (Gregion_T) List_head(p);
     if (Gregion_extendedp(gregion) == false) {
       /* Need to extend, otherwise we won't align NM_003360 */
-      find_extensions(&extension5,&extension3,this,gregion,maxintronlen_bound,/*continuousp*/false);
+      find_extensions(&extension5,&extension3,this,gregion,/*continuousp*/false);
       Gregion_extend(gregion,extension5,extension3,this->querylength,min_extra_end);
     }
   }
@@ -3538,7 +3688,7 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
 	);
 
 #if 0
-  /* Don't filter for support anymore */
+  /* Don't filter for support anymore.  Causes loss of good regions. */
   gregionlist = Gregion_filter_support(gregionlist,BOUNDARY_SUPPORT,PCT_MAX_SUPPORT,DIFF_MAX_SUPPORT);
   debug(printf("After filtering for support, %d regions\n",List_length(gregionlist)));
 #endif
@@ -3605,7 +3755,442 @@ Stage1_compute (bool *lowidentityp, Sequence_T queryuc,
 
   Stage1_free(&this);
 
-  debug(printf("Stage 1 returning %d regions\n",List_length(gregionlist)));
+  debug0(printf("Stage 1 returning %d new regions\n",List_length(gregionlist)));
+  debug0(
+	 for (p = gregionlist; p != NULL; p = List_next(p)) {
+	   gregion = (Gregion_T) List_head(p);
+	   Gregion_print(gregion);
+	 }
+	 );
+
+  return gregionlist;
+}
+
+
+
+List_T
+Stage1_compute_nonstranded (bool *lowidentityp, Sequence_T queryuc,
+			    Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev,
+			    int indexdb_size_threshold, IIT_T chromosome_iit, Chrsubset_T chrsubset,
+			    Matchpool_T matchpool, int stutterhits, Diagnostic_T diagnostic, Stopwatch_T stopwatch,
+			    int nbest) {
+  List_T gregionlist = NULL, p, q;
+  T this_fwd = NULL, this_rev = NULL;
+  Sequence_T queryrc;
+  int trimlength, trimstart, trimend, matchsize, maxentries, i;
+  Genomicpos_T maxtotallen;
+  Genomicpos_T extension5, extension3;
+  Gregion_T gregion;
+
+  struct Segment_T *plus_segments_fwd = NULL, *minus_segments_fwd = NULL, *plus_segments_rev = NULL, *minus_segments_rev = NULL;
+  int plus_nsegments_fwd = 0, minus_nsegments_fwd = 0, plus_nsegments_rev = 0, minus_nsegments_rev = 0, maxexons, k;
+  int *nthbest, *bestscores;
+  int **plus_prev_fwd = NULL, **plus_scores_fwd = NULL, **minus_prev_fwd = NULL, **minus_scores_fwd = NULL;
+  int **plus_prev_rev = NULL, **plus_scores_rev = NULL, **minus_prev_rev = NULL, **minus_scores_rev = NULL;
+
+  *lowidentityp = false;
+#ifdef DEBUG
+  global_chromosome_iit = chromosome_iit;
+#endif
+
+#ifdef PMAP
+  if (Sequence_fulllength_given(queryuc) < index1part_aa) {
+    return (List_T) NULL;
+  }
+#else
+  if (Sequence_fulllength(queryuc) < index1part) {
+    return (List_T) NULL;
+  }
+#endif
+
+  queryrc = Sequence_revcomp(queryuc);
+
+  Stopwatch_start(stopwatch);
+  diagnostic->sampling_rounds = 0;
+  diagnostic->sampling_nskip = 0;
+
+  debug(queryuc_ptr = Sequence_fullpointer(queryuc));
+
+  /* FWD */
+
+#ifdef PMAP
+  matchsize = index1part_aa + index1part_aa;
+#else
+  matchsize = 24 /* Was index1part + index1part.  matchsize now set in scan_ends */;
+#endif
+  maxentries = MAXENTRIES;
+
+
+  /* Don't multiply trimlength by 3 in PMAP */
+  trimlength = Sequence_trimlength(queryuc);
+  trimstart = Sequence_trim_start(queryuc);
+  trimend = Sequence_trim_end(queryuc);
+  debug(printf("At start of Stage1_compute, we have trimstart %d, trimend %d\n",trimstart,trimend));
+
+  if (trimlength <= SINGLEEXONLENGTH) {
+    maxtotallen = 40 + trimlength;
+  } else {
+    maxtotallen = trimlength*SLOPE;
+    if (maxtotallen < 10000) {
+      maxtotallen = 10000;
+    } else if (maxtotallen > maxtotallen_bound) {
+      maxtotallen = maxtotallen_bound;
+    }
+  }
+
+  debug(fprintf(stderr,"trimlength = %d, maxtotallen = %d\n",trimlength,maxtotallen));
+
+  /* Scan ends (find first pair and stutter) */
+  debug(printf("Finding first pair, fwd, with matchsize = %d, maxentries = %d\n",matchsize,maxentries));
+
+  this_fwd = Stage1_new(queryuc,maxtotallen,maxentries);
+  read_oligos(this_fwd,queryuc);
+#ifdef PMAP
+  identify_repeated_oligos(this_fwd,/*oligobase*/index1part_aa,this_fwd->querylength);
+#else
+  identify_repeated_oligos(this_fwd,/*oligobase*/index1part,this_fwd->querylength);
+#endif
+
+#ifdef SCAN_ENDS
+  gregionlist = scan_ends(gregionlist,this_fwd,indexdb_fwd,indexdb_fwd,/*genestrand*/+1,chromosome_iit,chrsubset,
+			  matchpool,stutterhits,diagnostic,/*iteratep*/false);
+#endif
+  debug(printf("\nDangling5 = %f, Dangling3 = %f\n",dangling_pct(this_fwd->matches5),dangling_pct(this_fwd->matches3)));
+
+  debug(printf("\nAfter scan_ends, fwd:\n"));
+  debug(
+	for (p = gregionlist; p != NULL; p = List_next(p)) {
+	  gregion = (Gregion_T) List_head(p);
+	  Gregion_print(gregion);
+	}
+	);
+  debug(printf("End of scan_ends, fwd.\n\n"));
+
+
+  /* REV */
+
+  /* Don't multiply trimlength by 3 in PMAP */
+  trimlength = Sequence_trimlength(queryrc);
+  trimstart = Sequence_trim_start(queryrc);
+  trimend = Sequence_trim_end(queryrc);
+  debug(printf("At start of Stage1_compute, we have trimstart %d, trimend %d\n",trimstart,trimend));
+
+  if (trimlength <= SINGLEEXONLENGTH) {
+    maxtotallen = 40 + trimlength;
+  } else {
+    maxtotallen = trimlength*SLOPE;
+    if (maxtotallen < 10000) {
+      maxtotallen = 10000;
+    } else if (maxtotallen > maxtotallen_bound) {
+      maxtotallen = maxtotallen_bound;
+    }
+  }
+
+  debug(fprintf(stderr,"trimlength = %d, maxtotallen = %d\n",trimlength,maxtotallen));
+
+  /* Scan ends (find first pair and stutter) */
+  debug(printf("Finding first pair, rev, with matchsize = %d, maxentries = %d\n",matchsize,maxentries));
+
+  this_rev = Stage1_new(queryrc,maxtotallen,maxentries);
+  read_oligos(this_rev,queryrc);
+#ifdef PMAP
+  identify_repeated_oligos(this_rev,/*oligobase*/index1part_aa,this_rev->querylength);
+#else
+  identify_repeated_oligos(this_rev,/*oligobase*/index1part,this_rev->querylength);
+#endif
+
+#ifdef SCAN_ENDS
+  gregionlist = scan_ends(gregionlist,this_rev,indexdb_rev,indexdb_rev,/*genestrand*/-1,chromosome_iit,chrsubset,
+			  matchpool,stutterhits,diagnostic,/*iteratep*/false);
+#endif
+  debug(printf("\nDangling5 = %f, Dangling3 = %f\n",dangling_pct(this_rev->matches5),dangling_pct(this_rev->matches3)));
+
+  debug(printf("\nAfter scan_ends, rev:\n"));
+  debug(
+	for (p = gregionlist; p != NULL; p = List_next(p)) {
+	  gregion = (Gregion_T) List_head(p);
+	  Gregion_print(gregion);
+	}
+	);
+  debug(printf("End of scan_ends, rev.\n\n"));
+
+
+  if (gregionlist == NULL) {
+    /* Don't use dangling to determine lowidentityp */
+    *lowidentityp = true;
+  }
+
+#if 0
+  /* Perform sampling, if necessary */
+  if (gregionlist == NULL || Gregion_best_weight(gregionlist) < SUFFICIENT_FIRST_WEIGHT) {
+    if (dangling_pct(this_fwd->matches5) > MAX_DANGLING_PCT &&
+	dangling_pct(this_fwd->matches3) > MAX_DANGLING_PCT) {
+#endif
+
+#ifdef PMAP
+      debug(printf("Starting sample_oligos, fwd\n"));
+      sample_oligos_nolimit(this_fwd,indexdb_fwd,indexdb_fwd,this_fwd->querylength,/*oligobase*/index1part_aa);
+      collapse_diagonals(this_fwd->plus_positions,this_fwd->plus_npositions,this_fwd->oligos,
+			 /*oligobase*/index1part_aa,this_fwd->querylength);
+      plus_segments_fwd = find_segments(&plus_nsegments_fwd,this_fwd->plus_positions,this_fwd->plus_npositions,
+					this_fwd->oligos,/*oligobase*/index1part_aa,this_fwd->querylength,
+					/*threshold_score*/18,/*plusp*/true);
+
+      collapse_diagonals(this_fwd->minus_positions,this_fwd->minus_npositions,this_fwd->oligos,
+			 /*oligobase*/index1part_aa,this_fwd->querylength);
+      minus_segments_fwd = find_segments(&minus_nsegments_fwd,this_fwd->minus_positions,this_fwd->minus_npositions,
+					 this_fwd->oligos,/*oligobase*/index1part_aa,this_fwd->querylength,
+					 /*threshold_score*/18,/*plusp*/false);
+#else
+      debug(printf("Starting sample_oligos, fwd\n"));
+      sample_oligos_nolimit(this_fwd,indexdb_fwd,indexdb_fwd,this_fwd->querylength,/*oligobase*/index1part);
+      collapse_diagonals(this_fwd->plus_positions,this_fwd->plus_npositions,this_fwd->forward_oligos,
+			 /*oligobase*/index1part,this_fwd->querylength);
+      plus_segments_fwd = find_segments(&plus_nsegments_fwd,this_fwd->plus_positions,this_fwd->plus_npositions,
+					this_fwd->forward_oligos,/*oligobase*/index1part,this_fwd->querylength,
+					/*threshold_score*/18,/*plusp*/true);
+
+      collapse_diagonals(this_fwd->minus_positions,this_fwd->minus_npositions,this_fwd->revcomp_oligos,
+			 /*oligobase*/index1part,this_fwd->querylength);
+      minus_segments_fwd = find_segments(&minus_nsegments_fwd,this_fwd->minus_positions,this_fwd->minus_npositions,
+					 this_fwd->revcomp_oligos,/*oligobase*/index1part,this_fwd->querylength,
+					 /*threshold_score*/18,/*plusp*/false);
+#endif
+
+      maxexons = 3;
+      plus_scores_fwd = compute_paths(&plus_prev_fwd,plus_segments_fwd,plus_nsegments_fwd,maxexons,/*plusp*/true);
+      minus_scores_fwd = compute_paths(&minus_prev_fwd,minus_segments_fwd,minus_nsegments_fwd,maxexons,/*plusp*/false);
+
+#if 0
+    }
+#endif
+
+#if 0
+    if (dangling_pct(this_rev->matches5) > MAX_DANGLING_PCT &&
+	dangling_pct(this_rev->matches3) > MAX_DANGLING_PCT) {
+#endif
+
+#ifdef PMAP
+      debug(printf("Starting sample_oligos, rev\n"));
+      sample_oligos_nolimit(this_rev,indexdb_rev,indexdb_rev,this_rev->querylength,/*oligobase*/index1part_aa);
+      collapse_diagonals(this_rev->plus_positions,this_rev->plus_npositions,this_rev->oligos,
+			 /*oligobase*/index1part_aa,this_rev->querylength);
+      plus_segments_rev = find_segments(&plus_nsegments_rev,this_rev->plus_positions,this_rev->plus_npositions,
+					this_rev->oligos,/*oligobase*/index1part_aa,this_rev->querylength,
+					/*threshold_score*/18,/*plusp*/true);
+
+      collapse_diagonals(this_rev->minus_positions,this_rev->minus_npositions,this_rev->oligos,
+			 /*oligobase*/index1part_aa,this_rev->querylength);
+      minus_segments_rev = find_segments(&minus_nsegments_rev,this_rev->minus_positions,this_rev->minus_npositions,
+					 this_rev->oligos,/*oligobase*/index1part_aa,this_rev->querylength,
+					 /*threshold_score*/18,/*plusp*/false);
+#else
+      debug(printf("Starting sample_oligos, rev\n"));
+      sample_oligos_nolimit(this_rev,indexdb_rev,indexdb_rev,this_rev->querylength,/*oligobase*/index1part);
+      collapse_diagonals(this_rev->plus_positions,this_rev->plus_npositions,this_rev->forward_oligos,
+			 /*oligobase*/index1part,this_rev->querylength);
+      plus_segments_rev = find_segments(&plus_nsegments_rev,this_rev->plus_positions,this_rev->plus_npositions,
+					this_rev->forward_oligos,/*oligobase*/index1part,this_rev->querylength,
+					/*threshold_score*/18,/*plusp*/true);
+
+      collapse_diagonals(this_rev->minus_positions,this_rev->minus_npositions,this_rev->revcomp_oligos,
+			 /*oligobase*/index1part,this_rev->querylength);
+      minus_segments_rev = find_segments(&minus_nsegments_rev,this_rev->minus_positions,this_rev->minus_npositions,
+					 this_rev->revcomp_oligos,/*oligobase*/index1part,this_rev->querylength,
+					 /*threshold_score*/18,/*plusp*/false);
+#endif
+
+      maxexons = 3;
+      plus_scores_rev = compute_paths(&plus_prev_rev,plus_segments_rev,plus_nsegments_rev,maxexons,/*plusp*/true);
+      minus_scores_rev = compute_paths(&minus_prev_rev,minus_segments_rev,minus_nsegments_rev,maxexons,/*plusp*/false);
+
+#if 0
+    }
+#endif
+
+    bestscores = find_best_scores_nonstranded(&nthbest,plus_scores_fwd,/*plus_nscores*/plus_nsegments_fwd,
+					      minus_scores_fwd,/*minus_nscores*/minus_nsegments_fwd,
+					      plus_scores_rev,/*plus_nscores*/plus_nsegments_rev,
+					      minus_scores_rev,/*minus_nscores*/minus_nsegments_rev,
+					      /*maxexons*/3,/*n*/nbest);
+
+    for (k = 1; k <= maxexons; k++) {
+      if (nthbest[k] < bestscores[k] - SUBOPTIMAL) {
+	nthbest[k] = bestscores[k] - SUBOPTIMAL;
+      }
+      if (plus_nsegments_fwd > 0) {
+	gregionlist = find_good_paths(gregionlist,/*nexons*/k,plus_prev_fwd[k],plus_scores_fwd[k],
+				      plus_segments_fwd,plus_nsegments_fwd,/*threshold_score*/nthbest[k],
+				      chromosome_iit,this_fwd->querylength,
+				      trimstart,trimend,/*plusp*/true,/*genestrand*/+1);
+      }
+      if (minus_nsegments_fwd > 0) {
+	gregionlist = find_good_paths(gregionlist,/*nexons*/k,minus_prev_fwd[k],minus_scores_fwd[k],
+				      minus_segments_fwd,minus_nsegments_fwd,/*threshold_score*/nthbest[k],
+				      chromosome_iit,this_fwd->querylength,
+				      trimstart,trimend,/*plusp*/false,/*genestrand*/+1);
+      }
+      if (plus_nsegments_rev > 0) {
+	gregionlist = find_good_paths(gregionlist,/*nexons*/k,plus_prev_rev[k],plus_scores_rev[k],
+				      plus_segments_rev,plus_nsegments_rev,/*threshold_score*/nthbest[k],
+				      chromosome_iit,this_rev->querylength,
+				      trimstart,trimend,/*plusp*/true,/*genestrand*/-1);
+      }
+      if (minus_nsegments_rev > 0) {
+	gregionlist = find_good_paths(gregionlist,/*nexons*/k,minus_prev_rev[k],minus_scores_rev[k],
+				      minus_segments_rev,minus_nsegments_rev,/*threshold_score*/nthbest[k],
+				      chromosome_iit,this_rev->querylength,
+				      trimstart,trimend,/*plusp*/false,/*genestrand*/-1);
+      }
+    }
+
+    FREE(nthbest);
+    FREE(bestscores);
+    if (minus_nsegments_rev > 0) {
+      for (k = 1; k <= maxexons; k++) {
+	FREE(minus_scores_rev[k]);
+	FREE(minus_prev_rev[k]);
+      }
+      FREE(minus_scores_rev);
+      FREE(minus_prev_rev);
+    }
+    if (plus_nsegments_rev > 0) {
+      for (k = 1; k <= maxexons; k++) {
+	FREE(plus_scores_rev[k]);
+	FREE(plus_prev_rev[k]);
+      }
+      FREE(plus_scores_rev);
+      FREE(plus_prev_rev);
+    }
+    if (minus_nsegments_fwd > 0) {
+      for (k = 1; k <= maxexons; k++) {
+	FREE(minus_scores_fwd[k]);
+	FREE(minus_prev_fwd[k]);
+      }
+      FREE(minus_scores_fwd);
+      FREE(minus_prev_fwd);
+    }
+    if (plus_nsegments_fwd > 0) {
+      for (k = 1; k <= maxexons; k++) {
+	FREE(plus_scores_fwd[k]);
+	FREE(plus_prev_fwd[k]);
+      }
+      FREE(plus_scores_fwd);
+      FREE(plus_prev_fwd);
+    }
+    FREE(minus_segments_rev);
+    FREE(plus_segments_rev);
+    FREE(minus_segments_fwd);
+    FREE(plus_segments_fwd);
+
+#if 0
+  }
+#endif
+
+  /* Clean up gregionlist */
+  debug(printf("Starting extensions\n"));
+  for (p = gregionlist; p != NULL; p = List_next(p)) {
+    gregion = (Gregion_T) List_head(p);
+    if (Gregion_extendedp(gregion) == false) {
+      /* Need to extend, otherwise we won't align NM_003360 */
+      if (Gregion_genestrand(gregion) > 0) {
+	find_extensions(&extension5,&extension3,this_fwd,gregion,/*continuousp*/false);
+	Gregion_extend(gregion,extension5,extension3,this_fwd->querylength,min_extra_end);
+      } else {
+	find_extensions(&extension5,&extension3,this_rev,gregion,/*continuousp*/false);
+	Gregion_extend(gregion,extension5,extension3,this_rev->querylength,min_extra_end);
+      }
+    }
+  }
+  debug(printf("Finished with extensions\n"));
+
+  debug(printf("Before filtering, %d regions\n",List_length(gregionlist)));
+  debug(
+	for (p = gregionlist; p != NULL; p = List_next(p)) {
+	  gregion = (Gregion_T) List_head(p);
+	  Gregion_print(gregion);
+	}
+	);
+
+#if 0
+  /* For nonstranded, want to filter for support */
+  gregionlist = Gregion_filter_support(gregionlist,BOUNDARY_SUPPORT,PCT_MAX_SUPPORT,DIFF_MAX_SUPPORT);
+  debug(printf("After filtering for support, %d regions\n",List_length(gregionlist)));
+#endif
+
+#if 0
+  /* Don't filter for max_regions anymore */
+  if (List_length(gregionlist) > MAX_GREGIONS_PRE_UNIQUE) {
+    debug("Too many gregions, so erasing them\n");
+    for (p = gregionlist; p != NULL; p = List_next(p)) {
+      gregion = (Gregion_T) List_head(p);
+      Gregion_free(&gregion);
+    }
+    List_free(&gregionlist);
+    gregionlist = NULL;
+
+  } else {
+#endif
+
+
+#ifdef USE_CLEAN
+    Gregion_filter_clean(gregionlist,nchrs);
+#endif
+
+#if 0
+    for (p = gregionlist; p != NULL; p = p->rest) {
+      gregion = (Gregion_T) List_head(p);
+      Gregion_print(gregion);
+    }
+#endif
+
+    gregionlist = Gregion_filter_unique(gregionlist);
+    debug(printf("After filtering for unique, %d regions\n",List_length(gregionlist)));
+    debug(
+	  for (p = gregionlist; p != NULL; p = List_next(p)) {
+	    gregion = (Gregion_T) List_head(p);
+	    Gregion_print(gregion);
+	  }
+	  );
+
+    debug(
+	  if (List_length(gregionlist) > MAX_GREGIONS_POST_UNIQUE) {
+	    printf("Too many gregions %d, so taking the top %d\n",List_length(gregionlist),MAX_GREGIONS_POST_UNIQUE);
+	  });
+
+    for (p = gregionlist, i = 1; p != NULL && i < MAX_GREGIONS_POST_UNIQUE; p = List_next(p)) {
+      /* Advance */
+      i++;
+    }
+    if (p != NULL) {
+      q = List_next(p);
+      p->rest = (List_T) NULL;
+      for (p = q; p != NULL; p = List_next(p)) {
+	gregion = (Gregion_T) List_head(p);
+	Gregion_free(&gregion);
+      }
+      List_free(&q);
+    }
+#if 0
+  }
+#endif
+
+  diagnostic->stage1_runtime = Stopwatch_stop(stopwatch);
+  diagnostic->ngregions = List_length(gregionlist);
+
+  Stage1_free(&this_rev);
+  Stage1_free(&this_fwd);
+
+  Sequence_free(&queryrc);
+
+  debug0(printf("Stage 1 returning %d new regions\n",List_length(gregionlist)));
+  debug0(
+	 for (p = gregionlist; p != NULL; p = List_next(p)) {
+	   gregion = (Gregion_T) List_head(p);
+	   Gregion_print(gregion);
+	 }
+	 );
+
   return gregionlist;
 }
 

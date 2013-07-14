@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: pairpool.c 52068 2011-11-09 19:32:06Z twu $";
+static char rcsid[] = "$Id: pairpool.c 82070 2012-12-19 21:42:59Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -7,10 +7,12 @@ static char rcsid[] = "$Id: pairpool.c 52068 2011-11-09 19:32:06Z twu $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>		/* For memcpy */
+#include "assert.h"
 #include "mem.h"
 #include "comp.h"
 #include "pairdef.h"
 #include "listdef.h"
+#include "intron.h"
 
 #define CHUNKSIZE 20000
 
@@ -166,11 +168,14 @@ Pairpool_reset (T this) {
    SHORTGAP_COMP */
 
 List_T
-Pairpool_push (List_T list, T this, int querypos, int genomepos, char cdna, char comp, char genome, int dynprogindex) {
+Pairpool_push (List_T list, T this, int querypos, int genomepos, char cdna, char comp,
+	       char genome, char genomealt, int dynprogindex) {
   List_T listcell;
   Pair_T pair;
   List_T p;
   int n;
+
+  assert(querypos >= 0);
 
   if (this->pairctr >= this->npairs) {
     this->pairptr = add_new_pairchunk(this);
@@ -191,12 +196,15 @@ Pairpool_push (List_T list, T this, int querypos, int genomepos, char cdna, char
   pair->cdna = cdna;
   pair->comp = comp;
   pair->genome = genome;
+  pair->genomealt = genomealt;
   pair->dynprogindex = dynprogindex;
 
   pair->aa_g = ' ';
   pair->aa_e = ' ';
   pair->shortexonp = false;
   pair->gapp = false;
+  pair->knowngapp = false;
+  pair->introntype = NONINTRON;
   if (comp == EXTRAEXON_COMP) {
     pair->extraexonp = true;
   } else {
@@ -208,8 +216,10 @@ Pairpool_push (List_T list, T this, int querypos, int genomepos, char cdna, char
 
   pair->state = GOOD;
   pair->protectedp = false;
+  pair->disallowedp = false;
   pair->donor_prob = 0.0;
   pair->acceptor_prob = 0.0;
+  pair->end_intron_p = false;
 
   debug(
 	printf("Creating %p: %d %d %c %c %c\n",
@@ -235,8 +245,51 @@ Pairpool_push (List_T list, T this, int querypos, int genomepos, char cdna, char
 
 
 List_T
-Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char cdna, char comp, char genome,
-			bool extraexonp) {
+Pairpool_push_copy (List_T list, T this, Pair_T orig) {
+  List_T listcell;
+  Pair_T pair;
+  List_T p;
+  int n;
+
+  if (this->pairctr >= this->npairs) {
+    this->pairptr = add_new_pairchunk(this);
+  } else if ((this->pairctr % CHUNKSIZE) == 0) {
+    for (n = this->npairs - CHUNKSIZE, p = this->pairchunks;
+	 n > this->pairctr; p = p->rest, n -= CHUNKSIZE) ;
+    this->pairptr = (struct Pair_T *) p->first;
+    debug1(printf("Located pair %d at %p\n",this->pairctr,this->pairptr));
+  }    
+  pair = this->pairptr++;
+  this->pairctr++;
+
+  memcpy(pair,orig,sizeof(struct Pair_T));
+
+  debug(
+	printf("Copying %p: %d %d %c %c %c\n",
+	       pair,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome);
+	);
+
+	if (this->listcellctr >= this->nlistcells) {
+    this->listcellptr = add_new_listcellchunk(this);
+  } else if ((this->listcellctr % CHUNKSIZE) == 0) {
+    for (n = this->nlistcells - CHUNKSIZE, p = this->listcellchunks;
+	 n > this->listcellctr; p = p->rest, n -= CHUNKSIZE) ;
+    this->listcellptr = (struct List_T *) p->first;
+    debug1(printf("Located listcell %d at %p\n",this->listcellctr,this->listcellptr));
+  }
+  listcell = this->listcellptr++;
+  this->listcellctr++;
+
+  listcell->first = (void *) pair;
+  listcell->rest = list;
+
+  return listcell;
+}
+
+
+List_T
+Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char cdna, char comp,
+			int introntype, char genome, char genomealt, bool extraexonp) {
   List_T listcell;
   Pair_T pair;
   List_T p;
@@ -261,12 +314,15 @@ Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char c
   pair->cdna = cdna;
   pair->comp = comp;
   pair->genome = genome;
+  pair->genomealt = genomealt;
   pair->dynprogindex = 0;
 
   pair->aa_g = ' ';
   pair->aa_e = ' ';
   pair->shortexonp = false;
   pair->gapp = true;
+  pair->knowngapp = false;
+  pair->introntype = introntype;
   pair->extraexonp = extraexonp;
   
   pair->queryjump = 0;
@@ -274,12 +330,14 @@ Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char c
 
   pair->state = GOOD;
   pair->protectedp = false;
+  pair->disallowedp = false;
   pair->donor_prob = 0.0;
   pair->acceptor_prob = 0.0;
+  pair->end_intron_p = false;
 
   debug(
-	printf("Creating %p: %d %d %c %c %c\n",
-	       pair,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome);
+	printf("Creating %p: %d %d %c %c %c introntype %d\n",
+	       pair,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome,pair->introntype);
 	);
 
 	if (this->listcellctr >= this->nlistcells) {
@@ -300,7 +358,7 @@ Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char c
 }
 
 List_T
-Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump) {
+Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump, bool knownp) {
   List_T listcell;
   Pair_T pair;
   List_T p;
@@ -326,12 +384,23 @@ Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump) {
   pair->cdna = ' ';
   pair->comp = ' ';
   pair->genome = ' ';
+  pair->genomealt = ' ';
   pair->dynprogindex = 0;
 
   pair->aa_g = ' ';
   pair->aa_e = ' ';
   pair->shortexonp = false;
   pair->gapp = true;
+  if (knownp == true) {
+    pair->knowngapp = true;
+    pair->donor_prob = 2.0;
+    pair->acceptor_prob = 2.0;
+  } else {
+    pair->knowngapp = false;
+    pair->donor_prob = 0.0;
+    pair->acceptor_prob = 0.0;
+  }
+  pair->introntype = NONINTRON;
   pair->extraexonp = false;
 
   pair->queryjump = queryjump;
@@ -339,8 +408,8 @@ Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump) {
 
   pair->state = GOOD;
   pair->protectedp = false;
-  pair->donor_prob = 0.0;
-  pair->acceptor_prob = 0.0;
+  pair->disallowedp = false;
+  pair->end_intron_p = false;
 
   debug(printf("Creating gap %p, queryjump=%d, genomejump=%d\n",pair,queryjump,genomejump));
 
@@ -510,6 +579,57 @@ Pairpool_count_bounded (int *nstart, List_T source, int minpos, int maxpos) {
 }
 
 
+/* Note: This code is designed to handle source, which may still have
+   gaps with querypos undefined */
+List_T
+Pairpool_clip_bounded (List_T source, int minpos, int maxpos) {
+  List_T dest, *prev, p;
+  Pair_T pair;
+  int starti = -1, endi = -1, i;
+
+  for (p = source, i = 0; p != NULL; p = p->rest, i++) {
+    pair = (Pair_T) List_head(p);
+    if (pair->querypos == minpos) {
+      starti = i;		/* Advances in case of ties */
+    } else if (pair->querypos > minpos && starti < 0) {
+      starti = i;		/* Handles case where minpos was skipped */
+    }
+
+    if (pair->querypos == maxpos && endi < 0) {
+      endi = i + 1;		/* Does not advance in case of tie */
+    } else if (pair->querypos > maxpos && endi < 0) {
+      endi = i;	   /* Handles case where maxpos was skipped */
+    }
+  }
+
+  if (starti < 0) {
+    starti = 0;
+  }
+  if (endi < 0) {
+    endi = i;
+  }
+
+  p = source;
+  i = 0;
+  while (i < starti) {
+    p = p->rest;
+    i++;
+  }
+
+  dest = p;
+  prev = &p->rest;
+  while (i < endi) {
+    prev = &p->rest;
+    p = p->rest;
+    i++;
+  }
+
+  *prev = NULL;		/* Clip rest of list */
+  return dest;
+}
+
+
+#if 0
 List_T
 Pairpool_transfer_bounded (List_T dest, List_T source, int minpos, int maxpos) {
   List_T p, next;
@@ -517,14 +637,14 @@ Pairpool_transfer_bounded (List_T dest, List_T source, int minpos, int maxpos) {
 
   for (p = source; p != NULL; p = next) {
     debug(
-	  pair = List_head(p);
+	  pair = (Pair_T) List_head(p);
 	  if (pair->cdna == '\0' || pair->genome == '\0') {
 	    abort();
 	  }
 	  printf("Transferring %p: %d %d %c %c %c\n",
 		 pair,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome);
 	  );
-    pair = List_head(p);
+    pair = (Pair_T) List_head(p);
     next = p->rest;
     if (pair->querypos == minpos) {
       if (dest != NULL) {
@@ -545,28 +665,16 @@ Pairpool_transfer_bounded (List_T dest, List_T source, int minpos, int maxpos) {
 
   return dest;
 }
+#endif
 
+
+/* Originally prohibited copying of gaps */
 List_T
 Pairpool_copy (List_T source, T this) {
   List_T dest = NULL;
-  Pair_T pair;
 
   while (source != NULL) {
-    pair = source->first;
-    if (pair->gapp == true) {
-      fprintf(stderr,"Pairpool_copy is not intended to copy gaps\n");
-      abort();
-    } else {
-      dest = Pairpool_push(dest,this,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome,/*gapp*/false);
-#if 0
-      /* Not sure if this is necessary */
-      if (pair->shortexonp == true) {
-	((Pair_T) (dest->first))->shortexonp = true;
-      }
-#endif
-      debug(printf("Copying %p: %d %d %c %c %c\n",
-		   pair,pair->querypos,pair->genomepos,pair->cdna,pair->comp,pair->genome));
-    }
+    dest = Pairpool_push_copy(dest,this,/*orig*/source->first);
     source = source->rest;
   }
   return List_reverse(dest);

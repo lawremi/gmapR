@@ -29,16 +29,16 @@ Splicetrie_splicesite_p (Genomicpos_T left, int pos5, int pos3);
 #endif
 
 extern List_T
-Splicetrie_solve_end5 (List_T best_pairs, unsigned int *triestart,
+Splicetrie_solve_end5 (List_T best_pairs, unsigned int *triecontents, unsigned int *trieoffsets, int j,
 		       Genomicpos_T knownsplice_limit_low, Genomicpos_T knownsplice_limit_high,
 
 		       int *finalscore, int *nmatches, int *nmismatches,
 		       int *nopens, int *nindels, bool *knownsplicep, int *ambig_end_length,
 		       int *threshold_miss_score, int obsmax_penalty, int perfect_score,
 
-		       Genomicpos_T anchor_splicesite, char *splicejunction, int splicelength,
-		       Splicetype_T far_splicetype,
-		       Genomicpos_T chroffset, Genomicpos_T chrpos, int genomiclength,
+		       Genomicpos_T anchor_splicesite, char *splicejunction, char *splicejunction_alt,
+		       int splicelength, int contlength, Splicetype_T far_splicetype,
+		       Genomicpos_T chroffset, Genomicpos_T chrhigh,
 		       int *dynprogindex, Dynprog_T dynprog, 
 		       char *revsequence1, char *revsequenceuc1,
 		       int length1, int length2, int revoffset1, int revoffset2,
@@ -49,16 +49,16 @@ Splicetrie_solve_end5 (List_T best_pairs, unsigned int *triestart,
 		       int extraband_end, double defect_rate);
 
 extern List_T
-Splicetrie_solve_end3 (List_T best_pairs, unsigned int *triestart,
+Splicetrie_solve_end3 (List_T best_pairs, unsigned int *triecontents, unsigned int *trieoffsets, int j,
 		       Genomicpos_T knownsplice_limit_low, Genomicpos_T knownsplice_limit_high,
 
 		       int *finalscore, int *nmatches, int *nmismatches,
 		       int *nopens, int *nindels, bool *knownsplicep, int *ambig_end_length,
 		       int *threshold_miss_score, int obsmax_penalty, int perfect_score,
 
-		       Genomicpos_T anchor_splicesite, char *splicejunction, int splicelength, int contlength,
-		       Splicetype_T far_splicetype,
-		       Genomicpos_T chroffset, Genomicpos_T chrpos, int genomiclength,
+		       Genomicpos_T anchor_splicesite, char *splicejunction, char *splicejunction_alt,
+		       int splicelength, int contlength, Splicetype_T far_splicetype,
+		       Genomicpos_T chroffset, Genomicpos_T chrhigh,
 		       int *dynprogindex, Dynprog_T dynprog, 
 		       char *sequence1, char *sequenceuc1,
 		       int length1, int length2, int offset1, int offset2,

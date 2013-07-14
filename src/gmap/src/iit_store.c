@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit_store.c 44063 2011-08-01 18:04:15Z twu $";
+static char rcsid[] = "$Id: iit_store.c 92496 2013-04-11 18:15:12Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -257,7 +257,7 @@ static char *
 scan_header_div (int *labellength, bool *seenp, List_T *divlist, List_T *typelist, Tableint_T div_seenp, Tableint_T typetable, 
 		 char **label, unsigned int *start, unsigned int *end, int *type, char **restofheader,
 		 char *header) {
-  char *divstring, *coords, *copy, Buffer[1024], query[1024], tag[1024], *typestring, *p;
+  char *divstring = NULL, *coords, *copy, Buffer[1024], query[1024], tag[1024], *typestring, *p;
 
   if (sscanf(header,">%s %s\n",Buffer,query) < 2) {
     fprintf(stderr,"Error parsing %s.  Expecting a FASTA type header with a label, coords (as <div>:<number>..<number>), and optional tag.\n",header);
@@ -269,6 +269,7 @@ scan_header_div (int *labellength, bool *seenp, List_T *divlist, List_T *typelis
   strcpy(*label,Buffer);
 
   if (!index(query,':')) {
+    debug(printf("Query %s has no div\n",query));
     divstring = (char *) CALLOC(1,sizeof(char));
     divstring[0] = '\0';
     coords = query;
@@ -427,18 +428,20 @@ parse_fieldlist (char *firstchar, FILE *fp) {
   List_T fieldlist = NULL;
   char Buffer[LINELENGTH], *fieldname, *p;
 
-  while ((*firstchar = fgetc(fp)) != '>') {
-    Buffer[0] = *firstchar;
-    fgets(&(Buffer[1]),LINELENGTH-1,fp);
-    if ((p = rindex(Buffer,'\n')) == NULL) {
-      fprintf(stderr,"Line %s exceeds maximum length of %d\n",Buffer,LINELENGTH);
-      exit(9);
-    } else {
-      *p = '\0';
+  while (!feof(fp) && (*firstchar = fgetc(fp)) != '>') {
+    if (*firstchar != EOF) {
+      Buffer[0] = *firstchar;
+      fgets(&(Buffer[1]),LINELENGTH-1,fp);
+      if ((p = rindex(Buffer,'\n')) == NULL) {
+	fprintf(stderr,"Line %s exceeds maximum length of %d\n",Buffer,LINELENGTH);
+	exit(9);
+      } else {
+	*p = '\0';
+      }
+      fieldname = (char *) CALLOC(strlen(Buffer)+1,sizeof(char));
+      strcpy(fieldname,Buffer);
+      fieldlist = List_push(fieldlist,fieldname);
     }
-    fieldname = (char *) CALLOC(strlen(Buffer)+1,sizeof(char));
-    strcpy(fieldname,Buffer);
-    fieldlist = List_push(fieldlist,fieldname);
   }
 
   return List_reverse(fieldlist);
@@ -463,7 +466,10 @@ parse_fasta (
   *annot_totallength = 0LU;
 #endif
 
-  if (firstchar == '\0') {
+  if (feof(fp)) {
+    return;
+
+  } else if (firstchar == '\0') {
     fgets(Buffer,LINELENGTH,fp);
   } else {
     Buffer[0] = firstchar;
@@ -947,7 +953,7 @@ main (int argc, char *argv[]) {
       if (tempstring[0] == '\0') {
 	FREE(tempstring);
       } else {
-	chroms[i++] = Chrom_from_string(tempstring,mitochondrial_string,order++);
+	chroms[i++] = Chrom_from_string(tempstring,mitochondrial_string,order++,/*circularp*/false);
       }
     }
   }

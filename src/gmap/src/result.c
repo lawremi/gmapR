@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: result.c 51812 2011-11-06 18:17:08Z twu $";
+static char rcsid[] = "$Id: result.c 81292 2012-12-11 20:32:28Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -20,11 +20,13 @@ static char rcsid[] = "$Id: result.c 51812 2011-11-06 18:17:08Z twu $";
 struct T {
   int id;
 
+  bool mergedp;			/* true if two parts were merged */
   Chimera_T chimera;		/* NULL indicates not a chimera */
   List_T gregionlist;		/* For debugging of stage 1 */
   List_T diagonals;		/* For debugging of diag */
   Stage3_T *array;
   int npaths;
+  int first_absmq;
   int second_absmq;
   Diagnostic_T diagnostic;
   Failure_T failuretype;
@@ -36,6 +38,10 @@ Result_id (T this) {
   return this->id;
 }
 
+bool
+Result_mergedp (T this) {
+  return this->mergedp;
+}
 
 Chimera_T
 Result_chimera (T this) {
@@ -44,8 +50,9 @@ Result_chimera (T this) {
 
 
 Stage3_T *
-Result_array (int *npaths, int *second_absmq, T this) {
+Result_array (int *npaths, int *first_absmq, int *second_absmq, T this) {
   *npaths = this->npaths;
+  *first_absmq = this->first_absmq;
   *second_absmq = this->second_absmq;
   return this->array;
 }
@@ -75,16 +82,19 @@ Result_failuretype (T this) {
 
 
 T
-Result_new (int id, Chimera_T chimera, Stage3_T *array,
-	    int npaths, int second_absmq, Diagnostic_T diagnostic, Failure_T failuretype) {
+Result_new (int id, bool mergedp, Chimera_T chimera, Stage3_T *array,
+	    int npaths, int first_absmq, int second_absmq,
+	    Diagnostic_T diagnostic, Failure_T failuretype) {
   T new = (T) MALLOC_OUT(sizeof(*new));
 
   new->id = id;
+  new->mergedp = mergedp;
   new->chimera = chimera;
   new->gregionlist = (List_T) NULL;
   new->diagonals = (List_T) NULL;
   new->array = array;
   new->npaths = npaths;
+  new->first_absmq = first_absmq;
   new->second_absmq = second_absmq;
   new->diagnostic = diagnostic;
   new->failuretype = failuretype;
@@ -98,6 +108,7 @@ Result_new_stage1debug (int id, List_T gregionlist,
   T new = (T) MALLOC_OUT(sizeof(*new));
 
   new->id = id;
+  new->mergedp = false;
   new->chimera = (Chimera_T) NULL;
   new->gregionlist = gregionlist;
   new->diagonals = (List_T) NULL;
@@ -115,6 +126,7 @@ Result_new_diag_debug (int id, List_T diagonals,
   T new = (T) MALLOC_OUT(sizeof(*new));
 
   new->id = id;
+  new->mergedp = false;
   new->chimera = (Chimera_T) NULL;
   new->gregionlist = (List_T) NULL;
   new->diagonals = diagonals;
@@ -144,18 +156,18 @@ Result_free (T *old) {
       stage3 = (*old)->array[0];
       debug(printf("Freeing 0 stage3 %p and pairarray %p\n",
 		   stage3,Stage3_pairarray(stage3)));
-      Stage3_free(&stage3,/*free_pairarray_p*/true);
+      Stage3_free(&stage3);
 
       stage3 = (*old)->array[1];
       debug(printf("Freeing 1 stage3 %p, but not pairarray %p\n",
 		   stage3,Stage3_pairarray(stage3)));
-      Stage3_free(&stage3,/*free_pairarray_p*/false);
+      Stage3_free(&stage3);
       
       for (i = 2; i < (*old)->npaths; i++) {
 	stage3 = (*old)->array[i];
 	debug(printf("Freeing %d stage3 %p and pairarray %p\n",
 		     i,stage3,Stage3_pairarray(stage3)));
-	Stage3_free(&stage3,/*free_pairarray_p*/true);
+	Stage3_free(&stage3);
       }
 
       FREE_OUT((*old)->array);
@@ -164,7 +176,7 @@ Result_free (T *old) {
       if ((*old)->array) {
 	for (i = 0; i < (*old)->npaths; i++) {
 	  stage3 = (*old)->array[i];
-	  Stage3_free(&stage3,/*free_pairarray_p*/true);
+	  Stage3_free(&stage3);
 	}
 	FREE_OUT((*old)->array);
       }

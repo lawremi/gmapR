@@ -1,4 +1,4 @@
-/* $Id: stage1hr.h 52862 2011-11-20 23:53:04Z twu $ */
+/* $Id: stage1hr.h 90500 2013-03-27 22:34:44Z twu $ */
 #ifndef STAGE1HR_INCLUDED
 #define STAGE1HR_INCLUDED
 #include "bool.h"
@@ -26,7 +26,8 @@ typedef enum {MASK_NONE, MASK_FREQUENT, MASK_REPETITIVE, MASK_GREEDY_FREQUENT, M
 
 #define GMAP_IMPROVEMENT 1
 #define GMAP_TERMINAL 2
-#define GMAP_PAIRSEARCH 4
+#define GMAP_INDEL_KNOWNSPLICE 4
+#define GMAP_PAIRSEARCH 8
 
 
 typedef struct Floors_T *Floors_T;
@@ -47,10 +48,10 @@ Stage1_free (T *old, int querylength);
 
 
 extern Stage3end_T *
-Stage1_single_read (int *npaths, int *second_mapq,
+Stage1_single_read (int *npaths, int *first_absmq, int *second_absmq,
 		    Shortread_T queryseq, Indexdb_T indexdb, Indexdb_T indexdb2,
 		    int indexdb_size_threshold, Genome_T genome, Floors_T *floors_array,
-		    int maxpaths, double usermax_level_float, int subopt_levels,
+		    double usermax_level_float, int subopt_levels,
 		    int indel_penalty_middle, int indel_penalty_end, int max_middle_insertions, int max_middle_deletions,
 		    bool allow_end_indels_p, int max_end_insertions, int max_end_deletions, int min_indel_end_matches,
 		    Genomicpos_T shortsplicedist,
@@ -63,13 +64,13 @@ Stage1_single_read (int *npaths, int *second_mapq,
 		    bool keep_floors_p);
 
 extern Stage3pair_T *
-Stage1_paired_read (int *npaths, int *second_mapq, Pairtype_T *final_pairtype,
-		    Stage3end_T **stage3array5, int *nhits5, int *second_mapq5,
-		    Stage3end_T **stage3array3, int *nhits3, int *second_mapq3,
+Stage1_paired_read (int *npaths, int *first_absmq, int *second_absmq, Pairtype_T *final_pairtype,
+		    Stage3end_T **stage3array5, int *nhits5, int *first_absmq5, int *second_absmq5,
+		    Stage3end_T **stage3array3, int *nhits3, int *first_absmq3, int *second_absmq3,
 		    Shortread_T queryseq5, Shortread_T queryseq3,
 		    Indexdb_T indexdb, Indexdb_T indexdb2, int indexdb_size_threshold,
 		    Genome_T genome, Floors_T *floors_array,
-		    int maxpaths, double usermax_level_float, int subopt_levels,
+		    double usermax_level_float, int subopt_levels,
 		    int indel_penalty_middle, int indel_penalty_end, int max_middle_insertions, int max_middle_deletions,
 		    bool allow_end_indels_p, int max_end_insertions, int max_end_deletions, int min_indel_end_matches,
 		    Genomicpos_T shortsplicedist, int localsplicing_penalty, int distantsplicing_penalty,
@@ -81,14 +82,18 @@ Stage1_paired_read (int *npaths, int *second_mapq, Pairtype_T *final_pairtype,
 		    Genomicpos_T pairmax, bool keep_floors_p);
 
 extern void
-Stage1hr_setup (int index1part_in, IIT_T chromosome_iit_in, int nchromosomes_in,
-		Genome_T genomealt, Mode_T mode_in,
+Stage1hr_setup (int index1part_in, int index1interval_in, int spansize_in,
+		IIT_T chromosome_iit_in, int nchromosomes_in,
+		Genome_T genomealt, Mode_T mode_in, int maxpaths_search_in,
 		int terminal_threshold_in,
 
 		Genomicpos_T *splicesites_in, Splicetype_T *splicetypes_in,
 		Genomicpos_T *splicedists_in, int nsplicesites_in,
 
-		bool novelsplicingp_in, bool knownsplicingp_in,	int shortsplicedist_known_in,
+		bool novelsplicingp_in, bool knownsplicingp_in,
+		bool distances_observed_p_in,
+		int shortsplicedist_known_in, int shortsplicedist_novelend_in,
+		Genomicpos_T min_intronlength_in,
 
 		int nullgap_in, int maxpeelback_in, int maxpeelback_distalmedial_in,
 		int extramaterial_end_in, int extramaterial_paired_in,

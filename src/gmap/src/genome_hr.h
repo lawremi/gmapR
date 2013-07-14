@@ -1,4 +1,4 @@
-/* $Id: genome_hr.h 49447 2011-10-09 17:38:10Z twu $ */
+/* $Id: genome_hr.h 79302 2012-11-15 23:55:58Z twu $ */
 #ifndef GENOME_HR_INCLUDED
 #define GENOME_HR_INCLUDED
 #include "types.h"
@@ -7,12 +7,16 @@
 #include "chrnum.h"
 #include "compress.h"
 #include "chrnum.h"
-#include "indexdbdef.h"		/* For Storedoligomer_T */
 
 extern void
 Genome_hr_setup (UINT4 *ref_blocks_in, UINT4 *snp_blocks_in,
 		 bool query_unk_mismatch_p_in, bool genome_unk_mismatch_p_in,
 		 Mode_T mode_in);
+
+extern void
+Genome_hr_user_setup (UINT4 *ref_blocks_in,
+		      bool query_unk_mismatch_p_in, bool genome_unk_mismatch_p_in,
+		      Mode_T mode_in);
 
 /* Procedures for indexdb */
 extern int
@@ -63,6 +67,13 @@ Genome_mismatches_right (int *mismatch_positions, int max_mismatches, Compress_T
 			 Genomicpos_T left, int pos5, int pos3, bool plusp, int genestrand);
 
 extern int
+Genome_mismatches_left_trim (int *mismatch_positions, int max_mismatches, Compress_T query_compress,
+			     Genomicpos_T left, int pos5, int pos3, bool plusp, int genestrand);
+extern int
+Genome_mismatches_right_trim (int *mismatch_positions, int max_mismatches, Compress_T query_compress,
+			      Genomicpos_T left, int pos5, int pos3, bool plusp, int genestrand);
+
+extern int
 Genome_mark_mismatches_ref (char *genomic, int querylength, Compress_T query_compress,
 			    Genomicpos_T left, int pos5, int pos3, int mismatch_offset,
 			    bool plusp, int genestrand);
@@ -98,17 +109,21 @@ Genome_antiacceptor_positions (int *site_positions, int *site_knowni, int *known
 			       Genomicpos_T left, int pos5, int pos3);
 
 
-extern int
-Genome_prev_donor_position (int pos, Genomicpos_T genomicstart, Genomicpos_T genomicend, int pos5, bool plusp);
-extern int
-Genome_prev_acceptor_position (int pos, Genomicpos_T genomicstart, Genomicpos_T genomicend, int pos5, bool plusp);
-extern int
-Genome_prev_antidonor_position (int pos, Genomicpos_T genomicstart, Genomicpos_T genomicend, int pos5, bool plusp);
-extern int
-Genome_prev_antiacceptor_position (int pos, Genomicpos_T genomicstart, Genomicpos_T genomicend, int pos5, bool plusp);
+Genomicpos_T
+Genome_prev_donor_position (Genomicpos_T pos, Genomicpos_T prevpos,
+			    Genomicpos_T chroffset, Genomicpos_T chrhigh, bool plusp);
+Genomicpos_T
+Genome_prev_acceptor_position (Genomicpos_T pos, Genomicpos_T prevpos,
+			       Genomicpos_T chroffset, Genomicpos_T chrhigh, bool plusp);
+Genomicpos_T
+Genome_prev_antidonor_position (Genomicpos_T pos, Genomicpos_T prevpos,
+				Genomicpos_T chroffset, Genomicpos_T chrhigh, bool plusp);
+Genomicpos_T
+Genome_prev_antiacceptor_position (Genomicpos_T pos, Genomicpos_T prevpos,
+				   Genomicpos_T chroffset, Genomicpos_T chrhigh, bool plusp);
 
 
-
+#if 0
 extern void
 Genome_last_donor_positions (int *last_position, Genomicpos_T genomicstart, int margin5, int margin3, int genomiclength,
 			     bool plusp);
@@ -124,6 +139,7 @@ Genome_last_antidonor_positions (int *last_position, Genomicpos_T genomicstart, 
 extern void
 Genome_last_antiacceptor_positions (int *last_position, Genomicpos_T genomicstart, int margin5, int margin3, int genomiclength,
 				    bool plusp);
+#endif
 
 
 #endif

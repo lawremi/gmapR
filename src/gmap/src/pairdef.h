@@ -1,4 +1,4 @@
-/* $Id: pairdef.h 44181 2011-08-03 09:19:12Z twu $ */
+/* $Id: pairdef.h 82069 2012-12-19 21:42:40Z twu $ */
 #ifndef PAIRDEF_INCLUDED
 #define PAIRDEF_INCLUDED
 #include "bool.h"
@@ -24,11 +24,15 @@ struct T {
   char cdna;
   char comp;
   char genome;
+  char genomealt;
   char aa_g;			/* Genomic aa */
   char aa_e;			/* EST aa */
 
   bool gapp;			/* True if comp is in a big gap (from genomic perspective):
                                    >])([<#= (but not '-' or '~'). */
+  bool knowngapp;		/* Known intron */
+  int introntype;
+
   bool extraexonp;
   bool shortexonp;
 
@@ -37,9 +41,11 @@ struct T {
   State_T vstate_bad;
 
   bool protectedp;		/* Protected against trimming, because found using splicetrie */
+  bool disallowedp;		/* Used when novelsplicingp is false and intron is not allowed */
 
   double donor_prob;		/* Set for an intron gap */
   double acceptor_prob;
+  bool end_intron_p;
 };
 
 #undef T

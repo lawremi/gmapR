@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: block.c 41938 2011-06-29 18:53:08Z twu $";
+static char rcsid[] = "$Id: block.c 64017 2012-05-14 22:35:15Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -40,7 +40,6 @@ struct T {
 
 #ifdef PMAP
   unsigned int aaindex;
-  unsigned int msb;
 #else
   int leftreadshift;
   Storedoligomer_T forward;
@@ -171,9 +170,7 @@ Block_reset_ends (T this) {
 
 T
 Block_new (cDNAEnd_T cdnaend, int oligosize,
-#ifdef PMAP
-	   unsigned int msb,
-#else
+#ifndef PMAP
 	   int leftreadshift,
 #endif
 	   Reader_T reader, int querylength) {
@@ -182,10 +179,8 @@ Block_new (cDNAEnd_T cdnaend, int oligosize,
   new->reader = reader;
   new->cdnaend = cdnaend;
   new->oligosize = oligosize;
-#ifdef PMAP
-  new->msb = msb;
-#else
-  new->oligomask = ~(~0U << 2*oligosize);
+#ifndef PMAP
+  new->oligomask = ~(~0UL << 2*oligosize);
   new->leftreadshift = leftreadshift;
 #endif
 
@@ -241,12 +236,12 @@ Block_next (T this) {
 
 #ifdef PMAP
     this->last_state = Oligo_next(this->last_state,&this->last_querypos,
-				  &this->aaindex,this->oligosize,this->msb,this->reader,this->cdnaend);
+				  &this->aaindex,this->reader,this->cdnaend);
     debug(printf("Block has aaindex %u at querypos %d\n",
 		 this->aaindex,this->last_querypos));
 #else
     this->last_state = Oligo_next(this->last_state,&this->last_querypos,
-				  &this->forward,&this->revcomp,this->oligosize,this->reader,this->cdnaend);
+				  &this->forward,&this->revcomp,this->reader,this->cdnaend);
     debug(
 	  if (this->cdnaend == THREE) {
 	    nt_fwd = Oligo_one_nt(this->forward >> this->leftreadshift,12);
@@ -283,13 +278,12 @@ Block_skip (T this, int nskip) {
     init_querypos = this->last_querypos;
 #ifdef PMAP
     this->last_state = Oligo_skip(this->last_state,&this->last_querypos,
-				  &this->aaindex,this->oligosize,this->msb,
-				  this->reader,this->cdnaend,nskip);
+				  &this->aaindex,this->reader,this->cdnaend,nskip);
     debug(printf("Block has aaindex %u at querypos %d\n",
 		 this->aaindex,this->last_querypos));
 #else
     this->last_state = Oligo_skip(this->last_state,&this->last_querypos,
-				  &this->forward,&this->revcomp,this->oligosize,
+				  &this->forward,&this->revcomp,
 				  this->reader,this->cdnaend,nskip);
     debug(printf("Block has oligo %08X at querypos %d\n",
 		 this->forward,this->last_querypos));
@@ -342,26 +336,27 @@ Block_process_oligo (Genomicpos_T **fwdpositions, int *nfwdhits,
 
 #else
 
+/* In standard mode, indexdb_rev is indexdb_fwd.  They differ for cmet and atoi modes. */
 int
 Block_process_oligo (Genomicpos_T **fwdpositions, int *nfwdhits,
 		     Genomicpos_T **revpositions, int *nrevhits,
-		     T this, Indexdb_T indexdb) {
+		     T this, Indexdb_T indexdb_fwd, Indexdb_T indexdb_rev) {
 
   if (this->cdnaend == FIVE) {
 #if 0
     printf("block_process: Querypos %d, oligos are %06X and %06X\n",this->last_querypos,this->forward,this->revcomp >> this->leftreadshift);
 #endif
-    *fwdpositions = Indexdb_read_with_diagterm(&(*nfwdhits),indexdb,this->forward & this->oligomask,
+    *fwdpositions = Indexdb_read_with_diagterm(&(*nfwdhits),indexdb_fwd,this->forward & this->oligomask,
 					       /*diagterm*/this->querylength-this->last_querypos);
-    *revpositions = Indexdb_read_with_diagterm(&(*nrevhits),indexdb,(this->revcomp >> this->leftreadshift) & this->oligomask,
+    *revpositions = Indexdb_read_with_diagterm(&(*nrevhits),indexdb_rev,(this->revcomp >> this->leftreadshift) & this->oligomask,
 					       /*diagterm*/this->last_querypos);
   } else {
 #if 0
     printf("block_process Querypos %d, oligos are %06X and %06X\n",this->last_querypos,this->forward >> this->leftreadshift,this->revcomp);
 #endif
-    *fwdpositions = Indexdb_read_with_diagterm(&(*nfwdhits),indexdb,(this->forward >> this->leftreadshift) & this->oligomask,
+    *fwdpositions = Indexdb_read_with_diagterm(&(*nfwdhits),indexdb_fwd,(this->forward >> this->leftreadshift) & this->oligomask,
 					       /*diagterm*/this->querylength-this->last_querypos);
-    *revpositions = Indexdb_read_with_diagterm(&(*nrevhits),indexdb,this->revcomp & this->oligomask,
+    *revpositions = Indexdb_read_with_diagterm(&(*nrevhits),indexdb_rev,this->revcomp & this->oligomask,
 					       /*diagterm*/this->last_querypos);
   }
   

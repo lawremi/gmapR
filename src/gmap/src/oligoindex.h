@@ -1,4 +1,4 @@
-/* $Id: oligoindex.h 42512 2011-07-08 20:21:47Z twu $ */
+/* $Id: oligoindex.h 79521 2012-11-19 22:11:24Z twu $ */
 #ifndef OLIGOINDEX_INCLUDED
 #define OLIGOINDEX_INCLUDED
 #include "bool.h"
@@ -30,7 +30,7 @@ struct T {
   int suffnconsecutive;
 
   bool query_evaluated_p;
-  int oligospace;
+  Oligospace_T oligospace;
   bool *overabundant;
   bool *inquery;
   int *counts;
@@ -41,6 +41,18 @@ struct T {
 
 extern int
 Oligoindex_indexsize (T this);
+
+extern int *
+Oligoindex_counts_copy (T this);
+
+extern void
+Oligoindex_dump (T this);
+
+extern void
+Oligoindex_counts_dump (T this, int *counts);
+
+extern bool
+Oligoindex_counts_equal (T this, int *counts);
 
 extern T *
 Oligoindex_new_major (int *noligoindices);
@@ -56,7 +68,7 @@ Oligoindex_set_inquery (int *badoligos, int *repoligos, int *trimoligos, int *tr
 			T this, char *queryuc_ptr, int querylength, bool trimp);
 extern void
 Oligoindex_tally (T this, char *genomicuc_trimptr, int genomicuc_trimlength,
-		  char *queryuc_ptr, int querylength);
+		  char *queryuc_ptr, int querylength, int sequencepos);
 extern void
 Oligoindex_untally (T this);
 extern void
@@ -65,9 +77,12 @@ extern void
 Oligoindex_free_array (T **oligoindices, int noligoindices);
 
 extern List_T
-Oligoindex_get_mappings (List_T diagonals, bool *coveredp, unsigned int **mappings, int *npositions,
+Oligoindex_get_mappings (List_T diagonals, bool *coveredp, Genomicpos_T **mappings, int *npositions,
 			 int *totalpositions, bool *oned_matrix_p, int *maxnconsecutive, 
-			 T this, char *queryuc_ptr, int querylength, int genomiclength, Diagpool_T diagpool);
+			 T this, char *queryuc_ptr, int querylength,
+			 Genomicpos_T chrstart, Genomicpos_T chrend,
+			 Genomicpos_T chroffset, Genomicpos_T chrhigh, bool plusp,
+			 Diagpool_T diagpool);
 
 #undef T
 #endif
