@@ -47,12 +47,30 @@ setMethod("genomeName", "BSgenome", function(x) providerVersion(x))
 setMethod("genomeName", "FastaFile",
           function(x) file_path_sans_ext(basename(path(x)), TRUE))
 
+file_path_is_absolute <- function(x) {
+  ## hack that is unlikely to work on e.g. Windows
+  identical(substring(x, 1, 1), .Platform$file.sep)
+}
+
+file_path_is_dir <- function(x) {
+  isTRUE(file.info(x)[,"isdir"])
+}
+
 GmapGenome <- function(genome,
                        directory = GmapGenomeDirectory(create = create), 
                        name = genomeName(genome), create = FALSE, ...)
 {
   if (!isTRUEorFALSE(create))
     stop("'create' must be TRUE or FALSE")
+  if (isSingleString(genome) && file_path_is_dir(genome)) {
+    genome <- path.expand(genome)
+    if (file_path_is_absolute(genome)) {
+      if (!missing(directory))
+        stop("'directory' should be missing when 'genome' is an absolute path")
+      directory <- dirname(genome)
+      genome <- basename(genome)
+    }
+  }
   if (isSingleString(directory))
     directory <- GmapGenomeDirectory(directory, create = create)
   if (is(genome, "DNAStringSet")) {
