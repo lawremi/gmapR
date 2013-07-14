@@ -2,10 +2,10 @@
 ##top-level directory of the SVN checkout
 updateGMAPSrc <- function() {
   gmapSVNProj <-
-    "http://resscm/bioinfo/projects/gmap/branches/internal-2011-12-28"
+    "http://resscm/bioinfo/projects/gmap/releases/public-2013-03-31"
   extractDirGmap <- file.path(getwd(), "src/gmap")
   .bootstrapAndExtract(projectSVNURL=gmapSVNProj, extractDir=extractDirGmap,
-                       program="gmap")
+                       program="gmap", bootstrap = "bootstrap.gsnaptoo")
   
 }
 updateGSTRUCTSrc <- function() {
@@ -13,7 +13,8 @@ updateGSTRUCTSrc <- function() {
   extractDirGstruct <- file.path(getwd(), "src/gstruct")
   .bootstrapAndExtract(projectSVNURL=gstructSVNProj,
                        extractDir=extractDirGstruct,
-                       program="gstruct")
+                       program="gstruct",
+                       bootstrap = "bootstrap.Rdist")
   .copySamflagsHeader(extractDirGstruct, file.path(getwd(), "src/gmap"))
 }
 
@@ -21,7 +22,9 @@ updateGSTRUCTSrc <- function() {
 ###helper functions
 ###################
 
-.bootstrapAndExtract <- function(projectSVNURL, extractDir, program) {
+.bootstrapAndExtract <- function(projectSVNURL, extractDir, program,
+                                 bootstrap.script)
+{
   startingDir <- getwd()
   on.exit(setwd(startingDir))
 
@@ -33,7 +36,7 @@ updateGSTRUCTSrc <- function() {
   svnCheckoutDir <- .getSVNProj(projectSVNURL, extractDir)
   on.exit(unlink(svnCheckoutDir, recursive=TRUE), add=TRUE)
   setwd(svnCheckoutDir)
-  .bootstrapSVNCheckout()  
+  .bootstrapSVNCheckout(bootstrap.script)  
   .configureSrc(program)
   .makeDist()
   .extractDistTarballIntoSrcDirectory(extractDir)
@@ -69,8 +72,8 @@ updateGSTRUCTSrc <- function() {
 }
 
 ##assumes in the correct dir
-.bootstrapSVNCheckout <- function() {
-  if (!system("./bootstrap.Rdist") == 0) {
+.bootstrapSVNCheckout <- function(bootstrap.script) {
+  if (!system(paste0("./", bootstrap.script)) == 0) {
     stop("unable to bootstrap")
   }
 }
