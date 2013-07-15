@@ -46,7 +46,9 @@ setMethod("path", "GsnapOutput", function(object) object@path)
 ### for the output. In the multiple output case, this is the
 ### concordant_uniq file.
 
-is_dir <- function(x) file.info(path(x))[,"isdir"]
+is_dir <- function(x) {
+  file.exists(path(x)) && file.info(path(x))[,"isdir"]
+}
 
 setGeneric("bamPath", function(x) standardGeneric("bamPath"))
 
@@ -128,6 +130,7 @@ setGeneric("consolidate", function(x, ...) standardGeneric("consolidate"))
 
 setMethod("consolidate", "GsnapOutput", function(x) {
 ### TODO: this should produce the pipeline's analyzed BAM
+  x
 })
 
 ##converts all gsnap SAM files to BAM files and creates the .bai index files
@@ -140,7 +143,8 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
-            bamFiles <- mapply(asBam, file = samFiles, dest = samFiles,
+            bamFiles <- mapply(asBam, file = samFiles,
+                               dest = file_path_sans_ext(samFiles),
                                MoreArgs = list(overwrite = TRUE))
             unlink(samFiles)
 
