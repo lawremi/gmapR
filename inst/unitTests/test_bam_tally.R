@@ -5,7 +5,7 @@ test_bam_tally <- function() {
   bam <- system.file("extdata/H1993.analyzed.bam", 
                      package="LungCancerLines", mustWork=TRUE)
   tallies <- bam_tally(bam, param)
-  variants <- summarizeVariants(tallies, NULL, 0L)
+  variants <- variantSummary(tallies, NULL, 0L)
 }
 
 test_IITs_not_created <- function() {
