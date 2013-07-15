@@ -189,6 +189,8 @@ setMethod("show", "GmapGenome", function(object) {
       path(directory(object)), "\n")
 })
 
+setMethod("showAsCell", "GmapGenome", function(object) genome(object))
+
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Utilities
 ###
