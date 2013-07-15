@@ -12,7 +12,8 @@ TP53Genome <- function() {
 
     ## get region of interest
     roi <- getGeneRoi(txdb, org.Hs.eg.db::org.Hs.eg.db, gene)
-    
+
+    strand(roi) <- "+"
     p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                      as.character = FALSE)
     names(p53Seq) <- gene
@@ -40,7 +41,9 @@ getGeneRoi <- function(txdb, orgdb, gene, extend=1e6) {
 }
 
 subsetRegion <- function(x, roi, newseqname) {
-  x <- shift(subsetByOverlaps(x, roi), 1L - start(roi))
+  if (all(!grepl("^chr", seqlevels(x))))
+    seqlevels(roi) <- sub("chr", "", seqlevels(roi))
+  x <- shift(subsetByOverlaps(x, roi, ignore.strand=TRUE), 1L - start(roi))
   x <- renameSeqlevels(x, setNames(newseqname, seqnames(roi)))
   x <- keepSeqlevels(x, newseqname)
   seqlengths(x) <- width(roi)
