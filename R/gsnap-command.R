@@ -21,7 +21,7 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
             params <- initialize(params, ...)
             params_list <- as.list(params)
             if (gsnap_split_output(params)) {
-              params_list$split_output <- output
+              params_list$split_output <- basename(output)
               output_path <- output_dir
             } else {
               output_path <- paste0(output, ".sam")
@@ -124,8 +124,10 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
 }
 
 .system_gsnap <- function(command) {
-  command <- paste(command, "2>&1")
-  output <- .system(command, intern = TRUE)
+  stderr <- tempfile("gsnap-stderr", fileext = "log")
+  command <- paste(command, "2>", stderr)
+  .system(command)
+  output <- readLines(stderr)
   if (!gsnapSucceeded(command, output))
     stop("Execution of gsnap failed, command-line: '", command,
          "'; last output line: '", tail(output, 1), "'")
