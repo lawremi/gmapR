@@ -7,7 +7,7 @@
 
 setClass("BamTallyParam",
          representation(genome = "GmapGenome",
-                        which = "RangesList",
+                        which = "GenomicRanges",
                         minimum_mapq = "integer",
                         concordant_only = "logical",
                         unique_only = "logical",
@@ -23,17 +23,15 @@ setClass("BamTallyParam",
 ###
 
 normArgWhich <- function(x, genome) {
-  if (is(x, "GenomicRanges"))
-    x <- split(ranges(x), seqnames(x))
-  else if (!is(x, "RangesList"))
-    stop("'which' must be a GenomicRanges or RangesList")
+  if (!is(x, "GenomicRanges"))
+    stop("'which' must be a GenomicRanges")
   si <- seqinfo(genome)
   seqinfo(x, new2old = match(seqlevels(si), seqlevels(x))) <-
     merge(si, seqinfo(x))
   x
 }
 
-BamTallyParam <- function(genome, which = RangesList(),
+BamTallyParam <- function(genome, which = GRanges(),
                           minimum_mapq = 0L,
                           concordant_only = FALSE, unique_only = FALSE,
                           primary_only = FALSE, ignore_duplicates = FALSE,
@@ -82,16 +80,17 @@ setMethod("as.list", "BamTallyParam", function(x) as(x, "list"))
 ### Show
 ###
 
+showSlot <- function(name, value, ...) {
+  IRanges:::labeledLine(name, showAsCell(value), ...)
+}
+
+showSlots <- function(object, exclude = character(), ...) {
+  snames <- setdiff(slotNames(object), exclude)
+  slots <- sapply(snames, slot, object = object, simplify = FALSE)
+  mapply(showSlot, names(slots), slots, MoreArgs = list(...))
+}
+
 setMethod("show", "BamTallyParam", function(object) {
-  cat("A BamTallyParam object\n")
-  cat("genome:", genome(object@genome), "\n")
-  which <- if (length(object@which) > 0) {
-    paste0(space(object@which), ":", unlist(start(object@which)), "-",
-           unlist(end(object@which)))
-  } else "whole genome"
-  cat(IRanges:::labeledLine("which", which))
-  otherSlotNames <- setdiff(slotNames(object), c("genome", "which"))
-  slots <- sapply(otherSlotNames, slot, object = object, simplify = FALSE)
-  cat(mapply(IRanges:::labeledLine, names(slots), slots, count = FALSE),
-      sep = "")
+  cat("A", class(object), "object\n", sep = " ")
+  cat(showSlots(object, count = FALSE), sep = "")
 })

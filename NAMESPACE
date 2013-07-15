@@ -26,7 +26,7 @@ importFrom(BSgenome, getSeq, providerVersion)
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
        directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
-       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which, summarizeVariants)
+       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which, variantSummary)
 
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
               GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)

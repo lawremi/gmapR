@@ -64,7 +64,7 @@ setMethod("bam_tally", "GmapBamReader",
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome)
           })
 
-summarizeVariants <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
+variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
 {
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
@@ -81,7 +81,7 @@ summarizeVariants <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
                    "count.neg", "count.neg.ref",
                    "read.pos.mean", "read.pos.mean.ref",
                    "read.pos.var", "read.pos.var.ref")
-  if (!is.null(read_pos_breaks)) {
+  if (length(read_pos_breaks) > 0L) {
     read_pos_breaks <- as.integer(read_pos_breaks)
     break_names <- paste("readPosCount", head(read_pos_breaks, -1),
                          tail(read_pos_breaks, -1), sep = ".")
@@ -158,14 +158,9 @@ normArgTRUEorFALSE <- function(x) {
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
-  if (!is.null(which)) {
-    which <- as(which, "RangesList")
-    if (!is.null(space(which))) {
-      which <- list(as.character(space(which)),
-                    unlist(start(which), use.names = FALSE),
-                    unlist(end(which), use.names = FALSE))
-    } else which <- NULL
-  }
+  if (length(which) > 0L) {
+    which <- list(as.character(seqnames(which)), start(which), end(which))
+  } else which <- NULL
   if (!is.null(genome_dir) && !IRanges:::isSingleString(genome_dir))
     stop("'genome_dir' must be NULL or a single, non-NA string")
   if (!is.null(db) && !IRanges:::isSingleString(db))
