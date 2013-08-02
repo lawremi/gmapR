@@ -93,7 +93,7 @@
 #define HAVE_RINT 1
 
 /* Define to 1 if you have a working Samtools library. */
-#define HAVE_SAMTOOLS 1
+/* #undef HAVE_SAMTOOLS */
 
 /* Define to 1 if you have the `sigaction' function. */
 #define HAVE_SIGACTION 1
