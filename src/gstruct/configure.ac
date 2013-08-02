@@ -64,6 +64,7 @@ AC_ARG_PROGRAM
 
 #AM_INIT_AUTOMAKE([no-dependencies])
 AM_INIT_AUTOMAKE([1.10.0])
+AM_MAINTAINER_MODE([enable])
 
 AM_CONDITIONAL(FULLDIST,test "x$enable_fulldist" = xyes)
 AC_ARG_ENABLE([fulldist],
