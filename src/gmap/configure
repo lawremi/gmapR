@@ -4245,9 +4245,8 @@ fi
 
 
 # Define the identity of the package.
-
- PACKAGE=gmap
- VERSION=2013-03-31
+ PACKAGE='gmap'
+ VERSION='2013-03-31'
 
 
 cat >>confdefs.h <<_ACEOF

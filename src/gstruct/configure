@@ -4249,9 +4249,8 @@ fi
 
 
 # Define the identity of the package.
-
- PACKAGE=gstruct
- VERSION=2013-02-14
+ PACKAGE='gstruct'
+ VERSION='2013-02-14'
 
 
 cat >>confdefs.h <<_ACEOF
