@@ -3,7 +3,8 @@ test_BamTallyParam <- function() {
   on.exit(options(warn = 0))
   genome <- TP53Genome()
   genome.name <- genome(genome)
-  param <- new("BamTallyParam", genome = genome, which = RangesList(),
+  param <- new("BamTallyParam", genome = genome,
+               which = gmapR:::normArgWhich(GRanges(), genome),
                minimum_mapq = 0L,
                concordant_only = FALSE, unique_only = FALSE,
                primary_only = FALSE, ignore_duplicates = FALSE,
