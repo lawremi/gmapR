@@ -49,7 +49,7 @@ BamTallyParam <- function(genome, which = GRanges(),
     stop("primary_only must be TRUE or FALSE")
   if (!isTRUEorFALSE(ignore_duplicates))
     stop("ignore_duplicates must be TRUE or FALSE")
-  if (!isSingleNumber(min_depth) || minimum_mapq < 0)
+  if (!isSingleNumber(min_depth) || min_depth < 0)
     stop("min_depth must be a single, non-negative, non-NA number")
   if (!variant_strand %in% c(0, 1, 2))
     stop("variant_strand must be one of 0, 1, or 2")
