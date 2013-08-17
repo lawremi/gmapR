@@ -201,7 +201,7 @@ read_quality_counts(unsigned char **bytes, int row, int *high_quality,
   for (int index = 0; index < n_qualities; index++) {
     int quality = read_int(bytes);
     int count = read_int(bytes);
-    if (quality > high_base_quality) {
+    if (quality >= high_base_quality) {
       total_quality += quality * count;
       total_quality_weight += count;
       high_quality[row] += count;
