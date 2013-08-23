@@ -1,5 +1,16 @@
 ##run this to update. The current working directory needs to be the
 ##top-level directory of the SVN checkout
+
+#########################################################
+## PLEASE READ
+##########################################################
+# When building a new version of gstruct/gmap, remove the
+# "--disable-maintainer-mode" argument passed in src/Makefile to the
+# respective configure scripts. This was added to avoid regenerating
+# autotools artifacts on user machines (the timestamp protection fails
+# through svn).
+##########################################################
+
 updateGMAPSrc <- function() {
   gmapSVNProj <-
     "http://resscm/bioinfo/projects/gmap/releases/public-2013-03-31"
