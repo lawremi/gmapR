@@ -14,6 +14,15 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
                    output = file_path_sans_ext(input_a, TRUE),
                    consolidate = TRUE, ...)
           {
+            if (!is.null(input_b) && length(input_a) != length(input_b))
+              stop("If 'input_b' is non-NULL, it must have the same length",
+                   " as 'input_a'")
+            if (length(input_a) > 1L) {
+              return(GsnapOutputList(mapply(gsnap, input_a, input_b,
+                                            MoreArgs = list(params, output,
+                                              consolidate, ...))))
+            }
+            
             output_dir <- dirname(output)
             if (!file.exists(output_dir))
               dir.create(output_dir, recursive = TRUE)

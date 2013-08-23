@@ -173,6 +173,18 @@ setClass("GsnapOutputList",
 setClass("SimpleGsnapOutputList",
          contains = c("GsnapOutputList", "SimpleList"))
 
+GsnapOutputList <- function(...) {
+  args <- list(...)
+  if (length(args) == 1 && is.list(args[[1]])) 
+    args <- args[[1]]
+  IRanges:::newList("SimpleGsnapOutputList", args)
+}
+
+setAs("GsnapOutputList", "BamFileList", function(from) {
+  BamFileList(lapply(from, as, "BamFile"))
+})
+
+
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Show
 ###
