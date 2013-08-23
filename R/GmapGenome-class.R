@@ -30,6 +30,8 @@ mapsDirectory <- function(x) {
 }
 
 setMethod("seqinfo", "GmapGenome", function(x) {
+  if (!.gmapGenomeCreated(x))
+    stop("GmapGenome index '", genome(x), "' does not exist")
   tab <- read.table(.get_genome(path(directory(x)), genome(x),
                                 chromosomes = TRUE),
                     colClasses = c("character", "NULL", "integer"))
