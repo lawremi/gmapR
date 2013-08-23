@@ -1,0 +1,192 @@
+\documentclass{bioinfo}
+\copyrightyear{2005}
+\pubyear{2005}
+
+\newcommand{\Rfunction}[1]{{\texttt{#1}}}
+\newcommand{\Robject}[1]{{\texttt{#1}}}
+\newcommand{\Rpackage}[1]{{\textit{#1}}}
+\newcommand{\software}[1]{{\textit{#1}}}
+\newcommand{\Rmethod}[1]{{\texttt{#1}}}
+\newcommand{\Rclass}[1]{{\textit{#1}}}
+\newcommand{\Rcode}[1]{{\textit{#1}}}
+\newcommand{\Rfunarg}[1]{{\textit{#1}}}
+\newcommand{\doubbrack}{\texttt{[[}} %]]
+\newcommand{\singbrack}{\texttt{[[}} %]]
+
+\begin{document}
+\firstpage{1}
+
+\title[gmapR]{gmapR: Integration of the GMAP suite with R/Bioconductor}
+\author[Lawrence \textit{et~al}]{Michael
+  Lawrence\,$^{1,*}$\footnote{to whom correspondence should be
+    addressed}, Cory Barr\,$^{1}$, Thomas Wu\,$^1$ and Gregoire Pau\,$^1$}
+\address{$^{1}$Bioinformatics and Computational Biology, Genentech,
+ Inc. 1 DNA Way, South San Francisco, CA, USA.
+\history{Received on XXXXX; revised on XXXXX; accepted on XXXXX}
+
+\editor{Associate Editor: XXXXXXX}
+
+\maketitle
+
+\begin{abstract}
+
+\section{Summary:}
+The \Rpackage{gmapR} package integrates R/Bioconductor with the GMAP
+suite of tools, including the GSNAP short read aligner. Inputs and
+outputs are represented by standard Bioconductor data structures. The
+package supports the construction of sequence analysis pipelines, as
+well as method prototyping. The GMAP tools are included and built with
+the package, which facilitates the installation process.
+
+\section{Availability:}
+\Rpackage{gmapR} is available from the Bioconductor project:
+\url{http://www.bioconductor.org/}. The supported platforms include
+Mac and Linux.
+
+\section{Contact:}
+
+\section{Supplementary information:} \href{name@bio.com}{name@bio.com}
+\end{abstract}
+
+
+The \Rpackage{gmapR} package integrates the GMAP with R/Bioconductor
+workflows. GMAP is a collection of tools for the genomic alignment of
+short read sequences, as output by high-throughput sequencing
+technologies. The primary aligner, GSNAP, supports efficient
+SNP-tolerant alignment, including detection of novel splices and gene
+fusions from RNA-seq data.  The associated GSTRUCT package provides
+utilities for summarizing alignments, including the
+\texttt{bam\_tally} program for tallying nucleotides by position. GMAP
+and GSTRUCT have won two recent RGASP competitions for gene structure
+prediction.
+
+The Bioconductor project aims to foster reproducible statistical
+computing in the life sciences. It manages an open-source,
+community-developed repository of R packages that include tools for
+manipulating genomic alignments and annotations, as well detecting
+differential expression and sequence variants. These packages are
+readily employed in exploratory analysis and also serve as components
+in sequence analysis pipelines.
+
+The \Rpackage{gmapR} package currently links GMAP/GSTRUCT and R in
+three ways: building the target genome index, generating alignments
+with \texttt{gsnap}, and tallying the aligned nucleotides at each
+reference position. The results include BAM files of the alignments
+and tallies suitable for input to a variant calling algorithm. The
+three steps are sequentially coupled, so we will describe them in
+sequence. 
+
+A GMAP genome index consists of the reference sequence, as well as
+sets of known splice sites and SNPs. The following code generates a
+genome index using the hg19 sequence from an R \Rpackage{BSgenome}
+object. It then installs splice sites from the UCSC known gene
+annotations and SNPs from dbSNP.
+<<GmapGenome>>=
+library(gmapR)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(VariantAnnotation)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+genome <- GmapGenome(Hsapiens, create = TRUE)
+snps(genome, "dbSNP") <- readVcf("")
+spliceSites(genome, "knownGene") <- TxDb.Hsapiens.UCSC.hg19.knownGene
+@ 
+%
+\Rpackage{BSgenome} objects are the standard means of accessing
+reference genome sequence in Bioconductor. Alternative inputs include
+a path to a FASTA file or an in-memory sequence in the form of a
+\Rpackage{Biostrings} \Rclass{DNAStringSet} object. This scales from
+genomic alignment to alignment over boutique reference sequences. The
+\Rpackage{VariantAnnotation} package parses the dbSNP VCF file, and
+the resulting SNPs are stored for SNP-tolerant alignment. The
+\Rclass{TxDb} object is a standard Bioconductor database of transcript
+structures. The splice sites are extracted and indexed for efficient
+spliced alignment of RNA-seq data. By default, genome indices are
+stored on a per-user basis according to the XDG directory
+specification. The user is thus freed from deliberation over file
+system organization.
+
+The second feature of \Rpackage{gmapR} is the alignment of short reads
+using \software{gsnap}. This depends on the genome index generated in
+the previous step. The aligner supports over one hundred parameters,
+and all of them are supported, although only a dozen are
+validated. Here, we consider the simple case of obtaining the unique
+alignments using our previously generated splices and SNPs.
+<<gsnap>>=
+gsnap.param <- GsnapParam(unique_only = TRUE, snps = "dbSNP", 
+                          splicing = "knownGene")
+gsnap.output <- gsnap("reads-1.fastq", "reads-2.fastq", gsnap.params)
+@ 
+%
+Indexed BAM files are generated from the GSNAP output and by default
+are stored in the same directory as the input FASTQ files. 
+
+The object returned by \Rfunction{gsnap} refers to the BAM file. We
+can pass the BAM file path to the third module of gmapR: nucleotide
+tallying, also called pileup. This relies on the \software{bam\_tally}
+utility in GSTRUCT. For efficiency, \Rpackage{gmapR} calls
+\software{bam\_tally} through the C API, which returns all results
+through system memory, rather than touching the file system.  Below,
+we calculate the tallies and summarize them for use in a variant
+calling algorithm:
+<<bam_tally>>=
+tallies <- bam_tally(bamPath(gsnap.output))
+variant.summary <- summarizeTalliesForVariants(tallies)
+@ 
+%
+It is possible to limit the counting to a set of ranges on the genome,
+which avoids needless computations. The variant summary includes the
+raw and high quality nucleotide counts for each genomic position and
+statistics describing the quality and read position distribution.the
+average quality, cross-tabulated by
+quality and read position.
+
+In summary, \Rpackage{gmapR} generates alignments with GSNAP and
+summarizes them with tools in GSTRUCT. Its API is based on
+Bioconductor conventions and standard data structures, which
+facilitates integration with Bioconductor-based pipelines.
+Bioconductor packages that take advantage of \Rpackage{gmapR} include
+the \Rpackage{VariantTools} (a variant caller) and
+\Rpackage{HTSeqGenie} (a complete R-based pipeline for high throughput
+sequence analysis). 
+
+The \Rpackage{Rsubread} package is analogous to \Rpackage{gmapR} in
+its role as an aligner, although GSNAP is generally more
+sophisticated, especially for RNA-seq analysis. The
+\Rpackage{Rsamtools} package generates pileups using
+samtools. However, the tallies lack information, such as the
+read-level positions of the mismatches.
+
+The GMAP and GSTRUCT source code is included with \Rpackage{gmapR} and
+is compiled and installed along with the automated installation of
+\Rpackage{gmapR}. No extra installation steps are required.
+
+\section*{Acknowledgement}
+
+\bibliographystyle{natbib}
+%\bibliographystyle{achemnat}
+%\bibliographystyle{plainnat}
+%\bibliographystyle{abbrv}
+%\bibliographystyle{bioinformatics}
+%
+%\bibliographystyle{plain}
+%
+\bibliography{gmapR}
+
+% \begin{table}[!t]
+%   \processtable{This is table caption\label{Tab:01}}
+%   {\begin{tabular}{llll}\toprule
+%     head1 & head2 & head3 & head4\\\midrule
+%     row1 & row1 & row1 & row1\\
+%     row2 & row2 & row2 & row2\\
+%     row3 & row3 & row3 & row3\\
+%     row4 & row4 & row4 & row4\\\botrule
+%   \end{tabular}}{This is a footnote}
+% \end{table}
+
+
+% \begin{figure}[!tpb]%figure1
+% %   \centerline{\includegraphics{fig01.eps}}
+%   \caption{Caption, caption.}\label{fig:01}
+% \end{figure}
+
+\end{document}
