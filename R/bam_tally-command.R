@@ -51,7 +51,7 @@ setMethod("bam_tally", "GmapBamReader",
             genome <- param_list$genome
 
             ##verify genome has been created
-            
+
             param_list$db <- genome(genome)
             param_list$genome_dir <- path(directory(genome))
             if (!.gmapGenomeCreated(genome)) {
@@ -59,7 +59,7 @@ setMethod("bam_tally", "GmapBamReader",
                    "One solution is to run the GmapGenome constructor ",
                    "with create=TRUE")
             }
-            
+
             param_list$genome <- NULL
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome)
           })
@@ -92,10 +92,10 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
   variant_rows <- !is.na(tally$alt)
   if (!all(variant_rows))
     tally <- lapply(tally, `[`, variant_rows)
-  
+
   meta_names <- setdiff(tally_names,
                         c("seqnames", "pos", "ref", "alt", "high.quality",
-                          "high.quality.total"))
+                          "high.quality.ref", "high.quality.total"))
   genome <- genome(x)
   indel <- nchar(tally$ref) == 0L | nchar(tally$alt) == 0L
   gr <- with(tally,
@@ -117,7 +117,7 @@ normalizeIndelAlleles <- function(x, genome) {
   is.indel <- nchar(ref(x)) == 0L | nchar(alt(x)) == 0L
   if (any(is.indel)) {
     indels <- x[is.indel]
-    indels <- shift(indels, -1)
+    indels <- flank(indels, 1)
     anchor <- getSeq(genome, indels)
     ref(indels) <- paste0(anchor, ref(indels))
     alt(indels) <- paste0(anchor, alt(indels))
@@ -138,7 +138,7 @@ normArgSingleInteger <- function(x) {
   x
 }
 normArgTRUEorFALSE <- function(x) {
-  name <- deparse(substitute(x))    
+  name <- deparse(substitute(x))
   if (!isTRUEorFALSE(x))
     stop("'", name, "' should be TRUE or FALSE")
   x
