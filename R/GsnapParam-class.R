@@ -27,7 +27,7 @@ setClass("GsnapParam",
                         nofails = "logical", 
                         split_output = "logical",
                         terminal_threshold = "integer",
-                        gmap_mode = "character",
+                        gmap_mode = "characterORNULL",
                         extra = "list"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
