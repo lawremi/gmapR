@@ -27,7 +27,7 @@ setClass("GsnapParam",
                         nofails = "logical", 
                         split_output = "logical",
                         terminal_threshold = "integer",
-                        gmap_mode = "characterORNULL",
+                        gmap_mode = "character",
                         extra = "list"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -157,7 +157,9 @@ GsnapParam <- function(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
                        novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2",
                        terminal_threshold = if (molecule == "DNA") 1000L else 2L,
-                       gmap_mode = if (molecule == "DNA") "none", ...) {
+                       gmap_mode = if (molecule == "DNA") "none" else
+                       "pairsearch,terminal,improve", ...)
+{
   if (missing(genome))
     stop("The 'genome' must be specified (should be coercible to GmapGenome)")
   molecule <- match.arg(molecule)
