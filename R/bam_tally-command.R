@@ -64,7 +64,8 @@ setMethod("bam_tally", "GmapBamReader",
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome)
           })
 
-variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
+variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
+                           keep_ref_rows = FALSE)
 {
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
@@ -89,10 +90,12 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L)
   }
   names(tally) <- tally_names
 
-  variant_rows <- !is.na(tally$alt)
-  if (!all(variant_rows))
-    tally <- lapply(tally, `[`, variant_rows)
-
+  if (!keep_ref_rows) {
+    variant_rows <- !is.na(tally$alt)
+    if (!all(variant_rows))
+      tally <- lapply(tally, `[`, variant_rows)
+  }
+  
   meta_names <- setdiff(tally_names,
                         c("seqnames", "pos", "ref", "alt", "high.quality",
                           "high.quality.ref", "high.quality.total"))
