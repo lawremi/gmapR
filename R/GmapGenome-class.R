@@ -34,8 +34,9 @@ setMethod("seqinfo", "GmapGenome", function(x) {
     stop("GmapGenome index '", genome(x), "' does not exist")
   tab <- read.table(.get_genome(path(directory(x)), genome(x),
                                 chromosomes = TRUE),
-                    colClasses = c("character", "NULL", "integer"))
-  Seqinfo(tab[,1], tab[,2], genome = genome(x))
+                    colClasses = c("character", "NULL", "integer", "character"),
+                    fill = TRUE)
+  Seqinfo(tab[,1], tab[,2], nzchar(tab[,3]), genome = genome(x))
 })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
