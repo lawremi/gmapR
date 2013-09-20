@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: samread.c 47385 2011-09-15 04:08:52Z twu $";
+static char rcsid[] = "$Id: samread.c 95577 2013-05-10 19:52:37Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -49,6 +49,7 @@ Samread_get_acc (unsigned int *flag, char *line) {
 
 char *
 Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos, char **cigar,
+		    char **mate_chr, Genomicpos_T *mate_chrpos_low,
 		    int *readlength, char **read, char **quality_string, char *line) {
   char *p, *q;
   int length, i;
@@ -133,27 +134,39 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   debug(printf("  cigar = %s\n",*cigar));
   
 
-  /* Skip over mate chr */
+  /* mate chr */
   p = q;
   if (*p != '\0') {
-    p++;
+    p++;			/* Should be a tab */
   }
-  while (!isspace(*p)) p++;
-  if (*p == '\0') {
+  q = p;
+  while (!isspace(*q)) q++;
+  length = (q - p)/sizeof(char);
+  *mate_chr = (char *) CALLOC(length+1,sizeof(char));
+  strncpy(*mate_chr,p,length);
+  debug(printf("  mate_chr = %s\n",*mate_chr));
+  if (*q == '\0') {
     fprintf(stderr,"Can't parse mate chr part of %s\n",line);
     abort();
   } else {
-    p++;
+    q++;
   }
 
+  /* mate chrpos low */
+  p = q;
+  if (sscanf(p,"%u",&(*mate_chrpos_low)) != 1) {
+    fprintf(stderr,"Unable to find mate_chrpos_low in %s\n",p);
+    abort();
+  } else {
+    debug(printf("  mate_chrpos_low = %u\n",*mate_chrpos_low));
+  }
 
-  /* Skip over mate chrpos */
-  while (!isspace(*p)) p++;
+  while (!isspace(*p)) p++;	/* Skip over mate_chrpos */
   if (*p == '\0') {
     fprintf(stderr,"Can't parse mate chrpos part of %s\n",line);
     abort();
   } else {
-    p++;
+    p++;			/* Skip over tab */
   }
 
 

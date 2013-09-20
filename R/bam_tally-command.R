@@ -120,11 +120,11 @@ normalizeIndelAlleles <- function(x, genome) {
   is.indel <- nchar(ref(x)) == 0L | nchar(alt(x)) == 0L
   if (any(is.indel)) {
     indels <- x[is.indel]
-    indels <- flank(indels, 1)
-    anchor <- getSeq(genome, indels)
-    ref(indels) <- paste0(anchor, ref(indels))
-    alt(indels) <- paste0(anchor, alt(indels))
-    x[is.indel] <- indels
+    flanks <- flank(indels, 1)
+    anchor <- getSeq(genome, flanks)
+    ref(x)[is.indel] <- paste0(anchor, ref(indels))
+    alt(x)[is.indel] <- paste0(anchor, alt(indels))
+    ranges(x)[is.indel] <- resize(ranges(indels), nchar(ref(x)[is.indel]), "end")
   }
   x
 }
@@ -136,7 +136,7 @@ normalizeIndelAlleles <- function(x, genome) {
 normArgSingleInteger <- function(x) {
   name <- deparse(substitute(x))
   x <- as.integer(x)
-  if (!IRanges:::isSingleInteger(x))
+  if (!isSingleInteger(x))
     stop("'", name, "' should be a single, non-NA integer")
   x
 }
@@ -149,7 +149,8 @@ normArgTRUEorFALSE <- function(x) {
 
 .bam_tally_C <- function(bamreader, genome_dir = NULL, db = NULL,
                          which = NULL, read_pos_breaks = NULL,
-                         high_base_quality = 0L, alloclength = 200000L,
+                         high_base_quality = 0L, desired_read_group = NULL,
+                         alloclength = 200000L,
                          minimum_mapq = 0L, good_unique_mapq = 35L,
                          maximum_nhits = 1000000L,
                          concordant_only = FALSE, unique_only = FALSE,
@@ -164,10 +165,12 @@ normArgTRUEorFALSE <- function(x) {
   if (length(which) > 0L) {
     which <- list(as.character(seqnames(which)), start(which), end(which))
   } else which <- NULL
-  if (!is.null(genome_dir) && !IRanges:::isSingleString(genome_dir))
+  if (!is.null(genome_dir) && !isSingleString(genome_dir))
     stop("'genome_dir' must be NULL or a single, non-NA string")
-  if (!is.null(db) && !IRanges:::isSingleString(db))
+  if (!is.null(db) && !isSingleString(db))
     stop("'db' must be NULL or a single, non-NA string")
+  if (!is.null(desired_read_group) && !isSingleString(desired_read_group))
+    stop("'desired_read_group' must be NULL or a single, non-NA string")
   if (!is.null(read_pos_breaks)) {
     read_pos_breaks <- as.integer(read_pos_breaks)
     if (any(is.na(read_pos_breaks)))
@@ -178,6 +181,7 @@ normArgTRUEorFALSE <- function(x) {
       stop("'read_pos_breaks' must be sorted")
   }
   .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+        desired_read_group,
         normArgSingleInteger(alloclength),
         normArgSingleInteger(minimum_mapq),
         normArgSingleInteger(good_unique_mapq),

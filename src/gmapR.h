@@ -10,7 +10,7 @@ R_Bamread_new (SEXP bamfile_R);
 
 SEXP
 R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
-                SEXP which_R,
+                SEXP which_R, SEXP desired_read_group_R,
                 SEXP alloclength_R,
                 SEXP minimum_mapq_R, SEXP good_unique_mapq_R,
                 SEXP maximum_nhits_R,

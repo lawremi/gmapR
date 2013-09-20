@@ -14,14 +14,16 @@
 }
 
 \usage{
-  BamTallyParam(genome, which = RangesList(), read_pos_breaks = NULL,
+  BamTallyParam(genome, which = RangesList(),
+                desired_read_group = NULL,
+                read_pos_breaks = NULL,
                 high_base_quality = 0L,
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
                 primary_only = FALSE, ignore_duplicates = FALSE,
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
-                indels = FALSE)
+                indels = TRUE)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -29,6 +31,8 @@
     one that limits the tally to that range or set of ranges. By
     default, the entire genome is processed.
   }
+  \item{desired_read_group}{The name of the read group to which to limit
+    the tallying; if not NULL, must be a single, non-NA string.}
   \item{read_pos_breaks}{The breaks, like those passed to \code{\link{cut}}
     for aggregating the per-read position counts. If \code{NULL}, no per-cycle
     counts are returned.}
@@ -54,7 +58,12 @@
     is a good way to save resources.}
   \item{ignore_query_Ns}{Whether to ignore the N base pairs when
     counting. Can save a lot of resources when processing low quality data.}
-  \item{indels}{Whether to return indel counts; not supported yet.}
+  \item{indels}{Whether to return indel counts. The \code{ref} and
+    \code{alt} columns in the returned \code{VRanges} conform to VCF
+    conventions; i.e., the first base upstream is included. The range
+    always spans the sequence in \code{ref}; so e.g. a deletion extends
+    one nt upstream of the actual deleted sequence.
+  }
 }
 
 \seealso{

@@ -279,6 +279,11 @@ demonstrate the use of \software{bam\_tally} through the
 the needed information such as number of alternative alleles, quality
 scores, and read position for each allele.
 
+The call to \Rfunction{bam\_tally} returns an opaque pointer to a
+C-level data structure. We anticipate having multiple means of
+summarizing these data into R data structures. For now, there is one:
+\Rfunction{variantSummary}, which returns a \code{VRanges} object
+describing putative genetic variants in the sample.
 <<run_bamtally, eval=FALSE>>=
 library(gmapR)
 
@@ -288,8 +293,7 @@ bam_file <- system.file("extdata/H1993.analyzed.bam",
 breaks <- c(0L, 15L, 60L, 75L)
 bqual <- 56L
 mapq <- 13L
-param <- BamTallyParam(genome, read_pos_breaks = breaks,
-                       high_base_quality = bqual,
+param <- BamTallyParam(genome,
                        minimum_mapq = mapq,
                        concordant_only = FALSE, unique_only = FALSE,
                        primary_only = FALSE,
@@ -298,6 +302,7 @@ param <- BamTallyParam(genome, read_pos_breaks = breaks,
                        indels = FALSE)
 tallies <-bam_tally(bam_file,
                     param)
+variantSummary(tallies, high_base_quality = 23L)
 @ 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -13,7 +13,7 @@
 
 SEXP
 R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
-                SEXP which_R,
+                SEXP which_R, SEXP desired_read_group_R,
                 SEXP alloclength_R,
                 SEXP minimum_mapq_R, SEXP good_unique_mapq_R,
                 SEXP maximum_nhits_R,
@@ -30,6 +30,9 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
     genome_dir_R == R_NilValue ? NULL : CHAR(asChar(genome_dir_R));
   const char *db = CHAR(asChar(db_R));
   int alloclength = asInteger(alloclength_R);
+  const char *desired_read_group =
+    desired_read_group_R == R_NilValue ? NULL :
+    CHAR(asChar(desired_read_group_R));
   int minimum_mapq = asInteger(minimum_mapq_R);
   int good_unique_mapq = asInteger(good_unique_mapq_R);
   int maximum_nhits = asInteger(maximum_nhits_R);
@@ -57,9 +60,12 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
     end = asInteger(VECTOR_ELT(which_R, 2));
   }
 
-  IIT_T tally_iit = Bamtally_iit(bamreader, (char *)chr, start, end,
-                                 genome, chromosome_iit,
-                                 alloclength, minimum_mapq, good_unique_mapq,
+  IIT_T tally_iit = Bamtally_iit(bamreader, (char *)chr, 
+                                 /* TODO: bam_lacks_chr */ NULL,
+                                 start, end,
+                                 genome, chromosome_iit, alloclength,
+                                 (char *)desired_read_group,
+                                 minimum_mapq, good_unique_mapq,
                                  maximum_nhits, need_concordant_p,
                                  need_unique_p, need_primary_p,
                                  ignore_duplicates_p,

@@ -1,4 +1,4 @@
-/* $Id: samread.h 46994 2011-09-12 17:44:59Z twu $ */
+/* $Id: samread.h 93287 2013-04-18 22:22:28Z twu $ */
 #ifndef SAMREAD_INCLUDED
 #define SAMREAD_INCLUDED
 #include <stdio.h>
@@ -12,7 +12,8 @@ Samread_get_acc (unsigned int *flag, char *line);
 /* Returns pointer to auxinfo */
 extern char *
 Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos, char **cigar,
-		    int *readlength, char **read, char **quality_string, char *line);
+		    char **mate_chr, Genomicpos_T *mate_chrpos, int *readlength, char **read, char **quality_string,
+		    char *line);
 
 extern void
 Samread_print_altered_single (FILE *fp, unsigned int newflag, int mapq, char *line);

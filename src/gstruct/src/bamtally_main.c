@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 87713 2013-03-01 18:32:34Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 108654 2013-09-19 23:11:00Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -51,6 +51,10 @@ static bool signed_counts_p = false;
 /* Coordinates */
 static bool whole_genome_p = false;
 
+/* Conversion */
+static char *bam_lacks_chr = NULL;
+static int bam_lacks_chr_length = 0;
+
 /* Output options */
 static bool verbosep = false;
 static Tally_outputtype_T output_type = OUTPUT_BLOCKS;
@@ -74,6 +78,7 @@ static bool print_allele_counts_p = true;
 
 static int blocksize = 1000;
 
+static char *desired_read_group = NULL;
 static int minimum_mapq = 0;
 static int good_unique_mapq = 35;
 static int maximum_nhits = 1000000;
@@ -107,6 +112,9 @@ static struct option long_options[] = {
   /* Genomic region */
   {"whole-genome", no_argument, 0, 0}, /* whole_genome_p */
 
+  /* Conversion */
+  {"bam-lacks-chr", required_argument, 0, 0}, /* bam_lacks_chr */
+
   /* Output options */
   {"verbose", required_argument, 0, 0},	       /* verbosep */
   {"block-format", required_argument, 0, 'B'}, /* blockp */
@@ -122,6 +130,7 @@ static struct option long_options[] = {
   {"pairmax", required_argument, 0, 'p'}, /* alloclength */
   {"blocksize", required_argument, 0, 'b'}, /* blocksize */
 
+  {"read-group", required_argument, 0, 0}, /* desired_read_group */
   {"mapq", required_argument, 0, 'q'}, /* minimum_mapq */
   {"nhits", required_argument, 0, 'n'}, /* maximum_nhits */
   {"concordant", required_argument, 0, 'C'}, /* need_concordant_p */
@@ -162,7 +171,7 @@ int
 main (int argc, char *argv[]) {
   char *genomesubdir = NULL, *fileroot = NULL;
   char Buffer[BUFFERLEN], *p;
-  long int *tally_matches, *tally_mismatches;
+  long int *tally_matches, *tally_mismatches, grand_total;
   List_T intervallist = NULL, labellist = NULL, datalist = NULL;
   int quality_counts_match[256], quality_counts_mismatch[256], i;
 
@@ -171,6 +180,7 @@ main (int argc, char *argv[]) {
   char *iitfile;
   int index;
   IIT_T chromosome_iit;
+  char *chrptr;
   bool allocp;
 
   Genome_T genome = NULL;
@@ -202,6 +212,9 @@ main (int argc, char *argv[]) {
 	verbosep = true;
       } else if (!strcmp(long_name,"whole-genome")) {
 	whole_genome_p = true;
+      } else if (!strcmp(long_name,"bam-lacks-chr")) {
+	bam_lacks_chr = optarg;
+	bam_lacks_chr_length = strlen(bam_lacks_chr);
       } else if (!strcmp(long_name,"via-iit")) {
 	via_iit_p = true;
       } else if (!strcmp(long_name,"diffs-only")) {
@@ -216,6 +229,8 @@ main (int argc, char *argv[]) {
 	ignore_duplicates_p = true;
       } else if (!strcmp(long_name,"allow-duplicates")) {
 	ignore_duplicates_p = false;
+      } else if (!strcmp(long_name,"read-group")) {
+	desired_read_group = optarg;
 
 #if 0
       } else if (!strcmp(long_name,"use-quality-const")) {
@@ -246,8 +261,11 @@ main (int argc, char *argv[]) {
 	output_type = OUTPUT_RUNLENGTHS;
       } else if (!strcmp(optarg,"tally")) {
 	output_type = OUTPUT_TALLY;
+      } else if (!strcmp(optarg,"total")) {
+	output_type = OUTPUT_TOTAL;
       } else {
 	fprintf(stderr,"Output format %s not recognized\n",optarg);
+	exit(9);
       }
       break;
 
@@ -340,9 +358,10 @@ main (int argc, char *argv[]) {
     FREE(iitfile);
 
     if (via_iit_p == true) {
-      bamtally_iit = Bamtally_iit(bamreader,/*chr*/NULL,/*chrstart*/0,/*chrend*/0,
+      bamtally_iit = Bamtally_iit(bamreader,/*chr*/NULL,/*bam_lacks_chr*/NULL,
+				  /*chrstart*/0,/*chrend*/0,
 				  genome,chromosome_iit,alloclength,
-				  minimum_mapq,good_unique_mapq,maximum_nhits,
+				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep);
@@ -353,21 +372,35 @@ main (int argc, char *argv[]) {
 	chrend = Interval_length(IIT_interval(chromosome_iit,index));
 	chroffset = Interval_low(IIT_interval(chromosome_iit,index));
 
-	Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
-	Bamtally_run(&tally_matches,&tally_mismatches,
-		     &intervallist,&labellist,&datalist,
-		     quality_counts_match,quality_counts_mismatch,
-		     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-		     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
-		     minimum_mapq,good_unique_mapq,maximum_nhits,
-		     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-		     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
-		     output_type,blockp,blocksize,
-		     quality_score_adj,min_depth,variant_strands,
-		     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
-		     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-		     print_mapq_scores_p,want_genotypes_p,verbosep);
-	Bamread_unlimit_region(bamreader);
+	if (bam_lacks_chr == NULL) {
+	  chrptr = chromosome;
+	} else if (!strncmp(chromosome,bam_lacks_chr,bam_lacks_chr_length)) {
+	  chrptr = &(chromosome[bam_lacks_chr_length]);
+	} else {
+	  chrptr = chromosome;
+	}
+
+	if (Bamread_limit_region(bamreader,chrptr,chrstart,chrend) == false) {
+	  grand_total = 0;
+	} else {
+	  grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
+				     &intervallist,&labellist,&datalist,
+				     quality_counts_match,quality_counts_mismatch,
+				     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
+				     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				     desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
+				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+				     output_type,blockp,blocksize,
+				     quality_score_adj,min_depth,variant_strands,
+				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
+				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
+				     print_mapq_scores_p,want_genotypes_p,verbosep);
+	  Bamread_unlimit_region(bamreader);
+	}
+	if (output_type == OUTPUT_TOTAL) {
+	  printf("%ld\n",grand_total);
+	}
 
 	if (allocp == true) {
 	  FREE(chromosome);
@@ -392,33 +425,49 @@ main (int argc, char *argv[]) {
 				/*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
       FREE(iitfile);
 
-      bamtally_iit = Bamtally_iit(bamreader,/*chr*/chromosome,chrstart,chrend,
-				  genome,chromosome_iit,alloclength,
-				  minimum_mapq,good_unique_mapq,maximum_nhits,
+      bamtally_iit = Bamtally_iit(bamreader,/*chr*/chromosome,/*bam_lacks_chr*/NULL,
+				  chrstart,chrend,genome,chromosome_iit,alloclength,
+				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep);
       IIT_free(&chromosome_iit);
 
     } else {
-      Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
-      Bamtally_run(&tally_matches,&tally_mismatches,
-		   &intervallist,&labellist,&datalist,
-		   quality_counts_match,quality_counts_mismatch,
-		   bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-		   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
-		   minimum_mapq,good_unique_mapq,maximum_nhits,
-		   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-		   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
-		   output_type,blockp,blocksize,
-		   quality_score_adj,min_depth,variant_strands,
-		   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
-		   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-		   print_mapq_scores_p,want_genotypes_p,verbosep);
-      Bamread_unlimit_region(bamreader);
+
+      if (bam_lacks_chr == NULL) {
+	chrptr = chromosome;
+      } else if (!strncmp(chromosome,bam_lacks_chr,bam_lacks_chr_length)) {
+	chrptr = &(chromosome[bam_lacks_chr_length]);
+      } else {
+	chrptr = chromosome;
+      }
+
+      if (Bamread_limit_region(bamreader,chrptr,chrstart,chrend) == false) {
+	grand_total = 0;
+      } else {
+	grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
+				   &intervallist,&labellist,&datalist,
+				   quality_counts_match,quality_counts_mismatch,
+				   bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
+				   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				   desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
+				   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+				   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+				   output_type,blockp,blocksize,
+				   quality_score_adj,min_depth,variant_strands,
+				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
+				   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
+				   print_mapq_scores_p,want_genotypes_p,verbosep);
+	Bamread_unlimit_region(bamreader);
+      }
+      if (output_type == OUTPUT_TOTAL) {
+	printf("%ld\n",grand_total);
+      }
     }
 
   } else {
+    fprintf(stderr,"Expecting coordinates from stdin\n");
     /* Expecting coordinates from stdin */
     if (via_iit_p == true) {
       fprintf(stderr,"Combination of --via-iit and coordinates from stdin not supported\n");
@@ -426,30 +475,56 @@ main (int argc, char *argv[]) {
     }
 
     while (fgets(Buffer,BUFFERLEN,stdin) != NULL) {
+      printf("# Query: %s",Buffer);
       if ((p = rindex(Buffer,'\n')) != NULL) {
 	*p = '\0';
       }
+
+      /* Truncate query at first space character */
+      p = Buffer;
+      while (*p != '\0' && !isspace(*p)) {
+	p++;
+      }
+      if (isspace(*p)) {
+	*p = '\0';
+      }
+
       if ((Parserange_universal(&chromosome,&revcomp,&genomicstart,&genomiclength,&chrstart,&chrend,
 				&chroffset,&chrlength,Buffer,genomesubdir,fileroot)) == false) {
 	fprintf(stderr,"Chromosome coordinates %s could not be found in the genome\n",Buffer);
 
       } else {
-	Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
-	Bamtally_run(&tally_matches,&tally_mismatches,
-		     &intervallist,&labellist,&datalist,
-		     quality_counts_match,quality_counts_mismatch,
-		     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-		     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
-		     minimum_mapq,good_unique_mapq,maximum_nhits,
-		     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-		     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
-		     output_type,blockp,blocksize,
-		     quality_score_adj,min_depth,variant_strands,
-		     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
-		     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-		     print_mapq_scores_p,want_genotypes_p,verbosep);
-	Bamread_unlimit_region(bamreader);
+	if (bam_lacks_chr == NULL) {
+	  chrptr = chromosome;
+	} else if (!strncmp(chromosome,bam_lacks_chr,bam_lacks_chr_length)) {
+	  chrptr = &(chromosome[bam_lacks_chr_length]);
+	} else {
+	  chrptr = chromosome;
+	}
+
+	if (Bamread_limit_region(bamreader,chrptr,chrstart,chrend) == false) {
+	  grand_total = 0;
+	} else {
+	  grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
+				     &intervallist,&labellist,&datalist,
+				     quality_counts_match,quality_counts_mismatch,
+				     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
+				     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				     desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
+				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
+				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
+				     output_type,blockp,blocksize,
+				     quality_score_adj,min_depth,variant_strands,
+				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
+				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
+				     print_mapq_scores_p,want_genotypes_p,verbosep);
+	  Bamread_unlimit_region(bamreader);
+	}
+	if (output_type == OUTPUT_TOTAL) {
+	  printf("%ld\n",grand_total);
+	}
       }
+      printf("# End\n");
     }
   }
 
@@ -561,6 +636,8 @@ Compute options\n\
   --ignore-duplicates            Ignore alignments marked as duplicate (0x400)\n\
   --pairmax=INT                  Expected insert length (discards alignments longer than\n\
                                    this value) [default=200000]\n\
+  --read-group=STRING            Process only alignments that have the given read group as an RG field\n\
+                                   in their BAM lines\n\
 \n\
 Coordinates\n\
   --whole-genome                 Compute tally over entire genome\n\
@@ -575,7 +652,7 @@ Filtering of output (options may be combined)\n\
                                    homozygous different from reference)\n\
 \n\
 Output options\n\
-  -A, --format=STRING            Output format: blocks, runlengths, bins\n\
+  -A, --format=STRING            Output format: blocks, runlengths, bins, total\n\
   -B, --block-format=INT         Print in block format (0=no, 1=yes (default))\n\
   -b, --blocksize=INT            Block size for printing in block format [default 1000]\n\
   -S, --signed-counts            Print signed allele counts (as plus_count|minus_count)\n\

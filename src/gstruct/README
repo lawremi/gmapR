@@ -1,22 +1,2 @@
 
 
-
-Usage:
-
-bam_singlemap -d <genome> <bam> | samtools view -Sb - > <new bam>
-
-bam_tally -d <genome> <bam>
-bam_gstruct -d <genome> <bam> | iit_store -o <pred>
-bam_print -d <genome> -m <genes>,<pred> <bam> <coords>
-
-
-genecompare -d <genome> -m <genes> <pred.iit> > x, or
-genecompare <goldstd.iit> <pred.iit> > x
-
-
-Depends on samtools and gmap packages.
-
-gfusion depends on gmap and qsub
-
-
-

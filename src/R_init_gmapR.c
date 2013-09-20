@@ -7,7 +7,7 @@
 static const R_CallMethodDef callMethods[] = {
 
   /* bamtally.c */
-  CALLMETHOD_DEF(R_Bamtally_iit, 18),
+  CALLMETHOD_DEF(R_Bamtally_iit, 19),
   CALLMETHOD_DEF(R_tally_iit_parse, 4),
   
   /* bamreader.c */

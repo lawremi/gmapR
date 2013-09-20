@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bam_fastq.c 87713 2013-03-01 18:32:34Z twu $";
+static char rcsid[] = "$Id: bam_fastq.c 108654 2013-09-19 23:11:00Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -57,6 +57,7 @@ static char rcsid[] = "$Id: bam_fastq.c 87713 2013-03-01 18:32:34Z twu $";
 static char *output_root = "out";
 static char *error_root = NULL;
 static bool fastap = false;
+static bool add_bounds_p = false;
 static bool allp = true;
 static bool single_end_output_p = false; /* print paired-end BAM as single-end file */
 static int terminal_minlength = -1;
@@ -75,6 +76,7 @@ static struct option long_options[] = {
   {"output", required_argument, 0, 'o'},	/* output_root */
   {"error", required_argument, 0, 'e'},	/* error_root */
   {"fasta", no_argument, 0, 0},			/* fastap */
+  {"add-bounds", no_argument, 0, 0},		/* add_bounds_p */
   {"all", no_argument, 0, 'A'}, /* allp */
   {"single-end-output", no_argument, 0, '1'}, /* single_end_output_p */
   {"spliced", no_argument, 0, 0}, /* splicedp */
@@ -109,6 +111,7 @@ Usage: bam_fastq [options] [-o <output>] <bam file...>\n\
 \n\
 Options:\n\
   --fasta                         Writes to stdout in FASTA format\n\
+  --add-lh                        Add chromosomal low/high designation for concordant paired-end alignments\n\
   -o, --output=STRING             Writes FASTQ to <output>_1.fq and <output>_2.fq (default=out)\n\
   -1, --single-end-output         Prints reads as single-end (even if BAM files have paired-end reads)\n\
   -S, --terminal-minlength=INT    Print only reads with terminal ends (cigar S length) equal to\n\
@@ -197,16 +200,136 @@ struct T {
   char *queryseq;
   char *quality_string;
   bool splicedp;
+
+  char querystart_strand;
+  char *querystart_chr;
+  Genomicpos_T querystart_chrpos;
+
+  char querybreak1_strand;
+  char *querybreak1_chr;
+  Genomicpos_T querybreak1_chrpos;
+
+  char querybreak2_strand;
+  char *querybreak2_chr;
+  Genomicpos_T querybreak2_chrpos;
+
+  char queryend_strand;
+  char *queryend_chr;
+  Genomicpos_T queryend_chrpos;
 };
 
 
 static void
 Read_free (T *old) {
+  if ((*old)->querybreak1_chrpos != 0) {
+    FREE((*old)->querybreak1_chr);
+  }
+  if ((*old)->querybreak2_chrpos != 0) {
+    FREE((*old)->querybreak2_chr);
+  }
+  FREE((*old)->queryend_chr);
+  FREE((*old)->querystart_chr);
   FREE((*old)->queryseq);
   if ((*old)->quality_string != NULL) {
     FREE((*old)->quality_string);
   }
   FREE(*old);
+  return;
+}
+
+
+static void
+Read_add_chrinfo_querystart (Read_T read, int flag, char *chr, Genomicpos_T chrpos_low, Genomicpos_T chrpos_high) {
+
+  if (chr == NULL) {
+    read->querystart_strand = '*';
+    read->querystart_chr = (char *) CALLOC(1,sizeof(char));
+    read->querystart_chr[0] = '\0';
+    read->querystart_chrpos = 0;
+  } else {
+    read->querystart_chr = (char *) CALLOC(strlen(chr)+1,sizeof(char));
+    strcpy(read->querystart_chr,chr);
+    if (flag & QUERY_MINUSP) {
+      read->querystart_strand = '-';
+      read->querystart_chrpos = chrpos_high;
+    } else {
+      read->querystart_strand = '+';
+      read->querystart_chrpos = chrpos_low;
+    }
+  }
+
+  return;
+}
+
+static void
+Read_add_chrinfo_querybreak2 (Read_T read, int flag, char *chr, Genomicpos_T chrpos_low, Genomicpos_T chrpos_high) {
+
+  if (chr == NULL) {
+    abort();
+    read->querybreak2_strand = '*';
+    read->querybreak2_chr = (char *) CALLOC(1,sizeof(char));
+    read->querybreak2_chr[0] = '\0';
+    read->querybreak2_chrpos = 0;
+  } else {
+    read->querybreak2_chr = (char *) CALLOC(strlen(chr)+1,sizeof(char));
+    strcpy(read->querybreak2_chr,chr);
+    if (flag & QUERY_MINUSP) {
+      read->querybreak2_strand = '-';
+      read->querybreak2_chrpos = chrpos_high;
+    } else {
+      read->querybreak2_strand = '+';
+      read->querybreak2_chrpos = chrpos_low;
+    }
+  }
+
+  return;
+}
+
+
+static void
+Read_add_chrinfo_queryend (Read_T read, int flag, char *chr, Genomicpos_T chrpos_low, Genomicpos_T chrpos_high) {
+
+  if (chr == NULL) {
+    read->queryend_strand = '*';
+    read->queryend_chr = (char *) CALLOC(1,sizeof(char));
+    read->queryend_chr[0] = '\0';
+    read->queryend_chrpos = 0;
+  } else {
+    read->queryend_chr = (char *) CALLOC(strlen(chr)+1,sizeof(char));
+    strcpy(read->queryend_chr,chr);
+    if (flag & QUERY_MINUSP) {
+      read->queryend_strand = '-';
+      read->queryend_chrpos = chrpos_low;
+    } else {
+      read->queryend_strand = '+';
+      read->queryend_chrpos = chrpos_high;
+    }
+  }
+
+  return;
+}
+
+static void
+Read_add_chrinfo_querybreak1 (Read_T read, int flag, char *chr, Genomicpos_T chrpos_low, Genomicpos_T chrpos_high) {
+
+  if (chr == NULL) {
+    abort();
+    read->querybreak1_strand = '*';
+    read->querybreak1_chr = (char *) CALLOC(1,sizeof(char));
+    read->querybreak1_chr[0] = '\0';
+    read->querybreak1_chrpos = 0;
+  } else {
+    read->querybreak1_chr = (char *) CALLOC(strlen(chr)+1,sizeof(char));
+    strcpy(read->querybreak1_chr,chr);
+    if (flag & QUERY_MINUSP) {
+      read->querybreak1_strand = '-';
+      read->querybreak1_chrpos = chrpos_low;
+    } else {
+      read->querybreak1_strand = '+';
+      read->querybreak1_chrpos = chrpos_high;
+    }
+  }
+
   return;
 }
 
@@ -220,6 +343,7 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
   char strand;
   int type;
   int cigar_querylength, mlength, querypos, i;
+  /* bool insidep; */
 
   flag = Bamline_flag(bamline);
   shortread = Bamline_read(bamline);
@@ -235,6 +359,9 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
       strcpy(read->quality_string,quality_string);
     }
     read->splicedp = true;
+    read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    Read_add_chrinfo_querystart(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    Read_add_chrinfo_queryend(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
     *completep = true;
     return read;
   }
@@ -244,6 +371,7 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
   cigar_querylength = Bamline_cigar_querylength(bamline);
 
   if (read == NULL) {
+    /* Initialize */
     read = (T) MALLOC(sizeof(struct T));
     read->queryseq = (char *) CALLOC(cigar_querylength+1,sizeof(char));
     for (i = 0; i < cigar_querylength; i++) {
@@ -255,24 +383,42 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
       read->quality_string = (char *) CALLOC(cigar_querylength+1,sizeof(char));
     }
     read->splicedp = false;
+    read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
   }
 
   if (flag & QUERY_MINUSP) {
     strand = '-';
     querypos = cigar_querylength - 1;
+    if (Intlist_head(types) == 'H') {
+      Read_add_chrinfo_querybreak1(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    } else {
+      Read_add_chrinfo_queryend(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    }
   } else {
     strand = '+';
     querypos = 0;
+    if (Intlist_head(types) == 'H') {
+      Read_add_chrinfo_querybreak2(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    } else {
+      Read_add_chrinfo_querystart(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    }
   }
+
+
 
   p = shortread;
   q = quality_string;
+  /* insidep = true; */
   for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
     type = Intlist_head(a);
     mlength = Uintlist_head(b);
 
     if (type == 'H') {
-      querypos += ((strand == '+') ? +mlength : -mlength);
+      if (strand == '+') {
+	querypos += mlength;
+      } else {
+	querypos -= mlength;
+      }
 
     } else if (type == 'N') {
       /* Ignore */
@@ -328,12 +474,36 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
     }
   }
   
+  if (type == 'H') {
+    if (flag & QUERY_MINUSP) {
+      Read_add_chrinfo_querybreak2(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    } else {
+      Read_add_chrinfo_querybreak1(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    }
+  } else {
+    if (flag & QUERY_MINUSP) {
+      Read_add_chrinfo_querystart(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    } else {
+      Read_add_chrinfo_queryend(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
+    }
+  }
+
   *completep = true;
   for (i = 0; i < cigar_querylength; i++) {
     if (read->queryseq[i] == '*') {
       *completep = false;
     }
   }
+
+#if 0
+  if (insidep == true && Bamline_paired_read_p(bamline) == true) {
+    if (Bamline_lowend_p(bamline) == true) {
+      read->lowp = true;
+    } else {
+      read->highp = true;
+    }
+  }
+#endif
 
   return read;
 }
@@ -349,14 +519,20 @@ Read_create_sam (bool *completep, T read, char *line) {
   int type;
   int cigar_querylength, mlength, querypos, i;
 
-  Genomicpos_T chrpos_low;
-  char *chr, *acc, *cigar, *auxinfo;
+  Genomicpos_T chrpos_low, chrpos_high, mate_chrpos_low;
+  char *chr, *mate_chr, *acc, *cigar, *auxinfo;
   int mapq;
   int readlength;
+  /* bool insidep; */
 
-  auxinfo = Samread_parse_line(&acc,&flag,&mapq,&chr,&chrpos_low,&cigar,&readlength,&shortread,&quality_string,line);
+  auxinfo = Samread_parse_line(&acc,&flag,&mapq,&chr,&chrpos_low,&cigar,
+			       &mate_chr,&mate_chrpos_low,&readlength,
+			       &shortread,&quality_string,line);
+  types = Samread_parse_cigar(&npositions,&cigar_querylength,cigar);
+  chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low);
+  FREE(mate_chr);
+  FREE(cigar);
   FREE(acc);
-  FREE(chr);
 
   if (flag & QUERY_UNMAPPED) {
     read = (T) MALLOC(sizeof(struct T));
@@ -369,19 +545,24 @@ Read_create_sam (bool *completep, T read, char *line) {
       strcpy(read->quality_string,quality_string);
     }
     read->splicedp = true;
+    read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    Read_add_chrinfo_querystart(read,flag,chr,chrpos_low,chrpos_high);
+    Read_add_chrinfo_queryend(read,flag,chr,chrpos_low,chrpos_high);
     *completep = true;
 
+    FREE(chr);
     FREE(cigar);
     FREE(quality_string);
     FREE(shortread);
 
+    Uintlist_free(&npositions);
+    Intlist_free(&types);
     return read;
   }
 
-  types = Samread_parse_cigar(&npositions,&cigar_querylength,cigar);
-  FREE(cigar);
 
   if (read == NULL) {
+    /* Initialize */
     read = (T) MALLOC(sizeof(struct T));
     read->queryseq = (char *) CALLOC(cigar_querylength+1,sizeof(char));
     for (i = 0; i < cigar_querylength; i++) {
@@ -393,24 +574,52 @@ Read_create_sam (bool *completep, T read, char *line) {
       read->quality_string = (char *) CALLOC(cigar_querylength+1,sizeof(char));
     }
     read->splicedp = false;
+    read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
   }
 
   if (flag & QUERY_MINUSP) {
     strand = '-';
     querypos = cigar_querylength - 1;
+    if (Intlist_head(types) == 'H') {
+      Read_add_chrinfo_querybreak1(read,flag,chr,chrpos_low,chrpos_high);
+    } else {
+      Read_add_chrinfo_queryend(read,flag,chr,chrpos_low,chrpos_high);
+    }
   } else {
     strand = '+';
     querypos = 0;
+    if (Intlist_head(types) == 'H') {
+      Read_add_chrinfo_querybreak2(read,flag,chr,chrpos_low,chrpos_high);
+    } else {
+      Read_add_chrinfo_querystart(read,flag,chr,chrpos_low,chrpos_high);
+    }
   }
 
   p = shortread;
   q = quality_string;
+  /* insidep = true; */
   for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
     type = Intlist_head(a);
     mlength = Uintlist_head(b);
 
     if (type == 'H') {
-      querypos += ((strand == '+') ? +mlength : -mlength);
+      if (strand == '+') {
+#if 0
+	if (querypos > 0) {
+	  /* Already filled in beginning of read and skipping end of read */
+	  insidep = false;
+	}
+#endif
+	querypos += mlength;
+      } else {
+#if 0
+	if (querypos == cigar_querylength - 1) {
+	  /* About to skip end of read */
+	  insidep = false;
+	}
+#endif
+	querypos -= mlength;
+      }
 
     } else if (type == 'N') {
       /* Ignore */
@@ -471,13 +680,38 @@ Read_create_sam (bool *completep, T read, char *line) {
   FREE(quality_string);
   FREE(shortread);
 
-  
+  if (type == 'H') {
+    if (flag & QUERY_MINUSP) {
+      Read_add_chrinfo_querybreak2(read,flag,chr,chrpos_low,chrpos_high);
+    } else {
+      Read_add_chrinfo_querybreak1(read,flag,chr,chrpos_low,chrpos_high);
+    }
+  } else {
+    if (flag & QUERY_MINUSP) {
+      Read_add_chrinfo_querystart(read,flag,chr,chrpos_low,chrpos_high);
+    } else {
+      Read_add_chrinfo_queryend(read,flag,chr,chrpos_low,chrpos_high);
+    }
+  }
+
   *completep = true;
   for (i = 0; i < cigar_querylength; i++) {
     if (read->queryseq[i] == '*') {
       *completep = false;
     }
   }
+
+#if 0
+  if (insidep == true && mate_chr == NULL) {
+    if (chrpos_low < mate_chrpos_low) {
+      read->lowp = true;
+    } else if (chrpos_low > mate_chrpos_low) {
+      read->highp = true;
+    }
+  }
+#endif
+
+  FREE(chr);
 
   return read;
 }
@@ -567,36 +801,99 @@ print_upper_case (FILE *fp, char *queryseq) {
 static void
 print_fasta_single (FILE *fp, char *acc, T read) {
   if (want_splicedp == true && read->splicedp == true) {
-    fprintf(fp,">%s\n",acc);
+    fprintf(fp,">%s",acc);
+    if (add_bounds_p == true) {
+      fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
+      if (read->querybreak1_chrpos != 0) {
+	fprintf(fp,",%c%s:%u",read->querybreak1_strand,read->querybreak1_chr,read->querybreak1_chrpos);
+	fprintf(fp,",%c%s:%u",read->querybreak2_strand,read->querybreak2_chr,read->querybreak2_chrpos);
+      }
+      fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+    }
+    fprintf(fp,"\n");
     print_upper_case(fp,read->queryseq);
   } else if (terminal_minlength < 0 || terminal_length(read->queryseq) >= terminal_minlength) {
-    fprintf(fp,">%s\n",acc);
+    fprintf(fp,">%s",acc);
+    if (add_bounds_p == true) {
+      fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
+      if (read->querybreak1_chrpos != 0) {
+	fprintf(fp,",%c%s:%u",read->querybreak1_strand,read->querybreak1_chr,read->querybreak1_chrpos);
+	fprintf(fp,",%c%s:%u",read->querybreak2_strand,read->querybreak2_chr,read->querybreak2_chrpos);
+      }
+      fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+    }
+    fprintf(fp,"\n");
     fprintf(fp,"%s\n",read->queryseq);
   }
   return;
 }
 
 
+/* Bounds are from given read querystart to mate querystart */
 static void
 print_fasta_paired (FILE *fp, char *acc, T read1, T read2) {
   int terminal_length_1, terminal_length_2;
 
   if (single_end_output_p == true) {
     /* Important to add the /1 and /2 endings for the remove-intragenic program, which also requires unique alignments */
+    /* First read.  Mate is read2 */
     if (want_splicedp == true && read1->splicedp == true) {
-      fprintf(fp,">%s/1\n",acc);
+      fprintf(fp,">%s",acc);
+      if (add_bounds_p == true) {
+	fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	if (read1->querybreak1_chrpos != 0) {
+	  fprintf(fp,",%c%s:%u",read1->querybreak1_strand,read1->querybreak1_chr,read1->querybreak1_chrpos);
+	  fprintf(fp,",%c%s:%u",read1->querybreak2_strand,read1->querybreak2_chr,read1->querybreak2_chrpos);
+	}
+	fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
+	fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+      }
+      fprintf(fp,"/1\n");
       print_upper_case(fp,read1->queryseq);
     } else if (terminal_minlength < 0 || terminal_length(read1->queryseq) >= terminal_minlength) {
-      fprintf(fp,">%s/1\n",acc);
+      fprintf(fp,">%s",acc);
+      if (add_bounds_p == true) {
+	fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	if (read1->querybreak1_chrpos != 0) {
+	  fprintf(fp,",%c%s:%u",read1->querybreak1_strand,read1->querybreak1_chr,read1->querybreak1_chrpos);
+	  fprintf(fp,",%c%s:%u",read1->querybreak2_strand,read1->querybreak2_chr,read1->querybreak2_chrpos);
+	}
+	fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
+	fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+      }
+      fprintf(fp,"/1\n");
       fprintf(fp,"%s\n",read1->queryseq);
     }
+
+    /* Second read.  Mate is read1 */
     if (want_splicedp == true && read2->splicedp == true) {
-      fprintf(fp,">%s/2\n",acc);
+      fprintf(fp,">%s",acc);
+      if (add_bounds_p == true) {
+	fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	if (read2->querybreak1_chrpos != 0) {
+	  fprintf(fp,",%c%s:%u",read2->querybreak1_strand,read2->querybreak1_chr,read2->querybreak1_chrpos);
+	  fprintf(fp,",%c%s:%u",read2->querybreak2_strand,read2->querybreak2_chr,read2->querybreak2_chrpos);
+	}
+	fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
+	fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+      }
+      fprintf(fp,"/2\n");
       print_upper_case(fp,read2->queryseq);
     } else if (terminal_minlength < 0 || terminal_length(read2->queryseq) >= terminal_minlength) {
-      fprintf(fp,">%s/2\n",acc);
+      fprintf(fp,">%s",acc);
+      if (add_bounds_p == true) {
+	fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	if (read2->querybreak1_chrpos != 0) {
+	  fprintf(fp,",%c%s:%u",read2->querybreak1_strand,read2->querybreak1_chr,read2->querybreak1_chrpos);
+	  fprintf(fp,",%c%s:%u",read2->querybreak2_strand,read2->querybreak2_chr,read2->querybreak2_chrpos);
+	}
+	fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
+	fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+      }
+      fprintf(fp,"/2\n");
       fprintf(fp,"%s\n",read2->queryseq);
     }
+
   } else {
     if (want_splicedp == true && (read1->splicedp == true || read2->splicedp == true)) {
       fprintf(fp,">%s\n",acc);
@@ -789,9 +1086,9 @@ parse_bam_input (FILE *fp1, FILE *fp2, Bamreader_T bamreader, Table_T read_table
   bool found1p, found2p, complete1p, complete2p;
   bool copyp;
 
-  while ((bamline = Bamread_next_bamline(bamreader,/*minimum_mapq*/0,/*good_unique_mapq*/0,/*maximum_nhits*/1000000,
-					 /*need_unique_p*/false,/*need_primary_p*/true,/*ignore_duplicates_p*/false,
-					 /*need_concordant_p*/false)) != NULL) {
+  while ((bamline = Bamread_next_bamline(bamreader,/*desired_read_group*/NULL,/*minimum_mapq*/0,/*good_unique_mapq*/0,
+					 /*maximum_nhits*/1000000,/*need_unique_p*/false,/*need_primary_p*/true,
+					 /*ignore_duplicates_p*/false,/*need_concordant_p*/false)) != NULL) {
     acc = Bamline_acc(bamline);
     acc = strip_illumina_acc_ending(&copyp,acc);
     debug(printf("Acc is %s",acc));
@@ -1049,6 +1346,9 @@ main (int argc, char *argv[]) {
 
       } else if (!strcmp(long_name,"fasta")) {
 	fastap = true;
+
+      } else if (!strcmp(long_name,"add-bounds")) {
+	add_bounds_p = true;
 
       } else if (!strcmp(long_name,"terminal-minlength")) {
 	terminal_minlength = atoi(optarg);

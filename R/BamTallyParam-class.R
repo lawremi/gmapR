@@ -8,6 +8,7 @@
 setClass("BamTallyParam",
          representation(genome = "GmapGenome",
                         which = "GenomicRanges",
+                        desired_read_group = "characterORNULL",
                         minimum_mapq = "integer",
                         concordant_only = "logical",
                         unique_only = "logical",
@@ -32,13 +33,15 @@ normArgWhich <- function(x, genome) {
 }
 
 BamTallyParam <- function(genome, which = GRanges(),
-                          minimum_mapq = 0L,
+                          desired_read_group = NULL, minimum_mapq = 0L,
                           concordant_only = FALSE, unique_only = FALSE,
                           primary_only = FALSE, ignore_duplicates = FALSE,
                           min_depth = 0L, variant_strand = 0L,
                           ignore_query_Ns = FALSE,
                           indels = FALSE)
 {
+  if (!is.null(desired_read_group) && !isSingleString(desired_read_group))
+    stop("'desired_read_group' must be NULL or a single, non-NA string")
   if (!isSingleNumber(minimum_mapq) || minimum_mapq < 0)
     stop("minimum_mapq must be a single, non-negative, non-NA number")
   if (!isTRUEorFALSE(concordant_only))

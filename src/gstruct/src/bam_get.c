@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bam_get.c 87713 2013-03-01 18:32:34Z twu $";
+static char rcsid[] = "$Id: bam_get.c 108654 2013-09-19 23:11:00Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -31,6 +31,7 @@ static char rcsid[] = "$Id: bam_get.c 87713 2013-03-01 18:32:34Z twu $";
 
 
 /* Filters */
+static char *desired_read_group = NULL;
 static int minimum_mapq = 0;
 static int good_unique_mapq = 35;
 static int maximum_nhits = 1000000;
@@ -50,6 +51,7 @@ static struct option long_options[] = {
   {"primary", required_argument, 0, 'P'}, /* need_primary_p */
   {"ignore-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
   {"allow-duplicates", no_argument, 0, 0}, /* ignore_duplicates_p */
+  {"read-group", required_argument, 0, 0}, /* desired_read_group */
 
   /* Help options */
   {"version", no_argument, 0, 0}, /* print_program_version */
@@ -111,6 +113,9 @@ main (int argc, char *argv[]) {
       } else if (!strcmp(long_name,"allow-duplicates")) {
 	ignore_duplicates_p = false;
 
+      } else if (!strcmp(long_name,"read-group")) {
+	desired_read_group = optarg;
+
       } else {
 	/* Shouldn't reach here */
 	fprintf(stderr,"Don't recognize option %s.  For usage, run 'gsnap --help'",long_name);
@@ -164,7 +169,7 @@ main (int argc, char *argv[]) {
 
   Bamread_write_header(bamreader);
   Bamread_limit_region(bamreader,chromosome,chrstart,chrend);
-  while ((bamline = Bamread_next_bamline(bamreader,minimum_mapq,good_unique_mapq,maximum_nhits,
+  while ((bamline = Bamread_next_bamline(bamreader,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 					 need_unique_p,need_primary_p,ignore_duplicates_p,
 					 /*need_concordant_p*/true)) != NULL) {
     Bamline_print(stdout,bamline,Bamline_flag(bamline),quality_score_adj);
@@ -212,6 +217,8 @@ where\n\
          or startposition+length (+ strand)\n\
 \n\
 Filtering options\n\
+  --read-group=STRING            Require alignments to have this read group in the RG field of\n\
+                                   the BAM line\n\
   -q, --min-mapq=INT             Require alignments to have this mapping quality and higher\n\
                                    (default 0)\n\
   -n, --nhits=INT                Require alignments to have this many hits or fewer\n\

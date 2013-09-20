@@ -1,4 +1,4 @@
-/* $Id: bamread.h 87713 2013-03-01 18:32:34Z twu $ */
+/* $Id: bamread.h 108654 2013-09-19 23:11:00Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -43,7 +43,7 @@ extern int
 Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 		   char **mate_chr, Genomicpos_T *mate_chrpos,
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-		   int *readlength, char **read, char **quality_string);
+		   int *readlength, char **read, char **quality_string, char **read_group);
 
 typedef struct Bamline_T *Bamline_T;
 
@@ -83,12 +83,16 @@ extern int
 Bamline_cigar_querylength (Bamline_T this);
 extern void
 Bamread_print_cigar (FILE *fp, Bamline_T this);
+extern char *
+Bamline_cigar_string (Bamline_T this);
 extern int
 Bamline_readlength (Bamline_T this);
 extern char *
 Bamline_read (Bamline_T this);
 extern char *
 Bamline_quality_string (Bamline_T this);
+extern char *
+Bamline_read_group (Bamline_T this);
 extern void
 Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj);
 
@@ -104,7 +108,7 @@ Bamline_chrpos_high (Bamline_T this);
 extern void
 Bamline_free (Bamline_T *old);
 extern Bamline_T
-Bamread_next_bamline (T this, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		      bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		      bool need_concordant_p);
 extern Bamline_T
@@ -160,14 +164,14 @@ Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
 		 Bampair_T this);
 
 extern List_T
-Bamread_all_pairs (T bamreader, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+Bamread_all_pairs (T bamreader, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		   bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		   bool need_concordant_p);
 
 extern int
 Bampair_compute_levels (List_T bampairs, Genomicpos_T mincoord,
 			Genomicpos_T maxcoord, int max_allowed_levels,
-			double xfactor, Genomicpos_T min_pairlength);
+			double xfactor, Genomicpos_T min_pairlength, bool only_internal_p);
 
 
 #undef T

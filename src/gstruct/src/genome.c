@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: genome.c 46991 2011-09-12 17:36:30Z twu $";
+static char rcsid[] = "$Id: genome.c 90324 2013-03-26 18:51:34Z michafla $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1361,7 +1361,6 @@ Genome_fill_buffer_simple (T this, Genomicpos_T left, Genomicpos_T length, char 
     gbuffer1[0] = '\0';
     return;
   }
-
 
   if (this->compressedp == false) {
     if (this->access == FILEIO) {
