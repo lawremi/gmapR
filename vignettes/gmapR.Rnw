@@ -282,7 +282,7 @@ scores, and read position for each allele.
 The call to \Rfunction{bam\_tally} returns an opaque pointer to a
 C-level data structure. We anticipate having multiple means of
 summarizing these data into R data structures. For now, there is one:
-\Rfunction{variantSummary}, which returns a \code{VRanges} object
+\Rfunction{variantSummary}, which returns a \Rcode{VRanges} object
 describing putative genetic variants in the sample.
 <<run_bamtally, eval=FALSE>>=
 library(gmapR)
