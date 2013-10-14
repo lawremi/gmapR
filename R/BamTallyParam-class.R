@@ -84,7 +84,7 @@ setMethod("as.list", "BamTallyParam", function(x) as(x, "list"))
 ###
 
 showSlot <- function(name, value, ...) {
-  IRanges:::labeledLine(name, showAsCell(value), ...)
+  BiocGenerics:::labeledLine(name, showAsCell(value), ...)
 }
 
 showSlots <- function(object, exclude = character(), ...) {
