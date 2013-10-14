@@ -4,7 +4,9 @@
 \alias{bam_tally,BamFile-method}
 \alias{bam_tally,character-method}
 \alias{bam_tally,GmapBamReader-method}
+\alias{genome,TallyIIT-method}
 \alias{bam_tally}
+\alias{variantSummary}
 
 \title{Per-position Alignment Summaries}
 
@@ -17,41 +19,46 @@
 \usage{
 \S4method{bam_tally}{BamFile}(x, param, ...)
 \S4method{bam_tally}{character}(x, param, ...)
+variantSummary(x, read_pos_breaks = NULL, high_base_quality = 0L,
+               keep_ref_rows = FALSE)
 }
 
 \arguments{
   \item{x}{a \code{BamFile} object or string path to a BAM file to read}
   \item{param}{The \code{\linkS4class{BamTallyParam}} object with
     parameters for the tally operation. }
+  \item{read_pos_breaks}{The breaks, like those passed to \code{\link{cut}}
+    for aggregating the per-read position counts. If \code{NULL}, no per-cycle
+    counts are returned.}
+  \item{high_base_quality}{The minimum mapping quality for a
+    read to be counted as high quality.}
+  \item{keep_ref_rows}{Whether to keep the rows describing only the
+    reference calls, i.e., where ref and alt are the same. These are
+    useful when one needs the reference counts even when there are no
+    alts at that position.}
   \item{...}{Arguments that override settings in \code{param}.}
 }
 
 \value{
-  A \code{\link[GenomicRanges]{GRanges}}, with a range for each position
-  that passed the filters, and with the following \code{elementMetadata}
-  columns:
-  \item{location}{A string representation of the location, of the form
-    \dQuote{chr:pos}. This makes it easy, e.g., to check for the
-    presence of a variant in another result object.}
-  \item{ref}{The reference base at that position.}
-  \item{alt}{The base for the alternate allele, \code{NA} for the
-    reference allele row.}
+  The \code{bam_tally} function returns an opaque pointer to a C-level
+  data structure with the class \dQuote{TallyIIT}. Currently, the only
+  operation applicable to this object is \code{variantSummary}.
+  
+  The \code{variantSummary} function returns
+  a \code{\link[VariantAnnotation]{VRanges}}, with a range for each position
+  that passed the filters. The depth columns correspond to the counts
+  after quality filtering (except for indels, for which there is no
+  quality filtering). The following \code{elementMetadata}
+  columns are also present:
   \item{n.read.pos}{The number of unique cycles at which the alternate allele was
     observed, \code{NA} for the reference allele row.}
   \item{n.read.pos.ref}{The number of unique cycles at which the reference
     allele was observed.}
-  \item{count}{The number of reads with the alternate allele,
+  \item{raw.count}{The number of reads with the alternate allele,
     \code{NA} for the reference allele row.}
-  \item{count.ref}{The number of reads with the reference allele.}
-  \item{count.total}{The total number of reads at that position,
+  \item{raw.count.ref}{The number of reads with the reference allele.}
+  \item{raw.count.total}{The total number of reads at that position,
     including reference and all alternates.}
-  \item{high.quality}{The number of reads for the alternate allele that were
-    above \code{high_quality_cutoff}, \code{NA} for the reference allele
-    row.}
-  \item{high.quality.ref}{The number of reads for the reference allele that were
-    above \code{high_quality_cutoff}.}
-  \item{mean.quality}{The mean mapping quality for the alternate allele,
-    \code{NA} for the reference allele row.}
   \item{mean.quality.ref}{The mean mapping quality for the reference
     allele.}
   \item{count.pos}{The number of positive strand reads for the alternate
@@ -62,9 +69,14 @@
     allele, \code{NA} for the reference allele row.}
   \item{count.neg.ref}{The number of negative strand reads for the reference
     allele.}
-
+  \item{read.pos.var}{Variance in the read positions for the alt allele.}
+  \item{read.pos.var.ref}{Variance in the read positions for the ref allele.}
+  
   An additional column is present for each bin formed by
   the \code{read_pos_breaks} parameter, with the read count for that bin.
 }
+
+\seealso{\code{tallyVariants} in the VariantTools package provides a
+  high-level wrapper for this functionality.}
 
 \author{Michael Lawrence}

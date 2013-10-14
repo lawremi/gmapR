@@ -14,16 +14,14 @@
 }
 
 \usage{
-  BamTallyParam(genome, which = RangesList(),
+  BamTallyParam(genome, which = GRanges(),
                 desired_read_group = NULL,
-                read_pos_breaks = NULL,
-                high_base_quality = 0L,
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
                 primary_only = FALSE, ignore_duplicates = FALSE,
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
-                indels = TRUE)
+                indels = FALSE)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -33,11 +31,6 @@
   }
   \item{desired_read_group}{The name of the read group to which to limit
     the tallying; if not NULL, must be a single, non-NA string.}
-  \item{read_pos_breaks}{The breaks, like those passed to \code{\link{cut}}
-    for aggregating the per-read position counts. If \code{NULL}, no per-cycle
-    counts are returned.}
-  \item{high_base_quality}{The minimum mapping quality for a
-    read to be counted as high quality.}
   \item{minimum_mapq}{Minimum mapping quality for a read to be counted
     at all.}
   \item{concordant_only}{Consider only what gnsap
