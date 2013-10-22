@@ -82,6 +82,7 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                    "count.neg", "count.neg.ref",
                    "read.pos.mean", "read.pos.mean.ref",
                    "read.pos.var", "read.pos.var.ref")
+  break_names <- character()
   if (length(read_pos_breaks) > 0L) {
     read_pos_breaks <- as.integer(read_pos_breaks)
     break_names <- paste("readPosCount", head(read_pos_breaks, -1),
@@ -101,6 +102,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                           "high.quality.ref", "high.quality.total"))
   genome <- genome(x)
   indel <- nchar(tally$ref) == 0L | nchar(tally$alt) == 0L
+  metacols <- DataFrame(tally[meta_names])
+  mcols(metacols) <- variantSummaryColumnDescriptions(read_pos_breaks)
   gr <- with(tally,
              VRanges(seqnames,
                      IRanges(pos,
@@ -109,8 +112,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                      ifelse(indel, raw.count.total, high.quality.total),
                      ifelse(indel, raw.count.ref, high.quality.ref),
                      ifelse(indel, raw.count, high.quality),
-                     DataFrame(tally[meta_names]),
                      seqlengths = seqlengths(genome)))
+  mcols(gr) <- metacols
   seqinfo(gr) <- seqinfo(genome)
   gr <- normalizeIndelAlleles(gr, genome)
   gr
@@ -196,4 +199,34 @@ normArgTRUEorFALSE <- function(x) {
         normArgTRUEorFALSE(indels),
         normArgSingleInteger(blocksize),
         normArgTRUEorFALSE(verbosep))
+}
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Column metadata
+###
+
+variantSummaryColumnDescriptions <- function(read_pos_breaks) {
+  desc <- c(
+    n.read.pos = "Number of unique read positions for the ALT",
+    n.read.pos.ref = "Number of unique read positions for the REF",
+    raw.count = "Raw ALT count",
+    raw.count.ref = "Raw REF count",
+    raw.count.total = "Raw total count",
+    mean.quality = "Average ALT base quality",
+    mean.quality.ref = "Average REF base quality",
+    count.pos = "Raw positive strand ALT count",
+    count.pos.ref = "Raw positive strand REF count",
+    count.neg = "Raw negative strand ALT count",
+    count.neg.ref = "Raw negative strand REF count",
+    read.pos.mean = "Average read position for the ALT",
+    read.pos.mean.ref = "Average read position for the ALT",
+    read.pos.var = "Variance in read position for the ALT",
+    read.pos.var.ref = "Variance in read position for the REF")
+  if (length(read_pos_breaks) > 0L) {
+    break_desc <- paste0("Raw ALT count in read position range [",
+                         head(read_pos_breaks, -1), ",",
+                         tail(read_pos_breaks, -1), ")")
+    desc <- c(desc, break_desc)
+  }
+  DataFrame(Description = desc)
 }

@@ -1,3 +1,44 @@
+CHANGES IN VERSION 1.4.0
+-----------------------
+
+NEW FEATURES
+
+    o Add desired_read_group to BamTallyParam; will limit tallies to
+      that specific read group (useful for multi-amplicon sequencing,
+      like Fluidigm)
+
+    o Add keep_ref_rows argument to variantSummary() for keeping rows
+      for positions where no alt is detected (the rows where ref == alt).
+
+    o gsnap() will now output a GsnapOutputList when there are
+      multiple input files
+
+    o Support 'terminal_threshold' and 'gmap_mode' parameters in
+      GsnapParam, and use different defaults for DNA vs. RNA. This
+      means a big improvement in alignment quality for DNA.
+
+    o GmapGenome now accepts a direct path to the genome as its first argument
+    
+USER-VISIBLE CHANGES
+
+    o Renamed summarizeVariants to variantSummary
+
+    o The 'which' in GsnapParam is now a GenomicRanges instead of a RangesList
+
+    o Refactor bam_tally, so that bam_tally returns a TallyIIT object,
+      which is then summarized via summarizeVariants; this allows computing
+      tallies once and summarizing them in different ways (like maybe get
+      the coverage). The summarizeVariants function yields a VRanges.
+
+BUG FIXES
+
+    o fix minimum quality cutoff check to >=, instead of >
+
+    o fix asBam,GsnapOutput for when unique_only is TRUE
+
+    o package created by makeGmapGenomePackage now have a GmapGenome with
+      the correct name
+
 CHANGES IN VERSION 1.2.0
 -----------------------
 
