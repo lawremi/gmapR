@@ -127,7 +127,7 @@ normalizeIndelAlleles <- function(x, genome) {
     anchor <- getSeq(genome, flanks)
     ref(x)[is.indel] <- paste0(anchor, ref(indels))
     alt(x)[is.indel] <- paste0(anchor, alt(indels))
-    ranges(x)[is.indel] <- resize(ranges(indels), nchar(ref(x)[is.indel]), "end")
+    ranges(x)[is.indel] <- resize(ranges(flanks), nchar(ref(x)[is.indel]))
   }
   x
 }
