@@ -12,9 +12,8 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
     the bam_tally tool.
 Version: 1.5.3
 Depends: R (>= 2.15.0), methods, GenomicRanges
-Imports: IRanges, Rsamtools (>= 1.7.4), GenomicAlignments,
-         rtracklayer (>= 1.17.15), GenomicFeatures,
-         Biostrings, VariantAnnotation (>= 1.9.4), tools,
+Imports: IRanges, Rsamtools (>= 1.7.4), rtracklayer (>= 1.17.15),
+         GenomicFeatures, Biostrings, VariantAnnotation (>= 1.9.4), tools,
          Biobase, BSgenome
 Suggests: RUnit, BSgenome.Dmelanogaster.UCSC.dm3,
 	  BSgenome.Scerevisiae.UCSC.sacCer3,
