@@ -137,9 +137,9 @@ gmapGenomeDirectory <- GmapGenomeDirectory(gmapGenomePath, create = TRUE)
 ##path: /reshpcfs/home/coryba/projects/gmapR2/testGenome 
 
 gmapGenome <- GmapGenome(genome=Dmelanogaster,
-                         directory = gmapGenomeDirectory,
-                         name = "dm3",
-                         create = TRUE,
+                         directory=gmapGenomeDirectory,
+                         name="dm3",
+                         create=TRUE,
                          k = 12L)
 ##> gmapGenome
 ##GmapGenome object
@@ -167,6 +167,7 @@ eg <- org.Hs.eg.db::org.Hs.egSYMBOL2EG[["TP53"]]
 txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
 tx <- transcripts(txdb, vals = list(gene_id = eg))
 roi <- range(tx) + 1e6
+strand(roi) <- "*"
 @ 
 
 Next we get the genetic sequence and use it to create a GmapGenome
@@ -181,7 +182,14 @@ library("gmapR")
 p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                  as.character = FALSE) 
 names(p53Seq) <- "TP53"
-gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE, k = 12L)
+gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE, 
+                         k = 12L)
+@ 
+
+We add the known transcripts (splice sites) to the genome index:
+<<set_TP53_splicesites>>=
+exons <- gmapR:::subsetRegion(exonsBy(txdb), roi, "TP53")
+spliceSites(gmapGenome, "knownGene") <- exons
 @ 
 
 The data package \software{LungCancerLines} contains fastqs of reads
@@ -199,15 +207,15 @@ behavior.
 
 <<create_gsnapParam>>=
 ##specify how GSNAP should behave using a GsnapParam object
-gsnapParam <- GsnapParam(genome = gmapGenome,
-                         unique_only = FALSE,
-                         max_mismatches = NULL,
-                         suboptimal_levels = 0, mode = "standard",
-                         npaths = 10,
-                         novelsplicing = FALSE, splicing = NULL, 
-                         nthreads = 1,
-                         batch = 2L,
-                         gunzip=TRUE)
+gsnapParam <- GsnapParam(genome=gmapGenome,
+                         unique_only=FALSE,
+                         suboptimal_levels=2L, 
+                         npaths=10L,
+                         novelsplicing=TRUE,
+                         splicing="knownGene",
+                         indel_penalty=1L,
+                         distant_splice_penalty=1L,
+                         clip_overlaps=TRUE)
 @ 
 
 Now we are ready to align.
@@ -216,6 +224,7 @@ Now we are ready to align.
 gsnapOutput <- gsnap(input_a=fastqs["H1993.first"],
                      input_b=fastqs["H1993.last"],
                      params=gsnapParam)
+
 ##gsnapOutput
 ##An object of class "GsnapOutput"
 ##Slot "path":
