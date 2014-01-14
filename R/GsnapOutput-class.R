@@ -36,7 +36,9 @@ setMethod("path", "GsnapOutput", function(object) object@path)
                            "paired_uniq_scr", "unpaired_uniq", "unpaired_mult",
                            "unpaired_transloc",  "halfmapping_uniq",
                            "halfmapping_mult", "halfmapping_transloc",
-                           "nomapping")
+                           "nomapping", "concordant_circular",
+                           "halfmapping_circular", "paired_uniq_circular",
+                           "unpaired_circular")
 
 ### Q: How to handle the single BAM output case? We would still want a
 ### formal object, with a version, parameters, etc. If 'path' is a
@@ -143,8 +145,10 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
+            samExts <- file_ext(samFiles) == "sam"
+            samFiles[samExts] <- file_path_sans_ext(samFiles[samExts])
             bamFiles <- mapply(asBam, file = samFiles,
-                               dest = file_path_sans_ext(samFiles),
+                               dest = samFiles,
                                MoreArgs = list(overwrite = TRUE))
             unlink(samFiles)
 
