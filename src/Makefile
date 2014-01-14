@@ -49,7 +49,7 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools=${R_SRC_DIR}/samtools \
-		    --disable-binaries --disable-maintainer-mode #\
+		    --disable-maintainer-mode #\
 ## does not appear to be a true dependency yet
 ##	            --with-gmap=${PREFIX}/bin
 
