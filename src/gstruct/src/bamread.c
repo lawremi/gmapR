@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 108654 2013-09-19 23:11:00Z twu $";
+static char rcsid[] = "$Id: bamread.c 114330 2013-11-07 19:55:05Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -87,7 +87,10 @@ Bamread_new (char *filename) {
   T new = (T) MALLOC(sizeof(*new));
 
 #ifdef HAVE_SAMTOOLS
-  if ((new->fp = bam_open(filename,"rb")) == NULL) {
+  if (Access_file_exists_p(filename) == false) {
+    fprintf(stderr,"BAM file %s does not exist\n",filename);
+    return (T) NULL;
+  } else if ((new->fp = bam_open(filename,"rb")) == NULL) {
     fprintf(stderr,"Cannot open BAM file %s\n",filename);
     return (T) NULL;
   }

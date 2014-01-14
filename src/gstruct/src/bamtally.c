@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 108654 2013-09-19 23:11:00Z twu $";
+static char rcsid[] = "$Id: bamtally.c 123356 2014-01-14 00:00:53Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -42,6 +42,9 @@ static char rcsid[] = "$Id: bamtally.c 108654 2013-09-19 23:11:00Z twu $";
 #define INITIAL_READLENGTH 75
 #define MAX_QUALITY_SCORE 40
 #define MAX_MAPQ_SCORE 40
+
+
+static bool totals_only_p = false;
 
 
 /* Alloc and block control structure */
@@ -797,6 +800,7 @@ Tally_transfer (T *dest, T *src) {
   temp->mismatches_bymapq = (List_T) NULL;
   temp->insertions_byshift = (List_T) NULL;
   temp->deletions_byshift = (List_T) NULL;
+
   *src = temp;
 
   return;
@@ -1583,7 +1587,8 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	     bool blockp, int quality_score_adj, int min_depth, int variant_strands,
 	     bool genomic_diff_p, bool signed_counts_p,
 	     bool print_totals_p, bool print_cycles_p,
-	     bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p) {
+	     bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
+	     bool readlevel_p) {
   T this;
   double probs[NGENOTYPES], loglik[NGENOTYPES];
   int length, i, j, g, bestg;
@@ -1853,7 +1858,10 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 
 
 	/* Details */
-	if (this->nmatches == 0) {
+	if (readlevel_p == true || totals_only_p == true) {
+	  /* Don't print details */
+
+	} else if (this->nmatches == 0) {
 	  /* Genome_T expects zero-based numbers */
 	  if (signed_counts_p == false) {
 	    printf("%c0",Genome_get_char(genome,chroffset+chrpos-1U));
@@ -2640,7 +2648,7 @@ transfer_position (long int *grand_total, T *alloc_tallies, T *block_tallies,
 		   int quality_score_adj, int min_depth, int variant_strands,
 		   bool genomic_diff_p, bool signed_counts_p,
 		   bool print_totals_p, bool print_cycles_p, bool print_quality_scores_p,
-		   bool print_mapq_scores_p, bool want_genotypes_p) {
+		   bool print_mapq_scores_p, bool want_genotypes_p, bool readlevel_p) {
   int blocki;
 
   if (chrpos < chrstart) {
@@ -2670,7 +2678,8 @@ transfer_position (long int *grand_total, T *alloc_tallies, T *block_tallies,
 	print_block(block_tallies,*blockstart,*blockptr,genome,printchr,chroffset,blockp,
 		    quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 		    signed_counts_p,print_totals_p,print_cycles_p,
-		    print_quality_scores_p,print_mapq_scores_p,want_genotypes_p);
+		    print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
+		    readlevel_p);
       }
       debug0(printf("      set blockstart to chrpos, blockend to chrpos + blocksize\n"));
       *blockstart = chrpos;
@@ -2828,7 +2837,7 @@ print_chromosome_blocks_wig (Genomicpos_T allocoffset, Genomicpos_T chroffset,
 static void
 revise_position (char querynt, char genomicnt, int mapq, int quality, int signed_shift,
 		 T this, T right, int *quality_counts_match, int *quality_counts_mismatch,
-		 bool ignore_query_Ns_p) {
+		 bool ignore_query_Ns_p, bool readlevel_p) {
   Match_T match;
   Mismatch_T mismatch;
   List_T ptr;
@@ -2850,7 +2859,11 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
     mapq = MAX_MAPQ_SCORE;
   }
 
-  if (toupper(querynt) == toupper(genomicnt)) {
+  if (readlevel_p == true || totals_only_p == true) {
+    /* Don't store any details.  Also, nmatches captures both matches and mismatches */
+    this->nmatches += 1;
+
+  } else if (toupper(querynt) == toupper(genomicnt)) {
     /* Count matches, even if query quality score was low */
     this->nmatches += 1;
     if (this->nmatches == ARRAY_THRESHOLD) {
@@ -2870,7 +2883,10 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
 	}
       }
       
-      if (max_shift_plus >= this->n_matches_byshift_plus) {
+      if (max_shift_plus < this->n_matches_byshift_plus) {
+	/* Clear existing array */
+	memset(this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int));
+      } else {
 	/* Resize array */
 	oldsize = this->n_matches_byshift_plus;
 	while (max_shift_plus >= this->n_matches_byshift_plus) {
@@ -2882,7 +2898,10 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
 	this->matches_byshift_plus = newarray;
       }
 
-      if (max_shift_minus >= this->n_matches_byshift_minus) {
+      if (max_shift_minus < this->n_matches_byshift_minus) {
+	/* Clear existing array */
+	memset(this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int));
+      } else {
 	/* Resize array */
 	oldsize = this->n_matches_byshift_minus;
 	while (max_shift_minus >= this->n_matches_byshift_minus) {
@@ -3056,12 +3075,12 @@ average (char *quality_scores, int n) {
 
 
 static void
-revise_read (T *alloc_tallies, Genomicpos_T chrpos_low,
+revise_read (T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend, Genomicpos_T chrpos_low,
 	     unsigned int flag, Intlist_T types, Uintlist_T npositions, int cigar_querylength,
 	     char *shortread, int mapq, char *quality_string, Genomicpos_T alloc_low,
 	     int *quality_counts_match, int *quality_counts_mismatch,
 	     Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p,
-	     bool print_indels_p) {
+	     bool print_indels_p, bool readlevel_p) {
   T this, right;
   int alloci;
   int shift, signed_shift;
@@ -3076,7 +3095,7 @@ revise_read (T *alloc_tallies, Genomicpos_T chrpos_low,
   int quality_score;
 
 
-  debug1(printf("Revising read at %s:%u..%u\n",chr,chrpos_low,chrpos_high));
+  debug1(printf("Revising read at %u\n",chrpos_low));
 
   if (flag & QUERY_MINUSP) {
     strand = '-';
@@ -3164,7 +3183,6 @@ revise_read (T *alloc_tallies, Genomicpos_T chrpos_low,
 
     } else if (type == 'M') {
       if (0 /* mlength < min_mlength */) {
-	debug1(printf("mlength %d < min_mlength %d\n",mlength,min_mlength));
 	p += mlength;
 	r += mlength;
 	pos += mlength;
@@ -3217,9 +3235,14 @@ revise_read (T *alloc_tallies, Genomicpos_T chrpos_low,
 	  } else {
 	    quality_score = (int) *r;
 	  }
+
 	  revise_position(/*querynt*/*p,/*genomicnt*/*q,mapq,quality_score,signed_shift,
 			  this,right,quality_counts_match,quality_counts_mismatch,
-			  ignore_query_Ns_p);
+			  ignore_query_Ns_p,readlevel_p);
+	  if (readlevel_p == true && pos >= chrstart && pos <= chrend) {
+	    FREE(genomic);
+	    return;
+	  }
 
 	  p++;
 	  q++;
@@ -3254,199 +3277,14 @@ count_nsplices (Intlist_T types) {
 }
 
 
-#if 0
-/* Considers low and high relative to splice */
 static void
-revise_read_lh_old (T *alloc_tallies_low, T *alloc_tallies_high, bool lowend_p, Genomicpos_T chrpos_low,
-		    unsigned int flag, Intlist_T types, Uintlist_T npositions, int cigar_querylength,
-		    char *shortread, int mapq, char *quality_string, Genomicpos_T alloc_low,
-		    int *quality_counts_match, int *quality_counts_mismatch,
-		    Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p) {
-  T this, right;
-  bool *lowp, *highp;
-  int nsplices, splicei;
-  int alloci;
-  int shift, signed_shift;
-  char strand;
-  Genomicpos_T pos;
-  char genomic[1024], *p, *q;
-  char *r;
-  Intlist_T a;
-  Uintlist_T b;
-  unsigned int mlength;
-  int type;
-  int quality_score;
-
-
-  nsplices = count_nsplices(types);
-  lowp = (bool *) CALLOC(nsplices+1,sizeof(bool));
-  highp = (bool *) CALLOC(nsplices+1,sizeof(bool));
-  for (splicei = 0; splicei <= nsplices; splicei++) {
-    lowp[splicei] = true;
-    highp[splicei] = true;
-  }
-  if (lowend_p == true) {
-    highp[0] = false;
-  } else {
-    lowp[nsplices] = false;
-  }
-
-  debug1(printf("Revising read at %s:%u..%u\n",chr,chrpos_low,chrpos_high));
-
-  if (flag & QUERY_MINUSP) {
-    strand = '-';
-    shift = cigar_querylength;
-  } else {
-    strand = '+';
-    shift = 1;
-  }
-
-  pos = chrpos_low - 1U;		/* Bamread reports chrpos as 1-based */
-
-  splicei = 0;
-  p = shortread;
-  r = quality_string;
-  for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
-    type = Intlist_head(a);
-    mlength = Uintlist_head(b);
-    if (type == 'S') {
-      /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
-      p += mlength;
-      r += mlength;
-      shift += ((strand == '+') ? +mlength : -mlength);
-    } else if (type == 'H') {
-      /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
-      /* p += mlength; -- hard clip means query sequence is absent */
-      /* r += mlength; -- hard clip means quality string is absent */
-      shift += ((strand == '+') ? +mlength : -mlength);
-    } else if (type == 'N') {
-      pos += mlength;
-      splicei++;
-    } else if (type == 'P') {
-      /* Do nothing */
-    } else if (type == 'I') {
-      p += mlength;
-      r += mlength;
-      shift += ((strand == '+') ? +mlength : -mlength);
-    } else if (type == 'D') {
-      pos += mlength;
-    } else if (type == 'M') {
-      if (0 /* mlength < min_mlength */) {
-	debug1(printf("mlength %d < min_mlength %d\n",mlength,min_mlength));
-	p += mlength;
-	r += mlength;
-	pos += mlength;
-	shift += ((strand == '+') ? +mlength : -mlength);
-
-      } else {
-	debug1(printf("Genomic pos is %u + %u = %u\n",chroffset,pos,chroffset+pos));
-	if (genome == NULL) {
-	  q = &(*p);
-	} else {
-	  FREE(genomic);
-	  genomic = (char *) CALLOC(mlength+1,sizeof(char));
-	  Genome_fill_buffer_simple(genome,/*left*/chroffset + pos,mlength,genomic);
-	  /* printf("After (+): %s\n",genomic); */
-	  q = genomic;
-	}
-
-	/* psave = p; qsave = q; */
-	debug1(printf("Processing %.*s and %.*s\n",mlength,p,mlength,q));
-
-	while (mlength-- > /* trimright */ 0) {
-	  alloci = (pos + 1U) - alloc_low;
-	  debug1(printf("Processing %c and %c at shift %d, pos %u, mlength %u, alloci %d\n",
-			*p,*q,shift,pos+1U,mlength,alloci));
-
-	  signed_shift = (strand == '+') ? shift : -shift;
-	  if (quality_string == NULL) {
-	    quality_score = DEFAULT_QUALITY;
-	  } else {
-	    quality_score = (int) *r;
-	  }
-
-	  if (lowp[splicei] == true) {
-	    this = alloc_tallies_low[alloci];
-	    if (mlength == 0) {
-	      right = (T) NULL;
-	    } else {
-	      right = alloc_tallies_low[alloci+1];
-	    }
-
-	    if (genome == NULL) {
-	      this->refnt = ' ';
-
-	    } else if (this->nmatches == 0 && this->mismatches_byshift == NULL) {
-	      this->refnt = toupper(*q);
-	    
-	    } else if (this->refnt != toupper(*q)) {
-	      fprintf(stderr,"Two different genomic chars %c and %c at position %u\n",
-		      this->refnt,*q,pos+1U);
-	      fprintf(stderr,"Have seen %d matches and %d types of mismatches here so far\n",
-		      this->nmatches,List_length(this->mismatches_byshift));
-	      exit(9);
-	    }
-
-	    revise_position(/*querynt*/*p,/*genomicnt*/*q,mapq,quality_score,signed_shift,
-			    this,right,quality_counts_match,quality_counts_mismatch,
-			    ignore_query_Ns_p);
-	  }
-
-	  if (highp[splicei] == true) {
-	    this = alloc_tallies_high[alloci];
-	    if (mlength == 0) {
-	      right = (T) NULL;
-	    } else {
-	      right = alloc_tallies_high[alloci+1];
-	    }
-
-	    if (genome == NULL) {
-	      this->refnt = ' ';
-
-	    } else if (this->nmatches == 0 && this->mismatches_byshift == NULL) {
-	      this->refnt = toupper(*q);
-	    
-	    } else if (this->refnt != toupper(*q)) {
-	      fprintf(stderr,"Two different genomic chars %c and %c at position %u\n",
-		      this->refnt,*q,pos+1U);
-	      fprintf(stderr,"Have seen %d matches and %d types of mismatches here so far\n",
-		      this->nmatches,List_length(this->mismatches_byshift));
-	      exit(9);
-	    }
-
-	    revise_position(/*querynt*/*p,/*genomicnt*/*q,mapq,quality_score,signed_shift,
-			    this,right,quality_counts_match,quality_counts_mismatch,
-			    ignore_query_Ns_p);
-	  }
-
-	  p++;
-	  q++;
-	  r++;
-	  pos++;
-	  shift += ((strand == '+') ? +1 : -1);
-	}
-      }
-
-    } else {
-      fprintf(stderr,"Cannot parse type '%c'\n",type);
-      exit(9);
-    }
-  }
-  
-  FREE(highp);
-  FREE(lowp);
-
-  return;
-}
-#endif
-
-
-static void
-revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, bool lowend_p, Genomicpos_T chrpos_low,
+revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, Genomicpos_T chrstart, Genomicpos_T chrend,
+		bool lowend_p, Genomicpos_T chrpos_low,
 		unsigned int flag, Intlist_T types, Uintlist_T npositions, int cigar_querylength,
 		char *shortread, int mapq, char *quality_string, Genomicpos_T alloc_low,
 		int *quality_counts_match, int *quality_counts_mismatch,
-		Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p, bool print_indels_p) {
+		Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p, bool print_indels_p,
+		bool readlevel_p) {
   T this, right;
   int alloci;
   int shift, signed_shift;
@@ -3461,7 +3299,7 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, bool lowend_p, Geno
   int quality_score;
 
 
-  debug1(printf("Revising read at %s:%u..%u\n",chr,chrpos_low,chrpos_high));
+  debug1(printf("Revising read at %u\n",chrpos_low));
 
   if (flag & QUERY_MINUSP) {
     strand = '-';
@@ -3547,7 +3385,6 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, bool lowend_p, Geno
 
     } else if (type == 'M') {
       if (0 /* mlength < min_mlength */) {
-	debug1(printf("mlength %d < min_mlength %d\n",mlength,min_mlength));
 	p += mlength;
 	r += mlength;
 	pos += mlength;
@@ -3603,7 +3440,11 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, bool lowend_p, Geno
 
 	  revise_position(/*querynt*/*p,/*genomicnt*/*q,mapq,quality_score,signed_shift,
 			  this,right,quality_counts_match,quality_counts_mismatch,
-			  ignore_query_Ns_p);
+			  ignore_query_Ns_p,readlevel_p);
+	  if (readlevel_p == true && pos >= chrstart && pos <= chrend) {
+	    FREE(genomic);
+	    return;
+	  }
 
 	  p++;
 	  q++;
@@ -3664,7 +3505,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p,
 	      bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
-	      bool verbosep) {
+	      bool verbosep, bool readlevel_p) {
   long int grand_total = 0;
   T this;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
@@ -3748,12 +3589,12 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
 	}
 
-	revise_read(alloc_tallies,chrpos_low,Bamline_flag(bamline),
+	revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline),
 		    Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		    Bamline_cigar_querylength(bamline),Bamline_read(bamline),
 		    Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
 		    quality_counts_match,quality_counts_mismatch,
-		    genome,chroffset,ignore_query_Ns_p,print_indels_p);
+		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p);
 
 	goodp = true;
       }
@@ -3802,7 +3643,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					output_type,blockp,blocksize,
 					quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 					signed_counts_p,print_totals_p,print_cycles_p,
-					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p);
+					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
+					readlevel_p);
 	  }
 	}
 
@@ -3828,7 +3670,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					output_type,blockp,blocksize,
 					quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 					signed_counts_p,print_totals_p,print_cycles_p,
-					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p);
+					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
+					readlevel_p);
 	  }
 	}
 
@@ -3866,12 +3709,12 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
 	}
 
-	revise_read(alloc_tallies,chrpos_low,Bamline_flag(bamline),
+	revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline),
 		    Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		    Bamline_cigar_querylength(bamline),Bamline_read(bamline),
 		    Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
 		    quality_counts_match,quality_counts_mismatch,
-		    genome,chroffset,ignore_query_Ns_p,print_indels_p);
+		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p);
       }
     }
 
@@ -3896,7 +3739,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 				  output_type,blockp,blocksize,
 				  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 				  signed_counts_p,print_totals_p,print_cycles_p,
-				  print_quality_scores_p,print_mapq_scores_p,want_genotypes_p);
+				  print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
+				  readlevel_p);
     }
   }
 
@@ -3917,7 +3761,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     print_block(block_tallies,blockstart,blockptr,genome,printchr,chroffset,blockp,
 		quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 		signed_counts_p,print_totals_p,print_cycles_p,
-		print_quality_scores_p,print_mapq_scores_p,want_genotypes_p);
+		print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
+		readlevel_p);
   }
 
 
@@ -3937,15 +3782,15 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 
 /* Assumes output_type is OUTPUT_TALLY */
 void
-Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
-		 long int **tally_matches_high, long int **tally_mismatches_high,
+Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
+		 long int *tally_matches_high, long int *tally_mismatches_high,
 		 int *quality_counts_match, int *quality_counts_mismatch,
 		 Bamreader_T bamreader, Genome_T genome, char *printchr,
 		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, int alloclength,
 		 char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
-		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep) {
+		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p) {
   T this_low, this_high;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
   Genomicpos_T blockptr = 0U, blockstart = 0U, blockend = 0U;
@@ -3981,11 +3826,6 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
     block_tallies_high_alloc[i] = Tally_new();
   }
   block_tallies_high = &(block_tallies_high_alloc[0]);
-
-  *tally_matches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
-  *tally_mismatches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
-  *tally_matches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
-  *tally_mismatches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
 
   alloc_ptr = 0U;
   alloc_low = 0U;
@@ -4026,13 +3866,14 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
       }
 
-      revise_read_lh(alloc_tallies_low,alloc_tallies_high,Bamline_lowend_p(bamline),
-		     chrpos_low,Bamline_flag(bamline),
+      revise_read_lh(alloc_tallies_low,alloc_tallies_high,chrstart,chrend,
+		     Bamline_lowend_p(bamline),chrpos_low,Bamline_flag(bamline),
 		     Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		     Bamline_cigar_querylength(bamline),Bamline_read(bamline),
 		     Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
 		     quality_counts_match,quality_counts_mismatch,
-		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false);
+		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false,
+		     readlevel_p);
 
       goodp = true;
     }
@@ -4067,8 +3908,8 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	    this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
 	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			       &blockptr,&blockstart,&blockend,
-			       *tally_matches_low,*tally_mismatches_low,
-			       *tally_matches_high,*tally_mismatches_high,
+			       tally_matches_low,tally_mismatches_low,
+			       tally_matches_high,tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			       blocksize,
 			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
@@ -4092,8 +3933,8 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	    this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
 	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			       &blockptr,&blockstart,&blockend,
-			       *tally_matches_low,*tally_mismatches_low,
-			       *tally_matches_high,*tally_mismatches_high,
+			       tally_matches_low,tally_mismatches_low,
+			       tally_matches_high,tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			       blocksize,
 			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
@@ -4134,13 +3975,14 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
       }
 
-      revise_read_lh(alloc_tallies_low,alloc_tallies_high,Bamline_lowend_p(bamline),
-		     chrpos_low,Bamline_flag(bamline),
+      revise_read_lh(alloc_tallies_low,alloc_tallies_high,chrstart,chrend,
+		     Bamline_lowend_p(bamline),chrpos_low,Bamline_flag(bamline),
 		     Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		     Bamline_cigar_querylength(bamline),Bamline_read(bamline),
 		     Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
 		     quality_counts_match,quality_counts_mismatch,
-		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false);
+		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false,
+		     readlevel_p);
     }
 
     Bamline_free(&bamline);
@@ -4161,8 +4003,8 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
       transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			   &blockptr,&blockstart,&blockend,
-			   *tally_matches_low,*tally_mismatches_low,
-			   *tally_matches_high,*tally_mismatches_high,
+			   tally_matches_low,tally_mismatches_low,
+			   tally_matches_high,tally_mismatches_high,
 			   chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			   blocksize,
 			   quality_score_adj,min_depth,variant_strands,genomic_diff_p);
@@ -4170,10 +4012,10 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
   }
 
   debug0(printf("print block from blockstart %u to blockptr %u\n",blockstart,blockptr));
-  tally_block(*tally_matches_low,*tally_mismatches_low,
+  tally_block(tally_matches_low,tally_mismatches_low,
 	      block_tallies_low,blockstart,blockptr,genome,printchr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
-  tally_block(*tally_matches_high,*tally_mismatches_high,
+  tally_block(tally_matches_high,tally_mismatches_high,
 	      block_tallies_high,blockstart,blockptr,genome,printchr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 
@@ -4205,7 +4047,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
-	      bool print_indels_p, int blocksize, bool verbosep) {
+	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p) {
   IIT_T iit;
 
   long int *tally_matches, *tally_mismatches;
@@ -4265,7 +4107,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 		   /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
 		   print_indels_p,/*print_totals_p*/false,/*print_cycles_p*/false,
 		   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-		   /*want_genotypes_p*/false,verbosep);
+		   /*want_genotypes_p*/false,verbosep,readlevel_p);
       /* Reverse lists so we can specify presortedp == true */
       Table_put(intervaltable,(void *) chr,List_reverse(intervallist));
       Table_put(labeltable,(void *) chr,List_reverse(labellist));
@@ -4314,7 +4156,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
                    ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
                    /*print_cycles_p*/false,
                    /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-                   /*want_genotypes_p*/false,verbosep);
+                   /*want_genotypes_p*/false,verbosep,readlevel_p);
     }
     /* Reverse lists so we can specify presortedp == true */
     Table_put(intervaltable,(void *) desired_chr,List_reverse(intervallist));

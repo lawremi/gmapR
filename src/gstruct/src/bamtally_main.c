@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 108654 2013-09-19 23:11:00Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 115263 2013-11-16 00:43:38Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -56,6 +56,7 @@ static char *bam_lacks_chr = NULL;
 static int bam_lacks_chr_length = 0;
 
 /* Output options */
+static bool readlevel_p = false;
 static bool verbosep = false;
 static Tally_outputtype_T output_type = OUTPUT_BLOCKS;
 
@@ -116,6 +117,7 @@ static struct option long_options[] = {
   {"bam-lacks-chr", required_argument, 0, 0}, /* bam_lacks_chr */
 
   /* Output options */
+  {"readlevel", no_argument, 0, 0},	       /* readlevel_p */
   {"verbose", required_argument, 0, 0},	       /* verbosep */
   {"block-format", required_argument, 0, 'B'}, /* blockp */
   {"format", required_argument, 0, 'A'},       /* output_type */
@@ -208,6 +210,8 @@ main (int argc, char *argv[]) {
       } else if (!strcmp(long_name,"help")) {
 	print_program_usage();
 	exit(0);
+      } else if (!strcmp(long_name,"readlevel")) {
+	readlevel_p = true;
       } else if (!strcmp(long_name,"verbose")) {
 	verbosep = true;
       } else if (!strcmp(long_name,"whole-genome")) {
@@ -364,7 +368,7 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep);
+				  print_indels_p,blocksize,verbosep,readlevel_p);
     } else {
       for (index = 1; index <= IIT_total_nintervals(chromosome_iit); index++) {
 	chromosome = IIT_label(chromosome_iit,index,&allocp);
@@ -395,7 +399,7 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep);
+				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {
@@ -430,7 +434,7 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep);
+				  print_indels_p,blocksize,verbosep,readlevel_p);
       IIT_free(&chromosome_iit);
 
     } else {
@@ -458,7 +462,7 @@ main (int argc, char *argv[]) {
 				   quality_score_adj,min_depth,variant_strands,
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				   print_mapq_scores_p,want_genotypes_p,verbosep);
+				   print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
 	Bamread_unlimit_region(bamreader);
       }
       if (output_type == OUTPUT_TOTAL) {
@@ -517,7 +521,7 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep);
+				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {

@@ -70,7 +70,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  need_unique_p, need_primary_p,
                                  ignore_duplicates_p,
                                  min_depth, variant_strands, ignore_query_Ns_p,
-                                 print_indels_p, blocksize, verbosep);
+                                 print_indels_p, blocksize, verbosep,
+                                 /*readlevel_p*/false);
   IIT_free(&chromosome_iit);
   Genome_free(&genome);
 

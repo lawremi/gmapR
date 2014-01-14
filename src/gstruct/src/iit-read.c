@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit-read.c 80796 2012-12-05 21:49:53Z twu $";
+static char rcsid[] = "$Id: iit-read.c 114329 2013-11-07 19:53:52Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -88,6 +88,14 @@ static char rcsid[] = "$Id: iit-read.c 80796 2012-12-05 21:49:53Z twu $";
 #else
 #define debug3(x)
 #endif
+
+/* IIT_contains_region */
+#ifdef DEBUG4
+#define debug4(x) x
+#else
+#define debug4(x)
+#endif
+
 
 
 #define T IIT_T
@@ -3413,6 +3421,7 @@ IIT_find (int *nmatches, T this, char *label) {
   high = this->total_nintervals;
   *nmatches = 0;
 
+#if 0
 #ifdef DEBUG
 #ifndef WORDS_BIGENDIAN
 #ifdef HAVE_64_BIT
@@ -3424,9 +3433,11 @@ IIT_find (int *nmatches, T this, char *label) {
 #endif
 #endif
 #endif
+#endif
 
   while (!foundp && low < high) {
     middle = (low+high)/2;
+#if 0
 #ifdef DEBUG
 #ifndef WORDS_BIGENDIAN
 #ifdef HAVE_64_BIT
@@ -3437,6 +3448,7 @@ IIT_find (int *nmatches, T this, char *label) {
 	   &(this->labels[this->labelpointers8[this->labelorder[middle]]]),
 	   high,this->labelorder[high],
 	   &(this->labels[this->labelpointers8[this->labelorder[high]]]));
+#endif
 #endif
 #endif
 #endif
@@ -4029,10 +4041,10 @@ IIT_contains_region_with_divno (T this, int divno, unsigned int x, unsigned int 
   } else {
     min1 = min2 = this->nintervals[divno] + 1;
 
-    debug(printf("Entering IIT_contains_region_with_divno with divno %d and query %u %u\n",divno,x,y));
+    debug4(printf("Entering IIT_contains_region_with_divno with divno %d and query %u %u\n",divno,x,y));
     fnode_query_aux(&min1,&max1,this,divno,0,x);
     fnode_query_aux(&min2,&max2,this,divno,0,y);
-    debug(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
+    debug4(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
 
     for (lambda = min1; lambda <= max2; lambda++) {
       match = this->sigmas[divno][lambda];
@@ -4067,22 +4079,26 @@ IIT_contains_region_with_divno_signed (T this, int divno, unsigned int x, unsign
   } else {
     min1 = min2 = this->nintervals[divno] + 1;
 
-    debug(printf("Entering IIT_contains_region_with_divno_signed with divno %d and query %u %u\n",divno,x,y));
+    debug4(printf("Entering IIT_contains_region_with_divno_signed with divno %d and query %u %u\n",divno,x,y));
     fnode_query_aux(&min1,&max1,this,divno,0,x);
     fnode_query_aux(&min2,&max2,this,divno,0,y);
-    debug(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
+    debug4(printf("min1=%d max1=%d  min2=%d max2=%d\n",min1,max1,min2,max2));
 
     for (lambda = min1; lambda <= max2; lambda++) {
       match = this->sigmas[divno][lambda];
       interval = &(this->intervals[divno][match - 1]);
       if (Interval_sign(interval) == sign &&
 	  Interval_contains_region_p(x,y,this->intervals[divno],match) == true) {
+	debug4(printf("For %u..%u, found sigma region from %u to %u\n",
+		      x,y,Interval_low(&(this->intervals[divno][match-1])),Interval_high(&(this->intervals[divno][match-1]))));
 	return true;
       }
       match = this->omegas[divno][lambda];
       interval = &(this->intervals[divno][match - 1]);
       if (Interval_sign(interval) == sign &&
 	  Interval_contains_region_p(x,y,this->intervals[divno],match) == true) {
+	debug4(printf("For %u..%u, found omega region from %u to %u\n",
+		      x,y,Interval_low(&(this->intervals[divno][match-1])),Interval_high(&(this->intervals[divno][match-1]))));
 	return true;
       }
     }

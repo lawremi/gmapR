@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bam_fastq.c 108654 2013-09-19 23:11:00Z twu $";
+static char rcsid[] = "$Id: bam_fastq.c 121683 2013-12-17 02:52:04Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -360,6 +360,7 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
     }
     read->splicedp = true;
     read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    /* read->querystart_chr = read->queryend_chr = (char *) NULL; */
     Read_add_chrinfo_querystart(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
     Read_add_chrinfo_queryend(read,flag,Bamline_chr(bamline),Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline));
     *completep = true;
@@ -384,6 +385,7 @@ Read_create_bam (bool *completep, T read, Bamline_T bamline) {
     }
     read->splicedp = false;
     read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    read->querystart_chr = read->queryend_chr = (char *) NULL;
   }
 
   if (flag & QUERY_MINUSP) {
@@ -546,6 +548,7 @@ Read_create_sam (bool *completep, T read, char *line) {
     }
     read->splicedp = true;
     read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    /* read->querystart_chr = read->queryend_chr = (char *) NULL; */
     Read_add_chrinfo_querystart(read,flag,chr,chrpos_low,chrpos_high);
     Read_add_chrinfo_queryend(read,flag,chr,chrpos_low,chrpos_high);
     *completep = true;
@@ -575,6 +578,7 @@ Read_create_sam (bool *completep, T read, char *line) {
     }
     read->splicedp = false;
     read->querybreak1_chrpos = read->querybreak2_chrpos = 0;
+    read->querystart_chr = read->queryend_chr = (char *) NULL;
   }
 
   if (flag & QUERY_MINUSP) {
@@ -803,24 +807,40 @@ print_fasta_single (FILE *fp, char *acc, T read) {
   if (want_splicedp == true && read->splicedp == true) {
     fprintf(fp,">%s",acc);
     if (add_bounds_p == true) {
-      fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
-      if (read->querybreak1_chrpos != 0) {
+      if (read->querystart_chr == NULL) {
+	fprintf(fp,"(NA");
+      } else {
+	fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
+      }
+      if (read->querybreak1_chrpos != 0 && read->querybreak2_chrpos != 0) {
 	fprintf(fp,",%c%s:%u",read->querybreak1_strand,read->querybreak1_chr,read->querybreak1_chrpos);
 	fprintf(fp,",%c%s:%u",read->querybreak2_strand,read->querybreak2_chr,read->querybreak2_chrpos);
       }
-      fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+      if (read->queryend_chr == NULL) {
+	fprintf(fp,",NA)");
+      } else {
+	fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+      }
     }
     fprintf(fp,"\n");
     print_upper_case(fp,read->queryseq);
   } else if (terminal_minlength < 0 || terminal_length(read->queryseq) >= terminal_minlength) {
     fprintf(fp,">%s",acc);
     if (add_bounds_p == true) {
-      fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
-      if (read->querybreak1_chrpos != 0) {
+      if (read->querystart_chr == NULL) {
+	fprintf(fp,"(NA");
+     } else {
+	fprintf(fp,"(%c%s:%u",read->querystart_strand,read->querystart_chr,read->querystart_chrpos);
+      }
+      if (read->querybreak1_chrpos != 0 && read->querybreak2_chrpos != 0) {
 	fprintf(fp,",%c%s:%u",read->querybreak1_strand,read->querybreak1_chr,read->querybreak1_chrpos);
 	fprintf(fp,",%c%s:%u",read->querybreak2_strand,read->querybreak2_chr,read->querybreak2_chrpos);
       }
-      fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+      if (read->queryend_chr == NULL) {
+	fprintf(fp,",NA)");
+      } else {
+	fprintf(fp,",%c%s:%u)",read->queryend_strand,read->queryend_chr,read->queryend_chrpos);
+      }
     }
     fprintf(fp,"\n");
     fprintf(fp,"%s\n",read->queryseq);
@@ -840,26 +860,50 @@ print_fasta_paired (FILE *fp, char *acc, T read1, T read2) {
     if (want_splicedp == true && read1->splicedp == true) {
       fprintf(fp,">%s",acc);
       if (add_bounds_p == true) {
-	fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
-	if (read1->querybreak1_chrpos != 0) {
+	if (read1->querystart_chr == NULL) {
+	  fprintf(fp,"(NA");
+	} else {
+	  fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	}
+	if (read1->querybreak1_chrpos != 0 && read1->querybreak2_chrpos != 0) {
 	  fprintf(fp,",%c%s:%u",read1->querybreak1_strand,read1->querybreak1_chr,read1->querybreak1_chrpos);
 	  fprintf(fp,",%c%s:%u",read1->querybreak2_strand,read1->querybreak2_chr,read1->querybreak2_chrpos);
 	}
-	fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
-	fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	if (read1->queryend_chr == NULL) {
+	  fprintf(fp,",NA");
+	} else {
+	  fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
+	}
+	if (read2->querystart_chr == NULL) {
+	  fprintf(fp,"..NA)");
+	} else {
+	  fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	}
       }
       fprintf(fp,"/1\n");
       print_upper_case(fp,read1->queryseq);
     } else if (terminal_minlength < 0 || terminal_length(read1->queryseq) >= terminal_minlength) {
       fprintf(fp,">%s",acc);
       if (add_bounds_p == true) {
-	fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
-	if (read1->querybreak1_chrpos != 0) {
+	if (read1->querystart_chr == NULL) {
+	  fprintf(fp,"(NA");
+	} else {
+	  fprintf(fp,"(%c%s:%u",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	}
+	if (read1->querybreak1_chrpos != 0 && read1->querybreak2_chrpos != 0) {
 	  fprintf(fp,",%c%s:%u",read1->querybreak1_strand,read1->querybreak1_chr,read1->querybreak1_chrpos);
 	  fprintf(fp,",%c%s:%u",read1->querybreak2_strand,read1->querybreak2_chr,read1->querybreak2_chrpos);
 	}
-	fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
-	fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	if (read1->queryend_chr == NULL) {
+	  fprintf(fp,",NA");
+	} else {
+	  fprintf(fp,",%c%s:%u",read1->queryend_strand,read1->queryend_chr,read1->queryend_chrpos);
+	}
+	if (read2->querystart_chr == NULL) {
+	  fprintf(fp,"..NA)");
+	} else {
+	  fprintf(fp,"..%c%s:%u)",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	}
       }
       fprintf(fp,"/1\n");
       fprintf(fp,"%s\n",read1->queryseq);
@@ -869,26 +913,50 @@ print_fasta_paired (FILE *fp, char *acc, T read1, T read2) {
     if (want_splicedp == true && read2->splicedp == true) {
       fprintf(fp,">%s",acc);
       if (add_bounds_p == true) {
-	fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
-	if (read2->querybreak1_chrpos != 0) {
+	if (read2->querystart_chr == NULL) {
+	  fprintf(fp,"(NA");
+	} else {
+	  fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	}
+	if (read2->querybreak1_chrpos != 0 && read2->querybreak1_chrpos != 0) {
 	  fprintf(fp,",%c%s:%u",read2->querybreak1_strand,read2->querybreak1_chr,read2->querybreak1_chrpos);
 	  fprintf(fp,",%c%s:%u",read2->querybreak2_strand,read2->querybreak2_chr,read2->querybreak2_chrpos);
 	}
-	fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
-	fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	if (read2->queryend_chr == NULL) {
+	  fprintf(fp,",NA");
+	} else {
+	  fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
+	}
+	if (read1->querystart_chr == NULL) {
+	  fprintf(fp,"..NA)");
+	} else {
+	  fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	}
       }
       fprintf(fp,"/2\n");
       print_upper_case(fp,read2->queryseq);
     } else if (terminal_minlength < 0 || terminal_length(read2->queryseq) >= terminal_minlength) {
       fprintf(fp,">%s",acc);
       if (add_bounds_p == true) {
-	fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
-	if (read2->querybreak1_chrpos != 0) {
+	if (read2->querystart_chr == NULL) {
+	  fprintf(fp,"(NA");
+	} else {
+	  fprintf(fp,"(%c%s:%u",read2->querystart_strand,read2->querystart_chr,read2->querystart_chrpos);
+	}
+	if (read2->querybreak1_chrpos != 0 && read2->querybreak2_chrpos != 0) {
 	  fprintf(fp,",%c%s:%u",read2->querybreak1_strand,read2->querybreak1_chr,read2->querybreak1_chrpos);
 	  fprintf(fp,",%c%s:%u",read2->querybreak2_strand,read2->querybreak2_chr,read2->querybreak2_chrpos);
 	}
-	fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
-	fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	if (read2->queryend_chr == NULL) {
+	  fprintf(fp,",NA");
+	} else {
+	  fprintf(fp,",%c%s:%u",read2->queryend_strand,read2->queryend_chr,read2->queryend_chrpos);
+	}
+	if (read1->querystart_chr == NULL) {
+	  fprintf(fp,"..NA)");
+	} else {
+	  fprintf(fp,"..%c%s:%u)",read1->querystart_strand,read1->querystart_chr,read1->querystart_chrpos);
+	}
       }
       fprintf(fp,"/2\n");
       fprintf(fp,"%s\n",read2->queryseq);
@@ -1199,7 +1267,10 @@ parse_sam_input (Table_T read_table1, Table_T read_table2) {
       }
       debug(printf("Acc is %s",acc));
 
-      if (!(flag & PAIRED_READ)) {
+      if (flag & NOT_PRIMARY) {
+	/* Skip non-primary alignments */
+
+      } else if (!(flag & PAIRED_READ)) {
 	debug(printf(" single-end\n"));
 	read1 = (T) Table_get(read_table1,acc);
 	found1p = (read1 ? true : false);
@@ -1442,8 +1513,13 @@ main (int argc, char *argv[]) {
   }
 
   if ((n = Table_length(read_table1)) > 0) {
-    fprintf(stderr,"Warning: for file %s, %d first-end reads were not completed or paired",argv[i],n);
-    if (fastap == true) {
+    if (argv[i] == NULL) {
+      fprintf(stderr,"Warning: %d first-end reads were not completed or paired",n);
+    } else {
+      fprintf(stderr,"Warning: for file %s, %d first-end reads were not completed or paired",argv[i],n);
+    }
+    if (0 && fastap == true) {
+      /* This would affect GSTRUCT-fusion */
       empty_table(stdout,read_table1,"/1");
     } else if (err1 == NULL) {
       fprintf(stderr," (to write to file, use the -e flag)\n");
@@ -1453,8 +1529,13 @@ main (int argc, char *argv[]) {
     }
   }
   if ((n = Table_length(read_table2)) > 0) {
-    fprintf(stderr,"Warning: for file %s, %d second-end reads were not completed or paired",argv[i],n);
-    if (fastap == true) {
+    if (argv[i] == NULL) {
+      fprintf(stderr,"Warning: %d second-end reads were not completed or paired",n);
+    } else {
+      fprintf(stderr,"Warning: for file %s, %d second-end reads were not completed or paired",argv[i],n);
+    }
+    if (0 && fastap == true) {
+      /* This would affect GSTRUCT-fusion */
       empty_table(stdout,read_table2,"/2");
     } else if (err2 == NULL) {
       fprintf(stderr," (to write to file, use the -e flag)\n");
