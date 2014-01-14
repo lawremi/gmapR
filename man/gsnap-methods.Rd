@@ -32,8 +32,8 @@
     will be saved in \code{dirname(output)}. If \code{split_output} in
     \code{params} is \code{TRUE}, \code{basename(output)} is used as the
     common stem for the multiple output files. Otherwise, the results
-    are saved to \code{output} with the \dQuote{bam} extension
-    appended.
+    are saved to a single SAM file, its path formed by adding the
+    \dQuote{sam} extention to \code{output}.
   }
   \item{consolidate}{If GSNAP is run with multiple worker threads, each
   thread will output its own set of files. If consolidate is set to
