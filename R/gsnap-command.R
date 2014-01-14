@@ -11,12 +11,15 @@ setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
 
 setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
           function(input_a, input_b, params,
-                   output = file_path_sans_ext(input_a, TRUE),
+                   output = file.path(getwd(),
+                     file_path_sans_ext(basename(input_a), TRUE)),
                    consolidate = TRUE, ...)
           {
             if (!is.null(input_b) && length(input_a) != length(input_b))
               stop("If 'input_b' is non-NULL, it must have the same length",
                    " as 'input_a'")
+            if (any(is.na(input_a)) || any(is.na(input_b)))
+              stop("'input_a' and 'input_b' must not contain NA's")
             if (length(input_a) > 1L) {
               return(GsnapOutputList(mapply(gsnap, input_a, input_b,
                                             MoreArgs = list(params, output,
@@ -30,7 +33,7 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
             params <- initialize(params, ...)
             params_list <- as.list(params)
             if (gsnap_split_output(params)) {
-              params_list$split_output <- basename(output)
+              params_list$split_output <- output
               output_path <- output_dir
             } else {
               output_path <- paste0(output, ".sam")
