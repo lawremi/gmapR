@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 123356 2014-01-14 00:00:53Z twu $";
+static char rcsid[] = "$Id: bamtally.c 123611 2014-01-15 21:22:04Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -701,8 +701,8 @@ Tally_clear (T this) {
   this->n_fromleft_minus = 0;
 
   if (this->use_array_p == true) {
-#if 0
-    /* print procedures clear each entry */
+#if 1
+    /* Note: these memset instructions are necessary to get correct results */
     memset((void *) this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int));
     memset((void *) this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int));
     memset((void *) this->matches_byquality,0,this->n_matches_byquality * sizeof(int));
@@ -2283,6 +2283,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
       debug2(printf("data for chrpos %u:\n",chrpos));
 
       /* Handle insertions at this position */
+      debug2(printf("Pointers for insertions:\n"));
       pointers = push_int(&ignore,pointers,nbytes);
       if (this->insertions_byshift != NULL) {
 	unique_insertions_byshift = NULL;
@@ -2319,6 +2320,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	qsort(ins_array,ninsertions,sizeof(Insertion_T),Insertion_count_cmp);
 
 	/* Total number of different insertions at this position */
+	debug2(printf("Number of insertions:\n"));
 	bytes = push_int(&nbytes,bytes,ninsertions);
 	for (i = 0; i < ninsertions; i++) {
 	  ins0 = ins_array[i];
@@ -2355,6 +2357,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
       }
 
       /* Handle deletions at this position */
+      debug2(printf("Pointers for deletions:\n"));
       pointers = push_int(&ignore,pointers,nbytes);
       if (this->deletions_byshift != NULL) {
 	unique_deletions_byshift = NULL;
@@ -2391,6 +2394,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	qsort(del_array,ndeletions,sizeof(Deletion_T),Deletion_count_cmp);
 
 	/* Total number of different deletions at this position */
+	debug2(printf("Number of deletions:\n"));
 	bytes = push_int(&nbytes,bytes,ndeletions);
 	for (i = 0; i < ndeletions; i++) {
 	  del0 = del_array[i];
@@ -2428,6 +2432,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
       
 
       /* Handle allele counts at this position */
+      debug2(printf("Pointers for allele counts:\n"));
       pointers = push_int(&ignore,pointers,nbytes);
       if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,min_depth,variant_strands) == true) {
 	total_matches_plus = total_matches_minus = 0;
@@ -2461,6 +2466,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	}
 
 	/* Total signed counts at this position */
+	debug2(printf("Total signed counts:\n"));
 	bytes = push_int(&nbytes,bytes,total_matches_plus + total_mismatches_plus);
 	bytes = push_int(&nbytes,bytes,total_matches_minus + total_mismatches_minus);
 	
@@ -2884,8 +2890,8 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
       }
       
       if (max_shift_plus < this->n_matches_byshift_plus) {
-	/* Clear existing array */
-	memset(this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int));
+	/* Clear existing array.  Not necessary here if Tally_clear is doing the memset */
+	/* memset(this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int)); */
       } else {
 	/* Resize array */
 	oldsize = this->n_matches_byshift_plus;
@@ -2899,8 +2905,8 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
       }
 
       if (max_shift_minus < this->n_matches_byshift_minus) {
-	/* Clear existing array */
-	memset(this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int));
+	/* Clear existing array.  Not necessary here if Tally_clear is doing the memset */
+	/* memset(this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int)); */
       } else {
 	/* Resize array */
 	oldsize = this->n_matches_byshift_minus;
