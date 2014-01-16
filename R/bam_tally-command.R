@@ -114,9 +114,22 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                      ifelse(indel, raw.count, high.quality),
                      seqlengths = seqlengths(genome)))
   mcols(gr) <- metacols
+  checkTallyConsistency(gr)
   seqinfo(gr) <- seqinfo(genome)
   gr <- normalizeIndelAlleles(gr, genome)
   gr
+}
+
+checkTallyConsistency <- function(x) {
+  with(mcols(x), {
+    stopifnot(all(n.read.pos.ref <= raw.count.ref, na.rm=TRUE))
+    stopifnot(all(n.read.pos <= raw.count, na.rm=TRUE))
+    stopifnot(all(raw.count + raw.count.ref <= raw.count.total))
+    stopifnot(all(altDepth(x) <= raw.count, na.rm=TRUE))
+    stopifnot(all(refDepth(x) <= raw.count.ref, na.rm=TRUE))
+    stopifnot(all(count.pos + count.neg == raw.count))
+    stopifnot(all(count.pos.ref + count.neg.ref == raw.count.ref))
+  })
 }
 
 normalizeIndelAlleles <- function(x, genome) {
