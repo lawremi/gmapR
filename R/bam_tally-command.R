@@ -65,13 +65,17 @@ setMethod("bam_tally", "GmapBamReader",
           })
 
 variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
-                           keep_ref_rows = FALSE)
+                           keep_ref_rows = FALSE, read_length = NA_integer_)
 {
+  read_length <- as.integer(read_length)
+  if (length(read_length) != 1L) {
+    stop("'read_length' must be a single integer")
+  }
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
                  normArgSingleInteger(high_base_quality),
-                 NULL)
-
+                 NULL, read_length)
+  
   tally_names <- c("seqnames", "pos", "ref", "alt", "n.read.pos",
                    "n.read.pos.ref", "raw.count", "raw.count.ref",
                    "raw.count.total",
@@ -81,7 +85,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                    "count.pos", "count.pos.ref",
                    "count.neg", "count.neg.ref",
                    "read.pos.mean", "read.pos.mean.ref",
-                   "read.pos.var", "read.pos.var.ref")
+                   "read.pos.var", "read.pos.var.ref",
+                   "mdfne", "mdfne.ref")
   break_names <- character()
   if (length(read_pos_breaks) > 0L) {
     read_pos_breaks <- as.integer(read_pos_breaks)
@@ -234,7 +239,9 @@ variantSummaryColumnDescriptions <- function(read_pos_breaks) {
     read.pos.mean = "Average read position for the ALT",
     read.pos.mean.ref = "Average read position for the ALT",
     read.pos.var = "Variance in read position for the ALT",
-    read.pos.var.ref = "Variance in read position for the REF")
+    read.pos.var.ref = "Variance in read position for the REF",
+    mdfne = "Median distance from nearest end of read for the ALT",
+    mdfne.ref = "Median distance from nearest end of read for the REF")
   if (length(read_pos_breaks) > 0L) {
     break_desc <- paste0("Raw ALT count in read position range [",
                          head(read_pos_breaks, -1), ",",

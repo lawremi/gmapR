@@ -8,7 +8,7 @@ enum { SEQNAMES, POS, REF, READ, N_CYCLES, N_CYCLES_REF, COUNT, COUNT_REF,
        COUNT_TOTAL, HIGH_QUALITY, HIGH_QUALITY_REF, HIGH_QUALITY_TOTAL,
        MEAN_QUALITY, MEAN_QUALITY_REF, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
        COUNT_MINUS_REF, READ_POS_MEAN, READ_POS_MEAN_REF, READ_POS_VAR,
-       READ_POS_VAR_REF, N_BASE_COLS };
+       READ_POS_VAR_REF, MDFNE, MDFNE_REF, N_BASE_COLS };
 
 typedef struct TallyTable {
   SEXP seqnames_R;
@@ -33,8 +33,18 @@ typedef struct TallyTable {
   double *read_pos_mean_ref;
   double *read_pos_var;
   double *read_pos_var_ref;
+  double *mdfne;
+  double *mdfne_ref;
   int **cycle_bins;
 } TallyTable;
+
+typedef struct TallyParam {
+  int *cycle_breaks;
+  int n_cycle_bins;
+  int high_base_quality;
+  int read_length;
+  double *mdfne_buf;
+} TallyParam;
 
 static SEXP R_TallyTable_new(int n_rows, int n_cycle_bins) {
   SEXP tally_R; /* the result list */
@@ -62,6 +72,8 @@ static SEXP R_TallyTable_new(int n_rows, int n_cycle_bins) {
   SET_VECTOR_ELT(tally_R, READ_POS_MEAN_REF, allocVector(REALSXP, n_rows));
   SET_VECTOR_ELT(tally_R, READ_POS_VAR, allocVector(REALSXP, n_rows));
   SET_VECTOR_ELT(tally_R, READ_POS_VAR_REF, allocVector(REALSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, MDFNE, allocVector(REALSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, MDFNE_REF, allocVector(REALSXP, n_rows));
 
   for (int bin = 0; bin < n_cycle_bins; bin++) {
     SEXP cycle_bin_R = allocVector(INTSXP, n_rows);
@@ -98,6 +110,8 @@ static TallyTable *TallyTable_new(SEXP tally_R) {
   tally->read_pos_mean_ref = REAL(VECTOR_ELT(tally_R, READ_POS_MEAN_REF));
   tally->read_pos_var = REAL(VECTOR_ELT(tally_R, READ_POS_VAR));
   tally->read_pos_var_ref = REAL(VECTOR_ELT(tally_R, READ_POS_VAR_REF));
+  tally->mdfne = REAL(VECTOR_ELT(tally_R, MDFNE));
+  tally->mdfne_ref = REAL(VECTOR_ELT(tally_R, MDFNE_REF));
   tally->cycle_bins = (int **) R_alloc(sizeof(int*), n_cycle_bins);
   for (int bin = 0; bin < n_cycle_bins; bin++) {
     tally->cycle_bins[bin] = INTEGER(VECTOR_ELT(tally_R, bin + N_BASE_COLS));
@@ -114,29 +128,39 @@ read_total_counts(unsigned char **bytes, int row, int *count_total) {
 }
 
 static void
-read_cycle_counts(unsigned char **bytes, int row, int *n_cycles,
-                  double *read_pos_mean, double *read_pos_var,
-                  int **cycle_bins, int *cycle_breaks, int n_cycle_bins)
+read_cycle_counts(unsigned char **bytes, int row, TallyParam param,
+                  int *n_cycles, double *read_pos_mean, double *read_pos_var,
+                  double *mdfne, int **cycle_bins)
 {
-  int n_cycle_breaks = n_cycle_bins + 1;
+  int n_cycle_breaks = param.n_cycle_bins + 1;
   int count_sum = 0, weighted_sum = 0, weighted_sum_sq = 0;
+  int midpoint = param.read_length / 2.0 + 0.5;
+
+  if (param.mdfne_buf != NULL) {
+    memset(param.mdfne_buf, 0, sizeof(int) * midpoint);
+  }
   n_cycles[row] = read_int(bytes);
+  
   for (int index = 0; index < n_cycles[row]; index++) {
     int cycle = abs(read_int(bytes));
     int count = read_int(bytes);
     int bin = 0;
+    if (param.mdfne_buf != NULL && cycle <= param.read_length) {
+      param.mdfne_buf[midpoint-abs(cycle-midpoint)-1] = count;
+    }
     count_sum += count;
     weighted_sum += cycle * count;
     weighted_sum_sq += cycle * cycle * count;
-    if (cycle_breaks != NULL) {
+    if (param.cycle_breaks != NULL) {
       while(n_cycle_breaks > bin &&
-            cycle > cycle_breaks[bin])
+            cycle > param.cycle_breaks[bin])
         bin++;
       if (bin > 0 && bin < n_cycle_breaks) {
         cycle_bins[bin-1][row] += count;
       }
     }
   }
+
   read_pos_mean[row] = ((double)weighted_sum) / count_sum;
   if (count_sum > 1) {
     read_pos_var[row] = ((double)weighted_sum_sq) / (count_sum - 1) -
@@ -144,16 +168,36 @@ read_cycle_counts(unsigned char **bytes, int row, int *n_cycles,
   } else {
     read_pos_var[row] = NA_REAL;
   }
+  
+  mdfne[row] = NA_REAL;
+  if (param.mdfne_buf != NULL) {
+    int prev_dist = 0;
+    int total_count = count_sum;
+    count_sum = 0;
+    for (int dist = 0; dist < midpoint; dist++) {
+      count_sum += param.mdfne_buf[dist];
+      if (count_sum > total_count / 2) {
+        if (total_count % 2 == 0) {
+          mdfne[row] = prev_dist + (dist - prev_dist) / 2.0;
+        } else {
+          mdfne[row] = dist;
+        }
+        break;
+      }
+      if (param.mdfne_buf[dist] > 0) {
+        prev_dist = dist;
+      }
+    }
+  }
 }
 
 static int
 parse_indels(unsigned char *bytes, int row,
-             int *cycle_breaks, int n_cycle_bins,
-             int high_base_quality, TallyTable *tally, bool insertion)
+             TallyParam param, TallyTable *tally, bool insertion)
 {
   int indel_count = read_int(&bytes);
   for (int indel = 0; indel < indel_count; indel++, row++) {
-    for (int b = 0; b < n_cycle_bins; b++) {
+    for (int b = 0; b < param.n_cycle_bins; b++) {
       tally->cycle_bins[b][row] = 0;
     }
     tally->count_plus[row] = read_int(&bytes);
@@ -173,9 +217,9 @@ parse_indels(unsigned char *bytes, int row,
       SET_STRING_ELT(tally->read_R, row, R_BlankString);
       SET_STRING_ELT(tally->ref_R, row, seq_R);
     }
-    read_cycle_counts(&bytes, row, tally->n_cycles,
+    read_cycle_counts(&bytes, row, param, tally->n_cycles,
                       tally->read_pos_mean, tally->read_pos_var,
-                      tally->cycle_bins, cycle_breaks, n_cycle_bins);
+                      tally->mdfne, tally->cycle_bins);
     /* quality is per-base and so not relevant for indels */
     tally->mean_quality[row] = NA_REAL;
     tally->mean_quality_ref[row] = NA_REAL;
@@ -186,6 +230,7 @@ parse_indels(unsigned char *bytes, int row,
     tally->n_cycles_ref[row] = NA_INTEGER;
     tally->read_pos_mean_ref[row] = NA_REAL;
     tally->read_pos_var_ref[row] = NA_REAL;
+    tally->mdfne_ref[row] = NA_REAL;
   }
   return indel_count;
 }
@@ -229,8 +274,8 @@ read_allele_counts(unsigned char **bytes, int row, SEXP read_R,
 }
 
 static int
-parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
-              int n_cycle_bins, int high_base_quality, TallyTable *tally)
+parse_alleles(unsigned char *bytes, int row, int ref_row,
+              TallyParam param, TallyTable *tally)
 {
   read_total_counts(&bytes, row, tally->count_total);
   int n_alleles = read_allele_counts(&bytes, row, tally->read_R,
@@ -238,20 +283,21 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
                                      tally->count);
   for (int allele = 0; allele < n_alleles; allele++, row++) {
     tally->n_cycles[row] = 0;
-    for (int b = 0; b < n_cycle_bins; b++) {
+    for (int b = 0; b < param.n_cycle_bins; b++) {
       tally->cycle_bins[b][row] = 0;
     }
     tally->high_quality[row] = 0;
     tally->mean_quality[row] = R_NaN;
     if (tally->count[row] > 0) {
-      read_cycle_counts(&bytes, row, tally->n_cycles,
+      read_cycle_counts(&bytes, row, param, tally->n_cycles,
                         tally->read_pos_mean, tally->read_pos_var,
-                        tally->cycle_bins, cycle_breaks, n_cycle_bins);
+                        tally->mdfne, tally->cycle_bins);
       read_quality_counts(&bytes, row, tally->high_quality, tally->mean_quality,
-                          high_base_quality);
+                          param.high_base_quality);
     } else {
       tally->read_pos_mean[row] = R_NaN;
       tally->read_pos_var[row] = NA_REAL;
+      tally->mdfne[row] = NA_REAL;
     }
   }
   int high_quality_total = 0;
@@ -269,6 +315,7 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
     tally->count_ref[r] = tally->count_plus_ref[r] + tally->count_minus_ref[r];
     tally->read_pos_mean_ref[r] = tally->read_pos_mean[ref_row];
     tally->read_pos_var_ref[r] = tally->read_pos_var[ref_row];
+    tally->mdfne_ref[r] = tally->mdfne[ref_row];
     SET_STRING_ELT(tally->ref_R, r, STRING_ELT(tally->read_R, ref_row));  
   }
   bool have_ref_row = row > ref_row;
@@ -281,6 +328,9 @@ parse_alleles(unsigned char *bytes, int row, int ref_row, int *cycle_breaks,
     tally->count_plus[ref_row] = NA_INTEGER;
     tally->count_minus[ref_row] = NA_INTEGER;
     tally->count[ref_row] = NA_INTEGER;
+    tally->read_pos_mean[ref_row] = NA_REAL;
+    tally->read_pos_var[ref_row] = NA_REAL;
+    tally->mdfne[ref_row] = NA_REAL;
   }
   return n_alleles;
 }
@@ -325,9 +375,7 @@ static int count_rows_for_interval(IIT_T tally_iit, int index) {
 }
 
 static int parse_interval(IIT_T tally_iit, int index,
-                          TallyTable *tally, int row,
-                          int *cycle_breaks, int n_cycle_bins,
-                          int high_base_quality)
+                          TallyParam param, TallyTable *tally, int row)
 {
   unsigned char *bytes = IIT_data(tally_iit, index);
   int width = IIT_length(tally_iit, index);
@@ -344,16 +392,13 @@ static int parse_interval(IIT_T tally_iit, int index,
     bytes -= 4; /* rewind from read-ahead */
     if (next_offset - allele_offset > 0)
       row += parse_alleles(base + allele_offset, row, ref_row,
-                           cycle_breaks, n_cycle_bins,
-                           high_base_quality, tally);
+                           param, tally);
     if (deletion_offset - insertion_offset > 0)
       row += parse_indels(base + insertion_offset, row,
-                          cycle_breaks, n_cycle_bins,
-                          high_base_quality, tally, true);
+                          param, tally, true);
     if (allele_offset - deletion_offset > 0)
       row += parse_indels(base + deletion_offset, row,
-                          cycle_breaks, n_cycle_bins,
-                          high_base_quality, tally, false);
+                          param, tally, false);
     /* fill in position information */
     for (int r = ref_row; r < row; r++) {
       SET_STRING_ELT(tally->seqnames_R, r, divstring_R);
@@ -364,9 +409,7 @@ static int parse_interval(IIT_T tally_iit, int index,
   return row;
 }
 
-static SEXP parse_all(IIT_T tally_iit, int *cycle_breaks,
-                      int n_cycle_bins,
-                      int high_base_quality)
+static SEXP parse_all(IIT_T tally_iit, TallyParam param)
 {
   int n_rows = 0;
   /* loop over the IIT, getting the total number of rows
@@ -376,23 +419,19 @@ static SEXP parse_all(IIT_T tally_iit, int *cycle_breaks,
   }
   
   SEXP tally_R;
-  PROTECT(tally_R = R_TallyTable_new(n_rows, n_cycle_bins));
+  PROTECT(tally_R = R_TallyTable_new(n_rows, param.n_cycle_bins));
   TallyTable *tally = TallyTable_new(tally_R);
   
   int row = 0;
   for (int index = 1; index <= IIT_total_nintervals(tally_iit); index++) {
-    row = parse_interval(tally_iit, index, tally, row,
-                         cycle_breaks, n_cycle_bins,
-                         high_base_quality);
+    row = parse_interval(tally_iit, index, param, tally, row);
   }
 
   UNPROTECT(1);
   return tally_R;
 }
 
-static SEXP parse_some(IIT_T tally_iit, int *cycle_breaks,
-                       int n_cycle_bins,
-                       int high_base_quality,
+static SEXP parse_some(IIT_T tally_iit, TallyParam param,
                        SEXP chr_R, int *start, int *end)
 {
   int n_rows = 0;
@@ -409,16 +448,13 @@ static SEXP parse_some(IIT_T tally_iit, int *cycle_breaks,
   }
   
   SEXP tally_R;
-  PROTECT(tally_R = R_TallyTable_new(n_rows, n_cycle_bins));
+  PROTECT(tally_R = R_TallyTable_new(n_rows, param.n_cycle_bins));
   TallyTable *tally = TallyTable_new(tally_R);
 
   int row = 0;
   for (int i = 0; i < length(chr_R); i++) {
     for (int j = 0; j < nmatches[i]; j++) {
-      row = parse_interval(tally_iit, indexes[i][j],
-                           tally, row,
-                           cycle_breaks, n_cycle_bins,
-                           high_base_quality);
+      row = parse_interval(tally_iit, indexes[i][j], param, tally, row);
     }
   }
   
@@ -442,25 +478,29 @@ static SEXP parse_some(IIT_T tally_iit, int *cycle_breaks,
 */
 
 SEXP R_tally_iit_parse(SEXP tally_iit_R, SEXP cycle_breaks_R,
-                       SEXP high_base_quality_R, SEXP which_R)
+                       SEXP high_base_quality_R, SEXP which_R,
+                       SEXP read_length_R)
 {
-  int high_base_quality = asInteger(high_base_quality_R);
-  int *cycle_breaks =
-    cycle_breaks_R == R_NilValue ? NULL : INTEGER(cycle_breaks_R);
-  int n_cycle_bins =
-    length(cycle_breaks_R) == 0 ? 0 : length(cycle_breaks_R) - 1;
   IIT_T tally_iit = (IIT_T) R_ExternalPtrAddr(tally_iit_R);
   SEXP tally_R;
+  TallyParam param;
+  param.high_base_quality = asInteger(high_base_quality_R);
+  param.cycle_breaks =
+    cycle_breaks_R == R_NilValue ? NULL : INTEGER(cycle_breaks_R);
+  param.n_cycle_bins =
+    length(cycle_breaks_R) == 0 ? 0 : length(cycle_breaks_R) - 1;
+  param.read_length = asInteger(read_length_R);
+  if (param.read_length != NA_INTEGER) {
+    param.mdfne_buf = (double *)R_alloc(sizeof(double), param.read_length);
+  }
   
   if (which_R == R_NilValue) {
-    tally_R = parse_all(tally_iit, cycle_breaks, n_cycle_bins,
-                        high_base_quality);
+    tally_R = parse_all(tally_iit, param);
   } else {
     SEXP chr_R = VECTOR_ELT(which_R, 0);
     int *start = INTEGER(VECTOR_ELT(which_R, 1));
     int *end = INTEGER(VECTOR_ELT(which_R, 2));
-    tally_R = parse_some(tally_iit, cycle_breaks, n_cycle_bins,
-                         high_base_quality, chr_R, start, end);
+    tally_R = parse_some(tally_iit, param, chr_R, start, end);
   }
   
   return tally_R;
