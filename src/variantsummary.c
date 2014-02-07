@@ -492,6 +492,8 @@ SEXP R_tally_iit_parse(SEXP tally_iit_R, SEXP cycle_breaks_R,
   param.read_length = asInteger(read_length_R);
   if (param.read_length != NA_INTEGER) {
     param.mdfne_buf = (double *)R_alloc(sizeof(double), param.read_length);
+  } else {
+    param.mdfne_buf = NULL;
   }
   
   if (which_R == R_NilValue) {
