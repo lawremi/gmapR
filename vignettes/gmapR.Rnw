@@ -215,7 +215,7 @@ gsnapParam <- GsnapParam(genome=gmapGenome,
                          splicing="knownGene",
                          indel_penalty=1L,
                          distant_splice_penalty=1L,
-                         clip_overlaps=TRUE)
+                         clip_overlap=TRUE)
 @ 
 
 Now we are ready to align.
