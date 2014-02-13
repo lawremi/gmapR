@@ -17,7 +17,7 @@ importClassesFrom(rtracklayer, RTLFile, FastaFile)
 importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
 importMethodsFrom(rtracklayer, export)
 importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed, VRanges, ref, alt,
-           "ref<-", "alt<-")
+           "ref<-", "alt<-", altDepth, refDepth)
 importClassesFrom(VariantAnnotation, "VCF", "VRanges")
 importFrom(BSgenome, getSeq, providerVersion)
 
