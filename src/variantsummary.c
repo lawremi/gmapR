@@ -113,7 +113,7 @@ read_cycle_counts(unsigned char **bytes, int row, TallyParam param,
                   double *mdfne, int **cycle_bins)
 {
   int n_cycle_breaks = param.n_cycle_bins + 1;
-  int count_sum = 0, weighted_sum = 0, weighted_sum_sq = 0;
+  int count_sum = 0;
   int midpoint = param.read_length / 2.0 + 0.5;
 
   if (param.mdfne_buf != NULL) {
@@ -129,8 +129,6 @@ read_cycle_counts(unsigned char **bytes, int row, TallyParam param,
       param.mdfne_buf[midpoint-abs(cycle-midpoint)-1] = count;
     }
     count_sum += count;
-    weighted_sum += cycle * count;
-    weighted_sum_sq += cycle * cycle * count;
     if (param.cycle_breaks != NULL) {
       while(n_cycle_breaks > bin &&
             cycle > param.cycle_breaks[bin])
