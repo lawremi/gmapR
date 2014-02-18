@@ -76,16 +76,14 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                  normArgSingleInteger(high_base_quality),
                  NULL, read_length)
   
-  tally_names <- c("seqnames", "pos", "ref", "alt", "n.read.pos",
-                   "n.read.pos.ref", "raw.count", "raw.count.ref",
+  tally_names <- c("seqnames", "pos", "ref", "alt",
+                   "raw.count", "raw.count.ref",
                    "raw.count.total",
                    "high.quality", "high.quality.ref",
                    "high.quality.total", "mean.quality",
                    "mean.quality.ref",
                    "count.pos", "count.pos.ref",
                    "count.neg", "count.neg.ref",
-                   "read.pos.mean", "read.pos.mean.ref",
-                   "read.pos.var", "read.pos.var.ref",
                    "mdfne", "mdfne.ref")
   break_names <- character()
   if (length(read_pos_breaks) > 0L) {
@@ -127,8 +125,6 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
 
 checkTallyConsistency <- function(x) {
   with(mcols(x), {
-    stopifnot(all(n.read.pos.ref <= raw.count.ref, na.rm=TRUE))
-    stopifnot(all(n.read.pos <= raw.count, na.rm=TRUE))
     stopifnot(all(raw.count + raw.count.ref <= raw.count.total))
     stopifnot(all(altDepth(x) <= raw.count, na.rm=TRUE))
     stopifnot(all(refDepth(x) <= raw.count.ref, na.rm=TRUE))
@@ -225,8 +221,6 @@ normArgTRUEorFALSE <- function(x) {
 
 variantSummaryColumnDescriptions <- function(read_pos_breaks) {
   desc <- c(
-    n.read.pos = "Number of unique read positions for the ALT",
-    n.read.pos.ref = "Number of unique read positions for the REF",
     raw.count = "Raw ALT count",
     raw.count.ref = "Raw REF count",
     raw.count.total = "Raw total count",
@@ -236,10 +230,6 @@ variantSummaryColumnDescriptions <- function(read_pos_breaks) {
     count.pos.ref = "Raw positive strand REF count",
     count.neg = "Raw negative strand ALT count",
     count.neg.ref = "Raw negative strand REF count",
-    read.pos.mean = "Average read position for the ALT",
-    read.pos.mean.ref = "Average read position for the ALT",
-    read.pos.var = "Variance in read position for the ALT",
-    read.pos.var.ref = "Variance in read position for the REF",
     mdfne = "Median distance from nearest end of read for the ALT",
     mdfne.ref = "Median distance from nearest end of read for the REF")
   if (length(read_pos_breaks) > 0L) {
