@@ -145,8 +145,6 @@ setMethod("asBam", "GsnapOutput",
             ##files other than those produced by gsnap maybe be in the
             ##output directory. Only take those produced by gsnap.
             samFiles <- samPaths(gsp)
-            samExts <- file_ext(samFiles) == "sam"
-            samFiles[samExts] <- file_path_sans_ext(samFiles[samExts])
             bamFiles <- mapply(asBam, file = samFiles,
                                dest = samFiles,
                                MoreArgs = list(overwrite = TRUE))
