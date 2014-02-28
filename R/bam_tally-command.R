@@ -7,16 +7,21 @@
 ### Raw tally result
 ###
 
-setClass("TallyIIT", representation(ptr = "externalptr", genome = "GmapGenome"))
+setClass("TallyIIT", representation(ptr = "externalptr",
+                                    genome = "GmapGenome",
+                                    bam = "BamFile"))
 
-TallyIIT <- function(ptr, genome) {
-  new("TallyIIT", ptr = ptr, genome = genome)
+TallyIIT <- function(ptr, genome, bam) {
+  new("TallyIIT", ptr = ptr, genome = genome, bam = bam)
 }
 
 setMethod("genome", "TallyIIT", function(x) x@genome)
 
+bamFile <- function(x) x@bam
+
 setMethod("show", "TallyIIT", function(object) {
-  cat("Tally IIT object for genome '", genome(genome(object)), "'\n", sep = "")
+  cat("Tally IIT object for '", path(bamFile(object)), "' on '",
+      genome(genome(object)), "'\n", sep = "")
 })
 
 ## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -61,7 +66,8 @@ setMethod("bam_tally", "GmapBamReader",
             }
 
             param_list$genome <- NULL
-            TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome)
+            TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome,
+                     as(x, "BamFile"))
           })
 
 variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
@@ -118,7 +124,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                      seqlengths = seqlengths(genome)))
   mcols(gr) <- metacols
   checkTallyConsistency(gr)
-  seqinfo(gr) <- seqinfo(genome)
+  seqinfo(gr) <- keepSeqlevels(merge(seqinfo(bamFile(x)), seqinfo(genome)),
+                               seqlevels(bamFile(x)))
   gr <- normalizeIndelAlleles(gr, genome)
   gr
 }
