@@ -2,47 +2,29 @@ Package: gmapR
 Maintainer: Michael Lawrence <lawrence.michael@gene.com>
 License: Artistic-2.0
 Title: Provides convenience methods to work with GMAP and GSNAP from
-    within R
+        within R
 Type: Package
 Author: Cory Barr, Thomas Wu, Michael Lawrence
 Description: GSNAP and GMAP are a pair of tools to align short-read
-    data written by Tom Wu.  This package provides convenience methods
-    to work with GMAP and GSNAP from within R. In addition, it provides 
-    methods to tally alignment results on a per-nucleotide basis using 
-    the bam_tally tool.
-Version: 1.5.10
+        data written by Tom Wu.  This package provides convenience
+        methods to work with GMAP and GSNAP from within R. In addition,
+        it provides methods to tally alignment results on a
+        per-nucleotide basis using the bam_tally tool.
+Version: 1.5.11
 Depends: R (>= 2.15.0), methods, GenomicRanges
 Imports: IRanges, Rsamtools (>= 1.7.4), rtracklayer (>= 1.17.15),
-         GenomicFeatures, Biostrings, VariantAnnotation (>= 1.9.4), tools,
-         Biobase, BSgenome
+        GenomicFeatures, Biostrings, VariantAnnotation (>= 1.9.4),
+        tools, Biobase, BSgenome
 Suggests: RUnit, BSgenome.Dmelanogaster.UCSC.dm3,
-	  BSgenome.Scerevisiae.UCSC.sacCer3,
-          org.Hs.eg.db, TxDb.Hsapiens.UCSC.hg19.knownGene,
-          BSgenome.Hsapiens.UCSC.hg19, LungCancerLines
-License: Artistic-2.0
-Collate: GmapBamReader-class.R
-         GmapGenomeDirectory-class.R
-         GmapGenome-class.R
-         GmapSnpDirectory-class.R
-         GmapSnps-class.R
-         GsnapParam-class.R
-         GsnapOutput-class.R
-         atoiindex-command.R
-	 BamTallyParam-class.R
-         bam_tally-command.R
-         cmetindex-command.R
-         get-genome-command.R
-         gmap-command.R
-         gmap_build-command.R
-         gsnap-command.R
-         iit-format.R
-         iit_store-command.R
-         info.R
-         snpindex-command.R
-         system.R
-         test_gmapR_package.R
-         makeGmapGenomePackage.R
-         TP53Genome.R
-         utils.R
-	 asSystemCall.R
-         
+        BSgenome.Scerevisiae.UCSC.sacCer3, org.Hs.eg.db,
+        TxDb.Hsapiens.UCSC.hg19.knownGene, BSgenome.Hsapiens.UCSC.hg19,
+        LungCancerLines
+Collate: GmapBamReader-class.R GmapGenomeDirectory-class.R
+        GmapGenome-class.R GmapSnpDirectory-class.R GmapSnps-class.R
+        GsnapParam-class.R GsnapOutput-class.R atoiindex-command.R
+        BamTallyParam-class.R bam_tally-command.R cmetindex-command.R
+        get-genome-command.R gmap-command.R gmap_build-command.R
+        gsnap-command.R iit-format.R iit_store-command.R info.R
+        snpindex-command.R system.R test_gmapR_package.R
+        makeGmapGenomePackage.R TP53Genome.R utils.R asSystemCall.R
+biocViews: Alignment
