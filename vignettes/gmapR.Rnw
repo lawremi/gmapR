@@ -182,9 +182,12 @@ library("gmapR")
 p53Seq <- getSeq(BSgenome.Hsapiens.UCSC.hg19::Hsapiens, roi,
                  as.character = FALSE) 
 names(p53Seq) <- "TP53"
-gmapGenome <- GmapGenome(genome = p53Seq, name = "TP53_demo", create = TRUE, 
+gmapGenome <- GmapGenome(genome = p53Seq, 
+                         name = paste0("TP53_demo_", 
+                           packageVersion("TxDb.Hsapiens.UCSC.hg19.knownGene")), 
+                         create = TRUE, 
                          k = 12L)
-@ 
+@
 
 We add the known transcripts (splice sites) to the genome index:
 <<set_TP53_splicesites>>=
@@ -294,11 +297,8 @@ summarizing these data into R data structures. For now, there is one:
 \Rfunction{variantSummary}, which returns a \Rcode{VRanges} object
 describing putative genetic variants in the sample.
 <<run_bamtally, eval=FALSE>>=
-library(gmapR)
-
 bam_file <- system.file("extdata/H1993.analyzed.bam", 
                         package="LungCancerLines", mustWork=TRUE)
-
 breaks <- c(0L, 15L, 60L, 75L)
 bqual <- 56L
 mapq <- 13L

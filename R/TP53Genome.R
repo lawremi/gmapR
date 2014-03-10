@@ -1,6 +1,10 @@
+geneGenomeName <- function(gene) {
+  paste0(gene, "_demo_", packageVersion("TxDb.Hsapiens.UCSC.hg19.knownGene"))
+}
+
 TP53Genome <- function() {
   gene <- "TP53"
-  genomeName <- paste0(gene, "_demo")
+  genomeName <- geneGenomeName(gene)
   
   if (genomeName %in% genome(GmapGenomeDirectory(create=TRUE))) {
     GmapGenome(genomeName)
@@ -58,7 +62,7 @@ translateToP53Genome <- function(x) {
   orgdb <- org.Hs.eg.db::org.Hs.eg.db
   roi <- getGeneRoi(txdb, orgdb, "TP53")
   subregion <- subsetRegion(x, roi, gene)
-  genome(subregion) <- "TP53_demo"
+  genome(subregion) <- geneGenomeName("TP53")
   subregion
 }
 

@@ -19,7 +19,9 @@ TP53Which()
   For \code{TP53Genome}, a \code{GmapGenome} object. If this is the
   first time the user has run this function, a side-effect will be the
   generation of an on-disk genome index, under the name
-  \dQuote{TP53_demo} in the default genome directory.
+  \dQuote{TP53_demo_VERSION} in the default genome directory, where
+  \code{VERSION} is the version of the TxDb package providing the bounds
+  of the P53 gene.
 
   For \code{TP53Which}, a \code{GRanges} of the extents of the TP53
   gene, translated to the space of \code{TP53Genome}.
