@@ -124,8 +124,10 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                      seqlengths = seqlengths(genome)))
   mcols(gr) <- metacols
   checkTallyConsistency(gr)
-  seqinfo(gr) <- keepSeqlevels(merge(seqinfo(bamFile(x)), seqinfo(genome)),
-                               seqlevels(bamFile(x)))
+  si <- keepSeqlevels(merge(seqinfo(bamFile(x)), seqinfo(genome)),
+                      seqlevels(bamFile(x)))
+  seqlevels(gr) <- seqlevels(si) # reorder if necessary
+  seqinfo(gr) <- si
   gr <- normalizeIndelAlleles(gr, genome)
   gr
 }
