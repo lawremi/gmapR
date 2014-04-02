@@ -17,25 +17,28 @@ setMethod("gmap_build", c("ANY", "GmapGenome"), function(x, genome, ...) {
   gmap_build(tmp_file, genome = genome, ...)
 })
 
+setMethod("gmap_build", c("BSgenome", "GmapGenome"), function(x, genome, ...) {
+  circular <- seqnames(x)[isCircular(x)]
+  callNextMethod(x, genome, ..., circular=circular)
+})
+
 setMethod("gmap_build", c("FastaFile", "GmapGenome"), function(x, genome, ...) {
   gmap_build(path(x), genome, ...)
 })
 
-setMethod("gmap_build", c("DNAStringSet", "GmapGenome"), function(x, genome, ...) {
-
-  tmpfile <- tempfile()
-  export(object=x, con=tmpfile, format="fasta")
-  x <- FastaFile(tmpfile)
-  
-  gmap_build(x, genome, ...)
-})
-
+setMethod("gmap_build", c("DNAStringSet", "GmapGenome"),
+          function(x, genome, ...) {
+            tmpfile <- tempfile()
+            export(object=x, con=tmpfile, format="fasta")
+            x <- FastaFile(tmpfile)
+            gmap_build(x, genome, ...)
+          })
 
 setMethod("gmap_build", c("character", "GmapGenome"),
-          function(x, genome, kmer = 15L) {
+          function(x, genome, kmer = 15L, ...) {
             gz <- file_ext(x) == "gz"
-            .gmap_build(d = genome(genome), D = path(directory(genome)), x,
-                        k = kmer, s = "chrom", g = gz)
+            .gmap_build(db = genome(genome), dir = path(directory(genome)),
+                        kmer = kmer, sort = "none", gunzip = gz, .fasta = x, ...)
             genome
           })
 
@@ -43,48 +46,36 @@ setMethod("gmap_build", c("character", "GmapGenome"),
 ### Low-level wrapper
 ###
 
-
-##gmap_build args from command line
-##Options:
-##    -d STRING   genome name
-##    -D STRING   destination directory for installation (defaults to gmapdb
-##                directory specified at configure time)
-##    -k INT      k-mer value for genomic index (allowed: 12..15, default 14)
-##    -S          do not order chromosomes in numeric/alphabetic order, but
-##                use order in FASTA file(s)
-##    -g          files are gzipped, so need to gunzip each file first
-##    -w INT      wait (sleep) this many seconds after each step
-
-##NOTE: these options must be from a different version of
-##gmap_build. -S is now -s and wants a string instead of being boolean
-.gmap_build <- function(d, D = NULL, k = 14L,
-                        s = c("none", "alpha", "numeric-alpha", "chrom"),
-                        g = FALSE, .fasta, B = NULL) {
-  s <- match.arg(s)
-  if (!isSingleString(d)) {
-    stop("'d' parameter (genome name) must be a single, non-NA string")
+.gmap_build <- function(db, dir = NULL, kmer = 14L,
+                        sort = c("chrom", "none", "alpha", "numeric-alpha"),
+                        gunzip = FALSE, circular = NULL, .fasta, B = NULL) {
+  sort <- match.arg(sort)
+  if (!isSingleString(db)) {
+    stop("'db' parameter (genome name) must be a single, non-NA string")
   }
-  if (!is.null(D) && !isSingleString(D)) {
-    stop("'D' parameter (destination directory), if not NULL, must be a ",
+  if (!is.null(dir) && !isSingleString(dir)) {
+    stop("'dir' parameter (destination directory), if not NULL, must be a ",
          "'single, non-NA string")
   }
-  k <- as.integer(k)
-  if(!isSingleInteger(k) || k > 15 || k < 12) {
-    stop("'k' parameter (k-mer value for genomic index) must be an integer ",
+  kmer <- as.integer(kmer)
+  if(!isSingleInteger(kmer) || kmer > 15 || kmer < 12) {
+    stop("'kmer' parameter (k-mer value for genomic index) must be an integer ",
          "from 12 to 15")
   }
-  if (!isTRUEorFALSE(g)) {
-    stop("'g' parameter (files are gzipped, so need to gunzip each file ",
+  if (!isTRUEorFALSE(gunzip)) {
+    stop("'gunzip' parameter (files are gzipped, so need to gunzip each file ",
          "first) must be TRUE or FALSE")
+  }
+  if (!is.null(circular)) {
+    circular <- paste(circular, collapse=",")
   }
   
   ##TODO: provide default
-  if (is.null(D)) {
+  if (is.null(dir)) {
     stop("destination directory must be explicitly specified")
   }
 
-  B <- system.file("usr/bin/", package="gmapR",
-                            mustWork=TRUE)
+  B <- system.file("usr/bin/", package="gmapR", mustWork=TRUE)
 
   cl <- commandLine("gmap_build")
   res <- .system(cl)
