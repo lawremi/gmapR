@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 115263 2013-11-16 00:43:38Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 129019 2014-03-03 23:32:29Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -50,6 +50,9 @@ static bool signed_counts_p = false;
 
 /* Coordinates */
 static bool whole_genome_p = false;
+
+/* Compute options */
+static int max_softclip = 0;
 
 /* Conversion */
 static char *bam_lacks_chr = NULL;
@@ -115,6 +118,9 @@ static struct option long_options[] = {
 
   /* Conversion */
   {"bam-lacks-chr", required_argument, 0, 0}, /* bam_lacks_chr */
+
+  /* Compute options */
+  {"include-soft-clips", required_argument, 0, 0}, /* max_softclip */
 
   /* Output options */
   {"readlevel", no_argument, 0, 0},	       /* readlevel_p */
@@ -219,6 +225,8 @@ main (int argc, char *argv[]) {
       } else if (!strcmp(long_name,"bam-lacks-chr")) {
 	bam_lacks_chr = optarg;
 	bam_lacks_chr_length = strlen(bam_lacks_chr);
+      } else if (!strcmp(long_name,"include-soft-clips")) {
+	max_softclip = atoi(optarg);
       } else if (!strcmp(long_name,"via-iit")) {
 	via_iit_p = true;
       } else if (!strcmp(long_name,"diffs-only")) {
@@ -368,7 +376,7 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep,readlevel_p);
+				  print_indels_p,blocksize,verbosep,readlevel_p,max_softclip);
     } else {
       for (index = 1; index <= IIT_total_nintervals(chromosome_iit); index++) {
 	chromosome = IIT_label(chromosome_iit,index,&allocp);
@@ -399,7 +407,8 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
+				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				     max_softclip);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {
@@ -434,7 +443,8 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep,readlevel_p);
+				  print_indels_p,blocksize,verbosep,readlevel_p,
+				  max_softclip);
       IIT_free(&chromosome_iit);
 
     } else {
@@ -462,7 +472,8 @@ main (int argc, char *argv[]) {
 				   quality_score_adj,min_depth,variant_strands,
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				   print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
+				   print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				   max_softclip);
 	Bamread_unlimit_region(bamreader);
       }
       if (output_type == OUTPUT_TOTAL) {
@@ -471,7 +482,7 @@ main (int argc, char *argv[]) {
     }
 
   } else {
-    fprintf(stderr,"Expecting coordinates from stdin\n");
+    fprintf(stderr,"Expecting coordinates from stdin.  If you want the whole genome instead, use the --whole-genome flag\n");
     /* Expecting coordinates from stdin */
     if (via_iit_p == true) {
       fprintf(stderr,"Combination of --via-iit and coordinates from stdin not supported\n");
@@ -521,7 +532,8 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p);
+				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				     max_softclip);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {
@@ -642,6 +654,8 @@ Compute options\n\
                                    this value) [default=200000]\n\
   --read-group=STRING            Process only alignments that have the given read group as an RG field\n\
                                    in their BAM lines\n\
+  --include-soft-clips=INT       Include soft clips of up to this length in the tally results\n\
+                                   (May want to set to maximum read length) [default = 0]\n\
 \n\
 Coordinates\n\
   --whole-genome                 Compute tally over entire genome\n\

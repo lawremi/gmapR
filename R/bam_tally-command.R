@@ -184,7 +184,8 @@ normArgTRUEorFALSE <- function(x) {
                          min_depth = 0L, variant_strand = 0L,
                          ignore_query_Ns = FALSE,
                          indels = FALSE,
-                         blocksize = 1000L, verbosep = FALSE)
+                         blocksize = 1000L, verbosep = FALSE,
+                         include_soft_clips = 0L)
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
@@ -221,7 +222,8 @@ normArgTRUEorFALSE <- function(x) {
         normArgTRUEorFALSE(ignore_query_Ns),
         normArgTRUEorFALSE(indels),
         normArgSingleInteger(blocksize),
-        normArgTRUEorFALSE(verbosep))
+        normArgTRUEorFALSE(verbosep),
+        normArgSingleInteger(include_soft_clips))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

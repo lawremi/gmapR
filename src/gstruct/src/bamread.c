@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 114330 2013-11-07 19:55:05Z twu $";
+static char rcsid[] = "$Id: bamread.c 129099 2014-03-04 18:44:44Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -370,7 +370,7 @@ static void
 parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 	    char **mate_chr, Genomicpos_T *mate_chrpos, int *insert_length,
 	    Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-	    int *readlength, char **read, char **quality_string, char **read_group) {
+	    int *readlength, char **read, char **quality_string, char **read_group, bool *terminalp) {
   int type;
   int i;
   unsigned int length;
@@ -435,6 +435,15 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     *read_group = bam_aux2Z(ptr);
   }
 
+  ptr = bam_aux_get(this->bam,"PG");
+  if (ptr == NULL) {
+    *terminalp = false;
+  } else if (strcmp((char *) ptr,"T")) {
+    *terminalp = false;
+  } else {
+    *terminalp = true;
+  }
+
   /* Cigar */
   *cigarlength = 0;
   *cigartypes = (Intlist_T) NULL;
@@ -475,7 +484,8 @@ int
 Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 		   char **mate_chr, Genomicpos_T *mate_chrpos,
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-		   int *readlength, char **read, char **quality_string, char **read_group) {
+		   int *readlength, char **read, char **quality_string, char **read_group,
+		   bool *terminalp) {
   int insert_length;
 
 #ifndef HAVE_SAMTOOLS
@@ -488,7 +498,8 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
       parse_line(this,&(*acc),&(*flag),&(*mapq),&(*chr),&(*chrpos),
 		 &(*mate_chr),&(*mate_chrpos),&insert_length,
 		 &(*cigartypes),&(*cigarlengths),&(*cigarlength),
-		 &(*readlength),&(*read),&(*quality_string),&(*read_group));
+		 &(*readlength),&(*read),&(*quality_string),&(*read_group),
+		 &(*terminalp));
       return 1;
     }
   } else {
@@ -498,7 +509,8 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
       parse_line(this,&(*acc),&(*flag),&(*mapq),&(*chr),&(*chrpos),
 		 &(*mate_chr),&(*mate_chrpos),&insert_length,
 		 &(*cigartypes),&(*cigarlengths),&(*cigarlength),
-		 &(*readlength),&(*read),&(*quality_string),&(*read_group));
+		 &(*readlength),&(*read),&(*quality_string),&(*read_group),
+		 &(*terminalp));
       return 1;
     }
   }
@@ -525,6 +537,7 @@ struct Bamline_T {
   int readlength;
   char *read;
   char *quality_string;
+  bool terminalp;
   unsigned char *aux_start;
   unsigned char *aux_end;
 };
@@ -705,6 +718,11 @@ Bamline_read (Bamline_T this) {
 char *
 Bamline_quality_string (Bamline_T this) {
   return this->quality_string;
+}
+
+bool
+Bamline_terminalp (Bamline_T this) {
+  return this->terminalp;
 }
 
 
@@ -1211,7 +1229,8 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
 	     char splice_strand, char *chr, Genomicpos_T chrpos_low,
 	     char *mate_chr, Genomicpos_T mate_chrpos_low, int insert_length,
 	     Intlist_T cigar_types, Uintlist_T cigar_npositions, int cigar_querylength, int readlength,
-	     char *read, char *quality_string, unsigned char *aux_start, unsigned char *aux_end) {
+	     char *read, char *quality_string, bool terminalp,
+	     unsigned char *aux_start, unsigned char *aux_end) {
   Bamline_T new = (Bamline_T) MALLOC(sizeof(*new));
 
   new->acc = (char *) CALLOC(strlen(acc)+1,sizeof(char));
@@ -1258,6 +1277,8 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
     strncpy(new->quality_string,quality_string,readlength);
   }
 
+  new->terminalp = terminalp;
+
   new->aux_start = aux_start;
   new->aux_end = aux_end;
 
@@ -1282,6 +1303,7 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
   char *read;
   char *quality_string;
   char *read_group;
+  bool terminalp;
 
 #ifndef HAVE_SAMTOOLS
   return (Bamline_T) NULL;
@@ -1293,7 +1315,8 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
       parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		 &mate_chr,&mate_chrpos_low,&insert_length,
 		 &cigar_types,&cigarlengths,&cigar_querylength,
-		 &readlength,&read,&quality_string,&read_group);
+		 &readlength,&read,&quality_string,&read_group,
+		 &terminalp);
       if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
 	Intlist_free(&cigar_types);
@@ -1336,7 +1359,7 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
-			   readlength,read,quality_string,
+			   readlength,read,quality_string,terminalp,
 			   /*aux_start*/bam1_aux(this->bam),
 			   /*aux_end*/this->bam->data + this->bam->data_len);
       }
@@ -1348,7 +1371,8 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
       parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		 &mate_chr,&mate_chrpos_low,&insert_length,
 		 &cigar_types,&cigarlengths,&cigar_querylength,
-		 &readlength,&read,&quality_string,&read_group);
+		 &readlength,&read,&quality_string,&read_group,
+		 &terminalp);
       if (mapq >= minimum_mapq &&
 	  (nhits = aux_nhits(this)) <= maximum_nhits &&
 	  (need_unique_p == false || nhits == 1) &&
@@ -1359,7 +1383,7 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
-			   readlength,read,quality_string,
+			   readlength,read,quality_string,terminalp,
 			   /*aux_start*/bam1_aux(this->bam),
 			   /*aux_end*/this->bam->data + this->bam->data_len);
       } else {
@@ -1390,6 +1414,7 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
   char *read;
   char *quality_string;
   char *read_group;
+  bool terminalp;
 
   Bamread_limit_region(this,desired_chr,desired_chrpos,desired_chrpos);
   while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
@@ -1397,14 +1422,15 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
     parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 	       &mate_chr,&mate_chrpos_low,&insert_length,
 	       &cigar_types,&cigarlengths,&cigar_querylength,
-	       &readlength,&read,&quality_string,&read_group);
+	       &readlength,&read,&quality_string,&read_group,
+	       &terminalp);
     splice_strand = aux_splice_strand(this);
     if (!strcmp(acc,desired_acc) && chrpos_low == desired_chrpos) {
       Bamread_unlimit_region(this);
       return Bamline_new(acc,flag,nhits,/*good_unique_p*/true,mapq,splice_strand,chr,chrpos_low,
 			 mate_chr,mate_chrpos_low,insert_length,
 			 cigar_types,cigarlengths,cigar_querylength,
-			 readlength,read,quality_string,
+			 readlength,read,quality_string,terminalp,
 			 /*aux_start*/bam1_aux(this->bam),
 			 /*aux_end*/this->bam->data + this->bam->data_len);
     }

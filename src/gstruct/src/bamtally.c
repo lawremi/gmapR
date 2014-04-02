@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 123611 2014-01-15 21:22:04Z twu $";
+static char rcsid[] = "$Id: bamtally.c 129100 2014-03-04 18:45:02Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -69,9 +69,9 @@ static bool totals_only_p = false;
 #endif
 
 
+
 #define T Tally_T
 typedef struct T *T;
-
 
 
 typedef enum {FIRST, SECOND} Pairend_T;
@@ -1525,6 +1525,7 @@ make_mismatches_unique_signed (List_T mismatches) {
   for (ptr = mismatches; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
     if ((mismatch0 = find_mismatch_nt(unique_mismatches,mismatch->nt)) != NULL) {
+      mismatch0->count += mismatch->count;
       if (mismatch->shift > 0) {
 	mismatch0->count_plus += mismatch->count;
       } else {
@@ -1538,6 +1539,7 @@ make_mismatches_unique_signed (List_T mismatches) {
       mismatch0->shift += 1; /* Used here as nshifts */
     } else {
       mismatch0 = Mismatch_new(mismatch->nt,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
+      mismatch0->count = mismatch->count;
       if (mismatch->shift > 0) {
 	mismatch0->count_plus = mismatch->count;
 	mismatch0->count_minus = 0;
@@ -1791,7 +1793,6 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 
 
       /* Handle mismatches */
-
       if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,
 				min_depth,variant_strands) == false) {
 	if (blockp == true) {
@@ -1983,7 +1984,7 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	  for (i = 0; i < List_length(unique_mismatches_byshift); i++) {
 	    mismatch0 = mm_array[i];
 	    if (signed_counts_p == false) {
-	      printf(" %c%ld",mismatch0->nt,mismatch0->count_plus+mismatch0->count_minus);
+	      printf(" %c%ld",mismatch0->nt,mismatch0->count);
 	    } else {
 	      printf(" %c%ld|%ld",mismatch0->nt,mismatch0->count_plus,mismatch0->count_minus);
 	    }
@@ -3009,6 +3010,7 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
     /* Skip query N's */
 
   } else {
+
     if ((mismatch = find_mismatch_byshift(this->mismatches_byshift,toupper(querynt),signed_shift)) != NULL) {
       mismatch->count += 1;
     } else {
@@ -3083,10 +3085,10 @@ average (char *quality_scores, int n) {
 static void
 revise_read (T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend, Genomicpos_T chrpos_low,
 	     unsigned int flag, Intlist_T types, Uintlist_T npositions, int cigar_querylength,
-	     char *shortread, int mapq, char *quality_string, Genomicpos_T alloc_low,
-	     int *quality_counts_match, int *quality_counts_mismatch,
+	     char *shortread, int mapq, char *quality_string, bool terminalp,
+	     Genomicpos_T alloc_low, int *quality_counts_match, int *quality_counts_mismatch,
 	     Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p,
-	     bool print_indels_p, bool readlevel_p) {
+	     bool print_indels_p, bool readlevel_p, int max_softclip) {
   T this, right;
   int alloci;
   int shift, signed_shift;
@@ -3113,12 +3115,43 @@ revise_read (T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend, Genom
 
   pos = chrpos_low - 1U;		/* Bamread reports chrpos as 1-based */
 
+  if (terminalp == false) {
+    /* Don't handle soft clip for terminal alignments */
+    max_softclip = 0;
+  }
+
   p = shortread;
   r = quality_string;
+  if (max_softclip > 0 && types != NULL) {
+    if (Intlist_head(types) == 'S') {
+      /* Revise pos, so we handle the initial soft clip */
+      mlength = Uintlist_head(npositions);
+      if (pos < mlength) {
+	/* Make sure initial soft clip does not extend past beginning of chromosome */
+	pos = 0U;
+	p += (mlength - pos);
+	r += (mlength - pos);
+	Uintlist_head_set(npositions,pos);
+      } else {
+	pos -= mlength;
+      }
+
+      mlength = Uintlist_head(npositions);
+      if (mlength > max_softclip) {
+	/* Make sure initial soft clip does not extend past max_softclip */
+	fprintf(stderr,"Read has initial soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	pos += (mlength - max_softclip);
+	p += (mlength - max_softclip);
+	r += (mlength - max_softclip);
+	Uintlist_head_set(npositions,max_softclip);
+      }
+    }
+  }
+
   for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
     type = Intlist_head(a);
     mlength = Uintlist_head(b);
-    if (type == 'S') {
+    if (type == 'S' && max_softclip == 0) {
       /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
       p += mlength;
       r += mlength;
@@ -3187,7 +3220,7 @@ revise_read (T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend, Genom
 
       pos += mlength;
 
-    } else if (type == 'M') {
+    } else if (type == 'M' || (type == 'S' && max_softclip > 0)) {
       if (0 /* mlength < min_mlength */) {
 	p += mlength;
 	r += mlength;
@@ -3195,6 +3228,12 @@ revise_read (T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend, Genom
 	shift += ((strand == '+') ? +mlength : -mlength);
 
       } else {
+	if (type == 'S' && mlength > max_softclip) {
+	  /* Must be final softclip, because we handled initial one already */
+	  fprintf(stderr,"Read has final soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	  mlength = max_softclip;
+	}
+
 	debug1(printf("Genomic pos is %u + %u = %u\n",chroffset,pos,chroffset+pos));
 	if (genome == NULL) {
 	  q = &(*p);
@@ -3287,10 +3326,10 @@ static void
 revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, Genomicpos_T chrstart, Genomicpos_T chrend,
 		bool lowend_p, Genomicpos_T chrpos_low,
 		unsigned int flag, Intlist_T types, Uintlist_T npositions, int cigar_querylength,
-		char *shortread, int mapq, char *quality_string, Genomicpos_T alloc_low,
-		int *quality_counts_match, int *quality_counts_mismatch,
+		char *shortread, int mapq, char *quality_string, bool terminalp,
+		Genomicpos_T alloc_low, int *quality_counts_match, int *quality_counts_mismatch,
 		Genome_T genome, Genomicpos_T chroffset, bool ignore_query_Ns_p, bool print_indels_p,
-		bool readlevel_p) {
+		bool readlevel_p, int max_softclip) {
   T this, right;
   int alloci;
   int shift, signed_shift;
@@ -3317,12 +3356,43 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, Genomicpos_T chrsta
 
   pos = chrpos_low - 1U;		/* Bamread reports chrpos as 1-based */
 
+  if (terminalp == false) {
+    /* Don't handle soft clip for terminal alignments */
+    max_softclip = 0;
+  }
+
   p = shortread;
   r = quality_string;
+  if (max_softclip > 0 && types != NULL) {
+    if (Intlist_head(types) == 'S') {
+      /* Revise pos, so we handle the initial soft clip */
+      mlength = Uintlist_head(npositions);
+      if (pos < mlength) {
+	/* Make sure initial soft clip does not extend past beginning of chromosome */
+	pos = 0U;
+	p += (mlength - pos);
+	r += (mlength - pos);
+	Uintlist_head_set(npositions,pos);
+      } else {
+	pos -= mlength;
+      }
+
+      mlength = Uintlist_head(npositions);
+      if (mlength > max_softclip) {
+	/* Make sure initial soft clip does not extend past max_softclip */
+	fprintf(stderr,"Read has initial soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	pos += (mlength - max_softclip);
+	p += (mlength - max_softclip);
+	r += (mlength - max_softclip);
+	Uintlist_head_set(npositions,max_softclip);
+      }
+    }
+  }
+
   for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
     type = Intlist_head(a);
     mlength = Uintlist_head(b);
-    if (type == 'S') {
+    if (type == 'S' && max_softclip == 0) {
       /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
       p += mlength;
       r += mlength;
@@ -3389,7 +3459,7 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, Genomicpos_T chrsta
 
       pos += mlength;
 
-    } else if (type == 'M') {
+    } else if (type == 'M' || (type == 'S' && max_softclip > 0)) {
       if (0 /* mlength < min_mlength */) {
 	p += mlength;
 	r += mlength;
@@ -3397,6 +3467,12 @@ revise_read_lh (T *alloc_tallies_low, T *alloc_tallies_high, Genomicpos_T chrsta
 	shift += ((strand == '+') ? +mlength : -mlength);
 
       } else {
+	if (type == 'S' && mlength > max_softclip) {
+	  /* Must be final softclip, because we handled initial one already */
+	  fprintf(stderr,"Read has final soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	  mlength = max_softclip;
+	}
+
 	debug1(printf("Genomic pos is %u + %u = %u\n",chroffset,pos,chroffset+pos));
 	if (genome == NULL) {
 	  q = &(*p);
@@ -3511,7 +3587,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p,
 	      bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
-	      bool verbosep, bool readlevel_p) {
+	      bool verbosep, bool readlevel_p, int max_softclip) {
   long int grand_total = 0;
   T this;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
@@ -3527,8 +3603,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   
 
   /* Create tally at position N to store n_fromleft */
-  alloc_tallies_alloc = (T *) CALLOC(alloclength+1,sizeof(T));
-  for (i = 0; i < alloclength+1; i++) {
+  alloc_tallies_alloc = (T *) CALLOC(alloclength + 2*max_softclip + 1,sizeof(T));
+  for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
     alloc_tallies_alloc[i] = Tally_new();
   }
   alloc_tallies = &(alloc_tallies_alloc[0]);
@@ -3552,15 +3628,20 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   
   alloc_ptr = 0U;
   alloc_low = 0U;
-  alloc_high = alloc_low + alloclength;
+  alloc_high = alloc_low + alloclength + 2*max_softclip;
   goodp = false;
+
+  blockstart = 0U;
+  blockend = 0U;
+  blockptr = 0U;
 
   while (goodp == false &&
 	 (bamline = Bamread_next_bamline(bamreader,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 					 need_unique_p,need_primary_p,ignore_duplicates_p,
 					 need_concordant_p)) != NULL) {
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
-    debug0(printf(">%s:%u..%u ",chr,chrpos_low,chrpos_high));
+    debug0(printf("\n"));
+    debug0(printf(">%s:%u..%u ",printchr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
     debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
 
@@ -3573,34 +3654,31 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
       chrpos_low = Bamline_chrpos_low(bamline);
       chrpos_high = Bamline_chrpos_high(bamline);
 
-      alloc_low = chrpos_low;
-      alloc_high = alloc_low + alloclength;
-      alloc_ptr = chrpos_low;
-
-      blockstart = chrpos_low;
-      blockend = blockstart + blocksize;
-      blockptr = chrpos_low;
+      alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
+      alloc_high = alloc_low + alloclength + 2*max_softclip;
+      alloc_ptr = alloc_low;
 
       debug0(printf("    initialize alloc_low %u, alloc_high = %u, blockstart = %u, blockend = %u\n",
 		   alloc_low,alloc_high,blockstart,blockend));
 
-      if (chrpos_high >= alloc_high) {
+      if (chrpos_high + max_softclip >= alloc_high) {
 	if (verbosep == true) {
 	  fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		  Bamline_acc(bamline),printchr,chrpos_low,chrpos_high,alloclength);
 	}
       } else {
-	if (chrpos_high + 1U > alloc_ptr) {
-	  alloc_ptr = chrpos_high + 1U;
+	if (chrpos_high + max_softclip + 1U > alloc_ptr) {
+	  alloc_ptr = chrpos_high + max_softclip + 1U;
 	  debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
 	}
 
 	revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline),
 		    Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		    Bamline_cigar_querylength(bamline),Bamline_read(bamline),
-		    Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
-		    quality_counts_match,quality_counts_mismatch,
-		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p);
+		    Bamline_mapq(bamline),Bamline_quality_string(bamline),
+		    Bamline_terminalp(bamline),alloc_low,quality_counts_match,quality_counts_mismatch,
+		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
+		    max_softclip);
 
 	goodp = true;
       }
@@ -3616,7 +3694,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 
     debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  ",
 		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend));
-    debug0(printf("%s:%u..%u ",printchr,chrpos_low,chrpos_high));
+    debug0(printf("\n"));
+    debug0(printf(">%s:%u..%u ",printchr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
     debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
     
@@ -3633,8 +3712,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
       chrpos_low = Bamline_chrpos_low(bamline);
       chrpos_high = Bamline_chrpos_high(bamline);
 
-      if (chrpos_low > alloc_ptr) {
-	debug0(printf("Case 1: chrpos_low %u > alloc_ptr %u\n",chrpos_low,alloc_ptr));
+      if (chrpos_low > alloc_ptr + max_softclip) {
+	debug0(printf("Case 1: chrpos_low %u > alloc_ptr %u + max_softclip %d\n",chrpos_low,alloc_ptr,max_softclip));
 	debug0(printf("    transfer from alloc_low %u to alloc_ptr %u\n",alloc_low,alloc_ptr));
 	for (chrpos = alloc_low; chrpos < alloc_ptr; chrpos++) {
 	  alloci = chrpos - alloc_low;
@@ -3654,16 +3733,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  }
 	}
 
-	debug0(printf("    reset alloc_low = chrpos_low\n"));
-	alloc_low = chrpos_low;
-	alloc_high = alloc_low + alloclength;
-	alloc_tallies[alloclength]->n_fromleft_plus = 0;
-	alloc_tallies[alloclength]->n_fromleft_minus = 0;
+	debug0(printf("    reset alloc_low = chrpos_low - max_softclip\n"));
+	alloc_low = (chrpos_low < max_softclip) ? 0U : chrpos_low - max_softclip;
+	alloc_high = alloc_low + alloclength + 2*max_softclip;
+	alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_plus = 0;
+	alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_minus = 0;
 	
-      } else if (chrpos_low > alloc_low) {
-	debug0(printf("Case 2: chrpos_low %u > alloc_low %u\n",chrpos_low,alloc_low));
+      } else if (chrpos_low > alloc_low + max_softclip) {
+	debug0(printf("Case 2: chrpos_low %u > alloc_low %u + max_softclip %d\n",chrpos_low,alloc_low,max_softclip));
 	debug0(printf("    transfer from alloc_low %u up to chrpos_low %u\n",alloc_low,chrpos_low));
-	for (chrpos = alloc_low; chrpos < chrpos_low; chrpos++) {
+	for (chrpos = alloc_low; chrpos + max_softclip < chrpos_low; chrpos++) {
 	  alloci = chrpos - alloc_low;
 	  this = alloc_tallies[alloci];
 	  if (this->nmatches > 0 || this->mismatches_byshift != NULL ||
@@ -3681,8 +3760,12 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  }
 	}
 
-	delta = chrpos_low - alloc_low;
-	debug0(printf("    shift alloc downward by %d so alloc_low = chrpos_low\n",delta));
+	if (chrpos_low < max_softclip) {
+	  delta = chrpos_low /* - alloc_low (should be 0) */;
+	} else {
+	  delta = chrpos_low - (alloc_low + max_softclip);
+	}
+	debug0(printf("    shift alloc upward by %d so alloc_low = chrpos_low - max_softclip\n",delta,max_softclip));
 	for (alloci = 0; alloci < (int) (alloc_ptr - alloc_low - delta); alloci++) {
 	  Tally_transfer(&(alloc_tallies[alloci]),&(alloc_tallies[alloci+delta]));
 	}
@@ -3692,35 +3775,36 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  debug1(printf("Resetting alloci %d\n",alloci));
 	  Tally_clear(alloc_tallies[alloci]);
 	}
-	alloc_low = chrpos_low;
-	alloc_high = alloc_low + alloclength;
+	alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
+	alloc_high = alloc_low + alloclength + 2*max_softclip;
 	
-      } else if (chrpos_low == alloc_low) {
-	debug0(printf("Case 3: chrpos_low %u == alloc_low %u\n",chrpos_low,alloc_low));
+      } else if (chrpos_low == alloc_low + max_softclip) {
+	debug0(printf("Case 3: chrpos_low %u == alloc_low %u + max_softclip %d\n",chrpos_low,alloc_low,max_softclip));
 
       } else {
-	fprintf(stderr,"Sequences are not in order.  Got chrpos_low %u < alloc_low %u\n",
-		chrpos_low,alloc_low);
+	fprintf(stderr,"Sequences are not in order.  Got chrpos_low %u < alloc_low %u + max_softclip %d\n",
+		chrpos_low,alloc_low,max_softclip);
 	abort();
       }
 
-      if (chrpos_high >= alloc_high) {
+      if (chrpos_high + max_softclip >= alloc_high) {
 	if (verbosep == true) {
 	  fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		  Bamline_acc(bamline),printchr,chrpos_low,chrpos_high,alloc_high);
 	}
       } else {
-	if (chrpos_high + 1U > alloc_ptr) {
-	  alloc_ptr = chrpos_high + 1U;
+	if (chrpos_high + max_softclip + 1U > alloc_ptr) {
+	  alloc_ptr = chrpos_high + max_softclip + 1U;
 	  debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
 	}
 
 	revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline),
 		    Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		    Bamline_cigar_querylength(bamline),Bamline_read(bamline),
-		    Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
-		    quality_counts_match,quality_counts_mismatch,
-		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p);
+		    Bamline_mapq(bamline),Bamline_quality_string(bamline),
+		    Bamline_terminalp(bamline),alloc_low,quality_counts_match,quality_counts_mismatch,
+		    genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
+		    max_softclip);
       }
     }
 
@@ -3772,7 +3856,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   }
 
 
-  for (i = 0; i < alloclength+1; i++) {
+  for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
     Tally_free(&(alloc_tallies_alloc[i]));
   }
   FREE(alloc_tallies_alloc);
@@ -3788,15 +3872,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 
 /* Assumes output_type is OUTPUT_TALLY */
 void
-Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
-		 long int *tally_matches_high, long int *tally_mismatches_high,
+Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
+		 long int **tally_matches_high, long int **tally_mismatches_high,
 		 int *quality_counts_match, int *quality_counts_mismatch,
 		 Bamreader_T bamreader, Genome_T genome, char *printchr,
 		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, int alloclength,
 		 char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
-		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p) {
+		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p,
+		 int max_softclip) {
   T this_low, this_high;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
   Genomicpos_T blockptr = 0U, blockstart = 0U, blockend = 0U;
@@ -3809,8 +3894,8 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
   T *alloc_tallies_low_alloc, *alloc_tallies_high_alloc, *block_tallies_low_alloc, *block_tallies_high_alloc;
 
 
-  alloc_tallies_low_alloc = (T *) CALLOC(alloclength+1,sizeof(T));
-  for (i = 0; i < alloclength+1; i++) {
+  alloc_tallies_low_alloc = (T *) CALLOC(alloclength + 2*max_softclip + 1,sizeof(T));
+  for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
     alloc_tallies_low_alloc[i] = Tally_new();
   }
   alloc_tallies_low = &(alloc_tallies_low_alloc[0]);
@@ -3833,42 +3918,48 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
   }
   block_tallies_high = &(block_tallies_high_alloc[0]);
 
+  *tally_matches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_mismatches_low = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_matches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+  *tally_mismatches_high = (long int *) CALLOC(chrend-chrstart+1,sizeof(long int));
+
   alloc_ptr = 0U;
   alloc_low = 0U;
-  alloc_high = alloc_low + alloclength;
+  alloc_high = alloc_low + alloclength + 2*max_softclip;
   goodp = false;
+
+  blockstart = 0U;
+  blockend = 0U;
+  blockptr = 0U;
 
   while (goodp == false &&
 	 (bamline = Bamread_next_bamline(bamreader,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 					 need_unique_p,need_primary_p,ignore_duplicates_p,
 					 need_concordant_p)) != NULL) {
+    debug0(printf("\n"));
+    debug0(printf(">%s:%u..%u ",printchr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
+    debug0(Bamread_print_cigar(stdout,bamline));
+    debug0(printf("\n"));
+
     chrpos_low = Bamline_chrpos_low(bamline);
     chrpos_high = Bamline_chrpos_high(bamline);
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
 
-    debug0(printf(">%s:%u..%u ",printchr,chrpos_low,chrpos_high));
-    debug0(Bamread_print_cigar(stdout,bamline));
-    debug0(printf("\n"));
-
-    alloc_low = chrpos_low;
-    alloc_high = alloc_low + alloclength;
-    alloc_ptr = chrpos_low;
-
-    blockstart = chrpos_low;
-    blockend = blockstart + blocksize;
-    blockptr = chrpos_low;
+    alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
+    alloc_high = alloc_low + alloclength + 2*max_softclip;
+    alloc_ptr = alloc_low;
 
     debug0(printf("    initialize alloc_low %u, alloc_high = %u, blockstart = %u, blockend = %u\n",
 		  alloc_low,alloc_high,blockstart,blockend));
 
-    if (chrpos_high >= alloc_high) {
+    if (chrpos_high + max_softclip >= alloc_high) {
       if (verbosep == true) {
 	fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		Bamline_acc(bamline),printchr,chrpos_low,chrpos_high,alloclength);
       }
     } else {
-      if (chrpos_high + 1U > alloc_ptr) {
-	alloc_ptr = chrpos_high + 1U;
+      if (chrpos_high + max_softclip + 1U > alloc_ptr) {
+	alloc_ptr = chrpos_high + max_softclip + 1U;
 	debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
       }
 
@@ -3876,10 +3967,10 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 		     Bamline_lowend_p(bamline),chrpos_low,Bamline_flag(bamline),
 		     Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		     Bamline_cigar_querylength(bamline),Bamline_read(bamline),
-		     Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
-		     quality_counts_match,quality_counts_mismatch,
+		     Bamline_mapq(bamline),Bamline_quality_string(bamline),
+		     Bamline_terminalp(bamline),alloc_low,quality_counts_match,quality_counts_mismatch,
 		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false,
-		     readlevel_p);
+		     readlevel_p,max_softclip);
 
       goodp = true;
     }
@@ -3894,15 +3985,16 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 
     debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  ",
 		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend));
-    debug0(printf("%s:%u..%u ",printchr,chrpos_low,chrpos_high));
+    debug0(printf("\n"));
+    debug0(printf(">%s:%u..%u ",printchr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
     debug0(Bamread_print_cigar(stdout,bamline));
     debug0(printf("\n"));
     
     chrpos_low = Bamline_chrpos_low(bamline);
     chrpos_high = Bamline_chrpos_high(bamline);
 
-    if (chrpos_low > alloc_ptr) {
-      debug0(printf("Case 1: chrpos_low %u > alloc_ptr %u\n",chrpos_low,alloc_ptr));
+    if (chrpos_low > alloc_ptr + max_softclip) {
+      debug0(printf("Case 1: chrpos_low %u > alloc_ptr %u + max_softclip %d\n",chrpos_low,alloc_ptr,max_softclip));
       debug0(printf("    transfer from alloc_low %u to alloc_ptr %u\n",alloc_low,alloc_ptr));
       for (chrpos = alloc_low; chrpos < alloc_ptr; chrpos++) {
 	alloci = chrpos - alloc_low;
@@ -3914,22 +4006,22 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 	    this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
 	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			       &blockptr,&blockstart,&blockend,
-			       tally_matches_low,tally_mismatches_low,
-			       tally_matches_high,tally_mismatches_high,
+			       *tally_matches_low,*tally_mismatches_low,
+			       *tally_matches_high,*tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			       blocksize,
 			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 	}
       }
 
-      debug0(printf("    reset alloc_low = chrpos_low\n"));
-      alloc_low = chrpos_low;
-      alloc_high = alloc_low + alloclength;
+      debug0(printf("    reset alloc_low = chrpos_low - max_softclip\n"));
+      alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
+      alloc_high = alloc_low + alloclength + 2*max_softclip;
 	
-    } else if (chrpos_low > alloc_low) {
-      debug0(printf("Case 2: chrpos_low %u > alloc_low %u\n",chrpos_low,alloc_low));
+    } else if (chrpos_low > alloc_low + max_softclip) {
+      debug0(printf("Case 2: chrpos_low %u > alloc_low %u + max_softclip %d\n",chrpos_low,alloc_low,max_softclip));
       debug0(printf("    transfer from alloc_low %u up to chrpos_low %u\n",alloc_low,chrpos_low));
-      for (chrpos = alloc_low; chrpos < chrpos_low; chrpos++) {
+      for (chrpos = alloc_low; chrpos + max_softclip < chrpos_low; chrpos++) {
 	alloci = chrpos - alloc_low;
 	this_low = alloc_tallies_low[alloci];
 	this_high = alloc_tallies_high[alloci];
@@ -3939,16 +4031,20 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 	    this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
 	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			       &blockptr,&blockstart,&blockend,
-			       tally_matches_low,tally_mismatches_low,
-			       tally_matches_high,tally_mismatches_high,
+			       *tally_matches_low,*tally_mismatches_low,
+			       *tally_matches_high,*tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			       blocksize,
 			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 	}
       }
 
-      delta = chrpos_low - alloc_low;
-      debug0(printf("    shift alloc downward by %d so alloc_low = chrpos_low\n",delta));
+      if (chrpos_low < max_softclip) {
+	delta = chrpos_low /* - alloc_low (should be 0) */;
+      } else {
+	delta = chrpos_low - (alloc_low + max_softclip);
+      }
+      debug0(printf("    shift alloc upward by %d so alloc_low = chrpos_low - max_softclip\n",delta));
       for (alloci = 0; alloci < (int) (alloc_ptr - alloc_low - delta); alloci++) {
 	Tally_transfer(&(alloc_tallies_low[alloci]),&(alloc_tallies_low[alloci+delta]));
 	Tally_transfer(&(alloc_tallies_high[alloci]),&(alloc_tallies_high[alloci+delta]));
@@ -3958,26 +4054,26 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 	Tally_clear(alloc_tallies_low[alloci]);
 	Tally_clear(alloc_tallies_high[alloci]);
       }
-      alloc_low = chrpos_low;
-      alloc_high = alloc_low + alloclength;
+      alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
+      alloc_high = alloc_low + alloclength + 2*max_softclip;
 	
-    } else if (chrpos_low == alloc_low) {
-      debug0(printf("Case 3: chrpos_low %u == alloc_low %u\n",chrpos_low,alloc_low));
+    } else if (chrpos_low == alloc_low + max_softclip) {
+      debug0(printf("Case 3: chrpos_low %u == alloc_low %u + max_softclip %d\n",chrpos_low,alloc_low,max_softclip));
 
     } else {
-      fprintf(stderr,"Sequences are not in order.  Got chrpos_low %u < alloc_low %u\n",
-	      chrpos_low,alloc_low);
+      fprintf(stderr,"Sequences are not in order.  Got chrpos_low %u < alloc_low %u + max_softclip %d\n",
+	      chrpos_low,alloc_low,max_softclip);
       abort();
     }
 
-    if (chrpos_high >= alloc_high) {
+    if (chrpos_high + max_softclip >= alloc_high) {
       if (verbosep == true) {
 	fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		Bamline_acc(bamline),printchr,chrpos_low,chrpos_high,alloc_high);
       }
     } else {
-      if (chrpos_high + 1U > alloc_ptr) {
-	alloc_ptr = chrpos_high + 1U;
+      if (chrpos_high + max_softclip + 1U > alloc_ptr) {
+	alloc_ptr = chrpos_high + max_softclip + 1U;
 	debug0(printf("    revising alloc_ptr to be %u\n",alloc_ptr));
       }
 
@@ -3985,10 +4081,10 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 		     Bamline_lowend_p(bamline),chrpos_low,Bamline_flag(bamline),
 		     Bamline_cigar_types(bamline),Bamline_cigar_npositions(bamline),
 		     Bamline_cigar_querylength(bamline),Bamline_read(bamline),
-		     Bamline_mapq(bamline),Bamline_quality_string(bamline),alloc_low,
-		     quality_counts_match,quality_counts_mismatch,
+		     Bamline_mapq(bamline),Bamline_quality_string(bamline),
+		     Bamline_terminalp(bamline),alloc_low,quality_counts_match,quality_counts_mismatch,
 		     genome,chroffset,ignore_query_Ns_p,/*print_indels_p*/false,
-		     readlevel_p);
+		     readlevel_p,max_softclip);
     }
 
     Bamline_free(&bamline);
@@ -4009,8 +4105,8 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
 	this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
       transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
 			   &blockptr,&blockstart,&blockend,
-			   tally_matches_low,tally_mismatches_low,
-			   tally_matches_high,tally_mismatches_high,
+			   *tally_matches_low,*tally_mismatches_low,
+			   *tally_matches_high,*tally_mismatches_high,
 			   chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 			   blocksize,
 			   quality_score_adj,min_depth,variant_strands,genomic_diff_p);
@@ -4018,15 +4114,15 @@ Bamtally_run_lh (long int *tally_matches_low, long int *tally_mismatches_low,
   }
 
   debug0(printf("print block from blockstart %u to blockptr %u\n",blockstart,blockptr));
-  tally_block(tally_matches_low,tally_mismatches_low,
+  tally_block(*tally_matches_low,*tally_mismatches_low,
 	      block_tallies_low,blockstart,blockptr,genome,printchr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
-  tally_block(tally_matches_high,tally_mismatches_high,
+  tally_block(*tally_matches_high,*tally_mismatches_high,
 	      block_tallies_high,blockstart,blockptr,genome,printchr,chroffset,chrstart,
 	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
 
 
-  for (i = 0; i < alloclength+1; i++) {
+  for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
     Tally_free(&(alloc_tallies_low_alloc[i]));
     Tally_free(&(alloc_tallies_high_alloc[i]));
   }
@@ -4053,7 +4149,8 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
-	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p) {
+	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
+	      int max_softclip) {
   IIT_T iit;
 
   long int *tally_matches, *tally_mismatches;
@@ -4113,7 +4210,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 		   /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
 		   print_indels_p,/*print_totals_p*/false,/*print_cycles_p*/false,
 		   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-		   /*want_genotypes_p*/false,verbosep,readlevel_p);
+		   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip);
       /* Reverse lists so we can specify presortedp == true */
       Table_put(intervaltable,(void *) chr,List_reverse(intervallist));
       Table_put(labeltable,(void *) chr,List_reverse(labellist));
@@ -4138,7 +4235,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
     if (bam_lacks_chr == NULL) {
       chrptr = desired_chr;
     } else if (strncmp(desired_chr,bam_lacks_chr,bam_lacks_chr_length) == 0) {
-      chrptr = &(chr[bam_lacks_chr_length]);
+      chrptr = &(desired_chr[bam_lacks_chr_length]);
     } else {
       chrptr = desired_chr;
     }
@@ -4162,7 +4259,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
                    ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
                    /*print_cycles_p*/false,
                    /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-                   /*want_genotypes_p*/false,verbosep,readlevel_p);
+                   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip);
     }
     /* Reverse lists so we can specify presortedp == true */
     Table_put(intervaltable,(void *) desired_chr,List_reverse(intervallist));

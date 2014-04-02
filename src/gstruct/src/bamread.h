@@ -1,4 +1,4 @@
-/* $Id: bamread.h 108654 2013-09-19 23:11:00Z twu $ */
+/* $Id: bamread.h 129099 2014-03-04 18:44:44Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -43,7 +43,8 @@ extern int
 Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 		   char **mate_chr, Genomicpos_T *mate_chrpos,
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-		   int *readlength, char **read, char **quality_string, char **read_group);
+		   int *readlength, char **read, char **quality_string, char **read_group,
+		   bool *terminalp);
 
 typedef struct Bamline_T *Bamline_T;
 
@@ -91,6 +92,8 @@ extern char *
 Bamline_read (Bamline_T this);
 extern char *
 Bamline_quality_string (Bamline_T this);
+extern bool
+Bamline_terminalp (Bamline_T this);
 extern char *
 Bamline_read_group (Bamline_T this);
 extern void

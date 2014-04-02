@@ -17,7 +17,8 @@ setClass("BamTallyParam",
                         min_depth = "integer",
                         variant_strand = "integer",
                         ignore_query_Ns = "logical",
-                        indels = "logical"))
+                        indels = "logical",
+                        include_soft_clips = "integer"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Constructor
@@ -38,7 +39,7 @@ BamTallyParam <- function(genome, which = GRanges(),
                           primary_only = FALSE, ignore_duplicates = FALSE,
                           min_depth = 0L, variant_strand = 0L,
                           ignore_query_Ns = FALSE,
-                          indels = FALSE)
+                          indels = FALSE, include_soft_clips = 0L)
 {
   if (!is.null(desired_read_group) && !isSingleString(desired_read_group))
     stop("'desired_read_group' must be NULL or a single, non-NA string")
@@ -60,11 +61,14 @@ BamTallyParam <- function(genome, which = GRanges(),
     stop("ignore_query_Ns must be TRUE or FALSE")
   if (!isTRUEorFALSE(indels))
     stop("indels must be TRUE or FALSE")
+  if (include_soft_clips < 0)
+    stop("include_soft_clips must be non-negative")
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$genome <- as(genome, "GmapGenome")
   params$which <- normArgWhich(which, params$genome)
-  integer_params <- c("minimum_mapq", "min_depth", "variant_strand")
+  integer_params <- c("minimum_mapq", "min_depth", "variant_strand",
+                      "include_soft_clips")
   params[integer_params] <- lapply(params[integer_params], as.integer)
   do.call(new, c("BamTallyParam", params))  
 }

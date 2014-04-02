@@ -21,7 +21,7 @@
                 primary_only = FALSE, ignore_duplicates = FALSE,
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
-                indels = FALSE)
+                indels = FALSE, include_soft_clips = 0L)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -56,6 +56,13 @@
     conventions; i.e., the first base upstream is included. The range
     always spans the sequence in \code{ref}; so e.g. a deletion extends
     one nt upstream of the actual deleted sequence.
+  }
+  \item{include_soft_clips}{Maximum length of soft clips that are
+    considered for counting. Soft-clipping is often useful (for GSNAP at
+    least) during alignment, and it should be preserved in the
+    output. However, soft clipping can preferentially occur in regions
+    of discordance with the reference, and if those clipped regions are
+    ignored during counting, the allele fraction is misestimated.
   }
 }
 
