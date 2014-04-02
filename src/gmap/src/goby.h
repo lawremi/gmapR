@@ -1,10 +1,10 @@
-/* $Id: goby.h 58459 2012-02-24 21:02:35Z twu $ */
+/* $Id: goby.h 101822 2013-07-17 18:43:45Z twu $ */
 #ifndef GOBY_INCLUDED
 #define GOBY_INCLUDED
 
 #include <stdio.h>
 #include "bool.h"
-#include "iit-read.h"
+#include "iit-read-univ.h"
 #include "shortread.h"
 #include "stage3hr.h"
 
@@ -24,7 +24,7 @@ extern void
 Goby_reader_free (Gobyreader_T *old);
 extern Shortread_T
 Goby_read (Shortread_T *queryseq2, Gobyreader_T reader, int barcode_length,
-	   bool invert_first_p, bool invert_second_p);
+	   bool invert_first_p, bool invert_second_p, bool skipp);
 
 extern Gobywriter_T
 Goby_writer_new (char *output_root, char *aligner_name, char *aligner_version);
@@ -33,7 +33,7 @@ Goby_writer_finish (Gobywriter_T writer, Gobyreader_T reader);
 extern void
 Goby_writer_free (Gobywriter_T *old);
 extern void
-Goby_writer_add_chromosomes (Gobywriter_T writer, IIT_T chromosome_iit);
+Goby_writer_add_chromosomes (Gobywriter_T writer, Univ_IIT_T chromosome_iit);
 extern void
 Goby_file_handles (FILE **fp_capture, FILE**fp_ignore, Gobywriter_T writer);
 extern void

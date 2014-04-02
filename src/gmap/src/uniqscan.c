@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uniqscan.c 90498 2013-03-27 22:33:51Z twu $";
+static char rcsid[] = "$Id: uniqscan.c 124823 2014-01-28 20:18:20Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -26,6 +26,7 @@ static char rcsid[] = "$Id: uniqscan.c 90498 2013-03-27 22:33:51Z twu $";
 #include "shortread.h"		/* For Shortread_setup */
 #include "genome.h"
 #include "genome_hr.h"		/* For Genome_hr_setup */
+#include "genome_sites.h"	/* For Genome_sites_setup */
 #include "maxent_hr.h"		/* For Maxent_hr_setup */
 #include "indexdb_hr.h"
 #include "substring.h"
@@ -35,11 +36,13 @@ static char rcsid[] = "$Id: uniqscan.c 90498 2013-03-27 22:33:51Z twu $";
 #include "oligo.h"		/* For Oligo_setup */
 #include "oligoindex_hr.h"	/* For Oligoindex_hr_setup */
 #include "stage2.h"		/* For Stage2_setup */
+#include "indel.h"		/* For Indel_setup */
 #include "stage1hr.h"
 #include "indexdb.h"
 #include "intlist.h"
 #include "list.h"
 #include "listdef.h"
+#include "iit-read-univ.h"
 #include "iit-read.h"
 #include "datadir.h"
 
@@ -59,7 +62,7 @@ static char rcsid[] = "$Id: uniqscan.c 90498 2013-03-27 22:33:51Z twu $";
  ************************************************************************/
 
 static int gmap_mode = GMAP_PAIRSEARCH | GMAP_TERMINAL | GMAP_IMPROVEMENT;
-static double gmap_min_coverage = 0.50;
+static int gmap_min_nconsecutive = 20;
 static int nullgap = 600;
 static int maxpeelback = 11;
 static int maxpeelback_distalmedial = 24;
@@ -74,6 +77,7 @@ static int suboptimal_score_start = -1; /* Determined by simulations to have min
 static int suboptimal_score_end = 3;	/* Determined by simulations to have diminishing returns above 3 */
 
 static int trigger_score_for_gmap = 5;
+static int gmap_allowance = 3;
 /* static int trigger_score_for_terminals = 5; -- obsolete */
 
 static int min_intronlength = 9;
@@ -84,7 +88,7 @@ static int max_deletionlength = 50;
  *   Global parameters
  ************************************************************************/
 
-static IIT_T chromosome_iit = NULL;
+static Univ_IIT_T chromosome_iit = NULL;
 static int circular_typeint = -1;
 static int nchromosomes = 0;
 static bool *circularp = NULL;
@@ -92,7 +96,7 @@ static Indexdb_T indexdb = NULL;
 static Indexdb_T indexdb2 = NULL; /* For cmet or atoi */
 static Genome_T genome = NULL;
 static Genome_T genomealt = NULL;
-static UINT4 *genome_blocks = NULL;
+static Genomecomp_T *genome_blocks = NULL;
 
 
 /************************************************************************
@@ -128,6 +132,8 @@ static Access_mode_T genome_access = USE_ALLOCATE;
 static int pairmax;
 static int pairmax_dna = 1000;
 static int pairmax_rna = 200000;
+static int expected_pairlength = 200;
+static int pairlength_deviation = 100;
 
 
 /* static Masktype_T masktype = MASK_REPETITIVE; */
@@ -148,12 +154,12 @@ static int max_middle_deletions = 30;
 static int max_end_insertions = 3;
 static int max_end_deletions = 6;
 static int min_indel_end_matches = 4;
-static Genomicpos_T shortsplicedist = 200000;
-static Genomicpos_T shortsplicedist_known;
-static Genomicpos_T shortsplicedist_novelend = 50000;
+static Chrpos_T shortsplicedist = 200000;
+static Chrpos_T shortsplicedist_known;
+static Chrpos_T shortsplicedist_novelend = 50000;
 static int localsplicing_penalty = 0;
 static int distantsplicing_penalty = 100;
-static int min_distantsplicing_end_matches = 16;
+static int min_distantsplicing_end_matches = 20;
 static double min_distantsplicing_identity = 0.95;
 static int min_shortend = 2;
 static int antistranded_penalty = 0; /* Most RNA-Seq is non-stranded */
@@ -187,13 +193,13 @@ static int donor_typeint = -1;		/* for splicing_iit */
 static int acceptor_typeint = -1;	/* for splicing_iit */
 
 static int *splicing_divint_crosstable = NULL;
-static UINT4 *splicecomp = NULL;
-static Genomicpos_T *splicesites = NULL;
+static Genomecomp_T *splicecomp = NULL;
+static Univcoord_T *splicesites = NULL;
 static Splicetype_T *splicetypes = NULL;
-static Genomicpos_T *splicedists = NULL; /* maximum observed splice distance for given splice site */
+static Chrpos_T *splicedists = NULL; /* maximum observed splice distance for given splice site */
 static List_T *splicestrings = NULL;
-static UINT4 *splicefrags_ref = NULL;
-static UINT4 *splicefrags_alt = NULL;
+static Genomecomp_T *splicefrags_ref = NULL;
+static Genomecomp_T *splicefrags_alt = NULL;
 static int nsplicesites = 0;
 
 /* Splicing via splicesites */
@@ -202,10 +208,10 @@ static int *nsplicepartners_obs = NULL;
 static int *nsplicepartners_max = NULL;
 
 static bool splicetrie_precompute_p = true;
-static unsigned int *trieoffsets_obs = NULL;
-static unsigned int *triecontents_obs = NULL;
-static unsigned int *trieoffsets_max = NULL;
-static unsigned int *triecontents_max = NULL;
+static Trieoffset_T *trieoffsets_obs = NULL;
+static Triecontent_T *triecontents_obs = NULL;
+static Trieoffset_T *trieoffsets_max = NULL;
+static Triecontent_T *triecontents_max = NULL;
 
 
 /* Dibase and CMET */
@@ -284,6 +290,8 @@ static struct option long_options[] = {
 
   {"gmap-mode", required_argument, 0, 0}, /* gmap_mode */
   {"trigger-score-for-gmap", required_argument, 0, 0}, /* trigger_score_for_gmap */
+  {"gmap-min-match-length", required_argument, 0, 0},      /* gmap_min_nconsecutive */
+  {"gmap-allowance", required_argument, 0, 0}, /* gmap_allowance */
   {"max-gmap-pairsearch", required_argument, 0, 0}, /* max_gmap_pairsearch */
   {"max-gmap-terminal", required_argument, 0, 0}, /* max_gmap_terminal */
   {"max-gmap-improvement", required_argument, 0, 0}, /* max_gmap_improvement */
@@ -428,15 +436,13 @@ uniqueness_scan (bool from_right_p) {
     /* Handle full sequence */
     queryseq1 = Shortread_new(/*acc*/NULL,/*restofheader*/NULL,/*filterp*/false,sequence,
 			      /*sequence_length*/fulllength,/*quality*/NULL,/*quality_length*/0,
-			      /*barcode_length*/0,/*invertp*/0,/*copy_acc_p*/false);
+			      /*barcode_length*/0,/*invertp*/0,/*copy_acc_p*/false,/*skipp*/false);
     stage3array = Stage1_single_read(&npaths,&first_absmq,&second_absmq,
 				     queryseq1,indexdb,indexdb2,indexdb_size_threshold,
 				     genome,floors_array,user_maxlevel_float,subopt_levels,
 				     indel_penalty_middle,indel_penalty_end,
-				     max_middle_insertions,max_middle_deletions,
 				     allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
-				     shortsplicedist,localsplicing_penalty,/*distantsplicing_penalty*/100,
-				     min_distantsplicing_end_matches,min_distantsplicing_identity,min_shortend,
+				     localsplicing_penalty,/*distantsplicing_penalty*/100,min_shortend,
 				     oligoindices_major,noligoindices_major,
 				     oligoindices_minor,noligoindices_minor,pairpool,diagpool,
 				     dynprogL,dynprogM,dynprogR,
@@ -476,15 +482,13 @@ uniqueness_scan (bool from_right_p) {
 	}
 	queryseq1 = Shortread_new(/*acc*/NULL,/*restofheader*/NULL,/*filterp*/false,subsequence,
 				  /*sequence_length*/sublength,/*quality*/NULL,/*quality_length*/0,
-				  /*barcode_length*/0,/*invertp*/0,/*copy_acc_p*/false);
+				  /*barcode_length*/0,/*invertp*/0,/*copy_acc_p*/false,/*skipp*/false);
 	stage3array = Stage1_single_read(&npaths,&first_absmq,&second_absmq,
 					 queryseq1,indexdb,indexdb2,indexdb_size_threshold,
 					 genome,floors_array,user_maxlevel_float,subopt_levels,
 					 indel_penalty_middle,indel_penalty_end,
-					 max_middle_insertions,max_middle_deletions,
 					 allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
-					 shortsplicedist,localsplicing_penalty,/*distantsplicing_penalty*/100,
-					 min_distantsplicing_end_matches,min_distantsplicing_identity,min_shortend,
+					 localsplicing_penalty,/*distantsplicing_penalty*/100,min_shortend,
 					 oligoindices_major,noligoindices_major,
 					 oligoindices_minor,noligoindices_minor,pairpool,diagpool,
 					 dynprogL,dynprogM,dynprogR,
@@ -720,6 +724,10 @@ main (int argc, char *argv[]) {
 
       } else if (!strcmp(long_name,"trigger-score-for-gmap")) {
 	trigger_score_for_gmap = atoi(check_valid_int(optarg));
+      } else if (!strcmp(long_name,"gmap-min-match-length")) {
+	gmap_min_nconsecutive = atoi(check_valid_int(optarg));
+      } else if (!strcmp(long_name,"gmap-allowance")) {
+	gmap_allowance = atoi(check_valid_int(optarg));
 
       } else if (!strcmp(long_name,"max-gmap-pairsearch")) {
 	max_gmap_pairsearch = atoi(check_valid_int(optarg));
@@ -918,20 +926,20 @@ main (int argc, char *argv[]) {
   iitfile = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+
 			    strlen(fileroot)+strlen(".chromosome.iit")+1,sizeof(char));
   sprintf(iitfile,"%s/%s.chromosome.iit",genomesubdir,fileroot);
-  if ((chromosome_iit = IIT_read(iitfile,/*name*/NULL,/*readonlyp*/true,/*divread*/READ_ALL,
-				 /*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true)) == NULL) {
+  if ((chromosome_iit = Univ_IIT_read(iitfile,/*readonlyp*/true,/*add_iit_p*/false)) == NULL) {
     fprintf(stderr,"IIT file %s is not valid\n",iitfile);
     exit(9);
   } else {
-    nchromosomes = IIT_total_nintervals(chromosome_iit);
-    circular_typeint = IIT_typeint(chromosome_iit,"circular");
-    circularp = IIT_circularp(chromosome_iit);
+    nchromosomes = Univ_IIT_total_nintervals(chromosome_iit);
+    circular_typeint = Univ_IIT_typeint(chromosome_iit,"circular");
+    circularp = Univ_IIT_circularp(chromosome_iit);
   }
   FREE(iitfile);
 
 
   if (snps_root == NULL) {
-    genome = Genome_new(genomesubdir,fileroot,/*snps_root*/NULL,uncompressedp,genome_access);
+    genome = Genome_new(genomesubdir,fileroot,/*snps_root*/NULL,/*genometype*/GENOME_OLIGOS,
+			uncompressedp,genome_access);
     if (mode == CMET_STRANDED || mode == CMET_NONSTRANDED) {
       if (user_cmetdir == NULL) {
 	modedir = genomesubdir;
@@ -1001,8 +1009,10 @@ main (int argc, char *argv[]) {
     }
 
     /* SNPs */
-    genome = Genome_new(genomesubdir,fileroot,/*snps_root*/NULL,uncompressedp,genome_access);
-    genomealt = Genome_new(snpsdir,fileroot,snps_root,uncompressedp,genome_access);
+    genome = Genome_new(genomesubdir,fileroot,/*snps_root*/NULL,/*genometype*/GENOME_OLIGOS,
+			uncompressedp,genome_access);
+    genomealt = Genome_new(snpsdir,fileroot,snps_root,/*genometype*/GENOME_OLIGOS,
+			   uncompressedp,genome_access);
 
     if (mode == CMET_STRANDED || mode == CMET_NONSTRANDED) {
       if (user_cmetdir == NULL) {
@@ -1076,7 +1086,7 @@ main (int argc, char *argv[]) {
       }
     }
 
-    snps_divint_crosstable = IIT_divint_crosstable(chromosome_iit,snps_iit);
+    snps_divint_crosstable = Univ_IIT_divint_crosstable(chromosome_iit,snps_iit);
 
     fprintf(stderr,"done\n");
     FREE(iitfile);
@@ -1103,7 +1113,8 @@ main (int argc, char *argv[]) {
 
   Genome_setup(genome,genomealt,/*mode*/STANDARD,circular_typeint);
   Genome_hr_setup(Genome_blocks(genome),/*snp_blocks*/genomealt ? Genome_blocks(genomealt) : NULL,
-		  query_unk_mismatch_p,genome_unk_mismatch_p,mode);
+		  query_unk_mismatch_p,genome_unk_mismatch_p,mode,/*genomebits_avail_p*/false);
+  Genome_sites_setup(Genome_blocks(genome),/*snp_blocks*/genomealt ? Genome_blocks(genomealt) : NULL);
   Maxent_hr_setup(Genome_blocks(genome),/*snp_blocks*/genomealt ? Genome_blocks(genomealt) : NULL);
   Indexdb_setup(index1part);
   Indexdb_hr_setup(index1part);
@@ -1112,14 +1123,18 @@ main (int argc, char *argv[]) {
 		   trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
 		   /*snpp*/snps_iit ? true : false,amb_closest_p,/*amb_clip_p*/true,min_shortend);
   spansize = Spanningelt_setup(index1part,index1interval);
-  Stage1hr_setup(index1part,index1interval,spansize,chromosome_iit,nchromosomes,
-		 genomealt,mode,/*maxpaths_search*/10,/*terminal_threshold*/5,
+  Indel_setup(min_indel_end_matches,indel_penalty_middle);
+  Stage1hr_setup(/*use_sarray_p*/false,index1part,index1interval,
+		 spansize,chromosome_iit,nchromosomes,
+		 genomealt,mode,/*maxpaths_search*/10,/*terminal_threshold*/5,/*terminal_output_minlength*/0,
 		 splicesites,splicetypes,splicedists,nsplicesites,
 		 novelsplicingp,knownsplicingp,distances_observed_p,
-		 shortsplicedist_known,shortsplicedist_novelend,min_intronlength,
+		 max_middle_insertions,max_middle_deletions,
+		 shortsplicedist,shortsplicedist_known,shortsplicedist_novelend,min_intronlength,
+		 min_distantsplicing_end_matches,min_distantsplicing_identity,
 		 nullgap,maxpeelback,maxpeelback_distalmedial,
 		 extramaterial_end,extramaterial_paired,gmap_mode,
-		 trigger_score_for_gmap,max_gmap_pairsearch,
+		 trigger_score_for_gmap,gmap_allowance,max_gmap_pairsearch,
 		 max_gmap_terminal,max_gmap_improvement,antistranded_penalty);
   Substring_setup(/*print_nsnpdiffs_p*/false,/*print_snplabels_p*/false,
 		  /*show_refdiff_p*/false,snps_iit,snps_divint_crosstable,
@@ -1130,25 +1145,27 @@ main (int argc, char *argv[]) {
   Dynprog_setup(novelsplicingp,splicing_iit,splicing_divint_crosstable,
 		donor_typeint,acceptor_typeint,
 		splicesites,splicetypes,splicedists,nsplicesites,
-		trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max);
+		trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
+		/*homopolymerp*/false);
   Oligoindex_hr_setup(Genome_blocks(genome),/*mode*/STANDARD);
-  Stage2_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,
-	       suboptimal_score_start,suboptimal_score_end,mode,/*snps_p*/snps_iit ? true : false);
+  Stage2_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,/*cross_species_p*/false,
+	       suboptimal_score_start,suboptimal_score_end,min_intronlength,
+	       mode,/*snps_p*/snps_iit ? true : false);
   Pair_setup(trim_mismatch_score,trim_indel_score,/*sam_insert_0M_p*/false,
 	     /*force_xs_direction_p*/false,/*md_lowercase_variant_p*/false,
 	     /*snps_p*/snps_iit ? true : false);
   Stage3_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,novelsplicingp,
 	       /*require_splicedir_p*/false,splicing_iit,splicing_divint_crosstable,
 	       donor_typeint,acceptor_typeint,
-	       splicesites,min_intronlength,max_deletionlength,
-	       /*output_sam_p*/false);
+	       splicesites,min_intronlength,max_deletionlength,/*output_sam_p*/false,
+	       /*homopolymerp*/false,/*stage3debug*/NO_STAGE3DEBUG);
   Stage3hr_setup(/*invert_first_p*/false,/*invert_second_p*/false,genes_iit,genes_divint_crosstable,
 		 /*tally_iit*/NULL,/*tally_divint_crosstable*/NULL,
-		 /*runlength_iit*/NULL,/*runlength_divint_crosstable*/NULL,
-		 distances_observed_p,pairmax,
+		 /*runlength_iit*/NULL,/*runlength_divint_crosstable*/NULL,/*terminal_output_minlength*/0,
+		 distances_observed_p,pairmax,expected_pairlength,pairlength_deviation,
 		 localsplicing_penalty,indel_penalty_middle,antistranded_penalty,
-		 favor_multiexon_p,gmap_min_coverage,index1part,index1interval,
-		 novelsplicingp,circularp);
+		 favor_multiexon_p,gmap_min_nconsecutive,index1part,index1interval,
+		 novelsplicingp,/*merge_samechr_p*/false,circularp);
 
   uniqueness_scan(from_right_p);
 
@@ -1210,7 +1227,7 @@ main (int argc, char *argv[]) {
   }
 
   if (chromosome_iit != NULL) {
-    IIT_free(&chromosome_iit);
+    Univ_IIT_free(&chromosome_iit);
   }
 
   return 0;

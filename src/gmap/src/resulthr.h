@@ -1,4 +1,4 @@
-/* $Id: resulthr.h 91126 2013-04-02 20:12:46Z twu $ */
+/* $Id: resulthr.h 91116 2013-04-02 19:50:33Z twu $ */
 #ifndef RESULTHR_INCLUDED
 #define RESULTHR_INCLUDED
 #include "bool.h"

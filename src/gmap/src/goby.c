@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: goby.c 63197 2012-05-03 17:41:52Z twu $";
+static char rcsid[] = "$Id: goby.c 101822 2013-07-17 18:43:45Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -130,7 +130,7 @@ Goby_reader_free (Gobyreader_T *old) {
 
 Shortread_T
 Goby_read (Shortread_T *queryseq2, Gobyreader_T reader, int barcode_length,
-	   bool invert_first_p, bool invert_second_p) {
+	   bool invert_first_p, bool invert_second_p, bool skipp) {
 #ifdef HAVE_GOBY
   unsigned long goby_read_index;
   char *acc, *read_identifier = NULL, *description = NULL;
@@ -184,11 +184,11 @@ Goby_read (Shortread_T *queryseq2, Gobyreader_T reader, int barcode_length,
 
   *queryseq2 = Shortread_new(/*acc*/NULL,/*description*/NULL,/*filterp*/false,
 			     sequence2,sequence2_length,quality2,quality2_length,
-			     barcode_length,invert_second_p, /*copy_acc*/false);
+			     barcode_length,invert_second_p,/*copy_acc*/false,skipp);
 
   return Shortread_new(acc,description,/*filterp*/false,
 		       sequence1,sequence1_length,quality1,quality1_length,
-		       barcode_length,invert_first_p,/*copy_acc*/false);
+		       barcode_length,invert_first_p,/*copy_acc*/false,skipp);
 #else
   return (Shortread_T) NULL;
 #endif
@@ -237,19 +237,19 @@ Goby_writer_free (Gobywriter_T *old) {
 
 
 void
-Goby_writer_add_chromosomes (Gobywriter_T writer, IIT_T chromosome_iit) {
+Goby_writer_add_chromosomes (Gobywriter_T writer, Univ_IIT_T chromosome_iit) {
 #ifdef HAVE_GOBY
   int nintervals, gsnap_target_index;
   char *gsnap_target_label;
   bool allocp;
-  Interval_T interval;
-  unsigned int length;
+  Univinterval_T interval;
+  Chrpos_T length;
 
-  nintervals = IIT_total_nintervals(chromosome_iit);
+  nintervals = Univ_IIT_total_nintervals(chromosome_iit);
   for (gsnap_target_index = 1; gsnap_target_index <= nintervals; gsnap_target_index++) {
-    gsnap_target_label = IIT_label(chromosome_iit,gsnap_target_index,&allocp);
-    interval = IIT_interval(chromosome_iit,gsnap_target_index);
-    length = Interval_length(interval);
+    gsnap_target_label = Univ_IIT_label(chromosome_iit,gsnap_target_index,&allocp);
+    interval = Univ_IIT_interval(chromosome_iit,gsnap_target_index);
+    length = Univinterval_length(interval);
     /* goby_target_index is 0-based, gsnap_target_index is 1-based. */
     gobyAlignments_addTarget(writer->helper,gsnap_target_index - 1,gsnap_target_label,length);
     debug(fprintf(stderr, "%u is %s\n", gsnap_target_index - 1, gsnap_target_label));

@@ -13,7 +13,7 @@
 
 updateGMAPSrc <- function() {
   gmapSVNProj <-
-    "http://resscm/bioinfo/projects/gmap/releases/public-2013-03-31"
+    "http://resscm/bioinfo/projects/gmap/releases/internal-2013-10-01"
   extractDirGmap <- file.path(getwd(), "src/gmap")
   .bootstrapAndExtract(projectSVNURL=gmapSVNProj, extractDir=extractDirGmap,
                        program="gmap", bootstrap = "bootstrap.gsnaptoo")

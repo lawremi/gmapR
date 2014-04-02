@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: pairpool.c 82070 2012-12-19 21:42:59Z twu $";
+static char rcsid[] = "$Id: pairpool.c 109074 2013-09-25 00:01:19Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -34,6 +34,13 @@ static char rcsid[] = "$Id: pairpool.c 82070 2012-12-19 21:42:59Z twu $";
 #define debug2(x) x
 #else
 #define debug2(x)
+#endif
+
+/* joining ends */
+#ifdef DEBUG15
+#define debug15(x) x
+#else 
+#define debug15(x)
 #endif
 
 
@@ -358,7 +365,8 @@ Pairpool_push_gapalign (List_T list, T this, int querypos, int genomepos, char c
 }
 
 List_T
-Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump, bool knownp) {
+Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump,
+			 Pair_T leftpair, Pair_T rightpair, bool knownp) {
   List_T listcell;
   Pair_T pair;
   List_T p;
@@ -402,6 +410,13 @@ Pairpool_push_gapholder (List_T list, T this, int queryjump, int genomejump, boo
   }
   pair->introntype = NONINTRON;
   pair->extraexonp = false;
+
+  if (leftpair && rightpair) {
+    queryjump = rightpair->querypos - leftpair->querypos - 1;
+    genomejump = rightpair->genomepos - leftpair->genomepos - 1;
+    if (leftpair->cdna == ' ') queryjump++;
+    if (leftpair->genome == ' ') genomejump++;
+  }
 
   pair->queryjump = queryjump;
   pair->genomejump = genomejump;
@@ -587,45 +602,54 @@ Pairpool_clip_bounded (List_T source, int minpos, int maxpos) {
   Pair_T pair;
   int starti = -1, endi = -1, i;
 
-  for (p = source, i = 0; p != NULL; p = p->rest, i++) {
-    pair = (Pair_T) List_head(p);
-    if (pair->querypos == minpos) {
-      starti = i;		/* Advances in case of ties */
-    } else if (pair->querypos > minpos && starti < 0) {
-      starti = i;		/* Handles case where minpos was skipped */
+  if (source == NULL) {
+    return (List_T) NULL;
+  } else {
+    for (p = source, i = 0; p != NULL; p = p->rest, i++) {
+      pair = (Pair_T) List_head(p);
+      if (pair->querypos == minpos) {
+	starti = i;		/* Advances in case of ties */
+      } else if (pair->querypos > minpos && starti < 0) {
+	starti = i;		/* Handles case where minpos was skipped */
+      }
+
+      if (pair->querypos == maxpos && endi < 0) {
+	endi = i + 1;		/* Does not advance in case of tie */
+      } else if (pair->querypos > maxpos && endi < 0) {
+	endi = i;	   /* Handles case where maxpos was skipped */
+      }
     }
 
-    if (pair->querypos == maxpos && endi < 0) {
-      endi = i + 1;		/* Does not advance in case of tie */
-    } else if (pair->querypos > maxpos && endi < 0) {
-      endi = i;	   /* Handles case where maxpos was skipped */
+    if (starti < 0 && endi < 0) {
+      /* None of the pairs fall within bounds */
+      return (List_T) NULL;
+    } else {
+      if (starti < 0) {
+	starti = 0;
+      }
+      if (endi < 0) {
+	endi = i;
+      }
     }
-  }
 
-  if (starti < 0) {
-    starti = 0;
-  }
-  if (endi < 0) {
-    endi = i;
-  }
+    p = source;
+    i = 0;
+    while (i < starti) {
+      p = p->rest;
+      i++;
+    }
 
-  p = source;
-  i = 0;
-  while (i < starti) {
-    p = p->rest;
-    i++;
-  }
-
-  dest = p;
-  prev = &p->rest;
-  while (i < endi) {
+    dest = p;
     prev = &p->rest;
-    p = p->rest;
-    i++;
-  }
+    while (i < endi) {
+      prev = &p->rest;
+      p = p->rest;
+      i++;
+    }
 
-  *prev = NULL;		/* Clip rest of list */
-  return dest;
+    *prev = NULL;		/* Clip rest of list */
+    return dest;
+  }
 }
 
 
@@ -685,9 +709,211 @@ struct Pair_T *
 Pairpool_copy_array (struct Pair_T *source, int npairs) {
   struct Pair_T *dest;
 
-  dest = (struct Pair_T *) CALLOC_OUT(npairs,sizeof(struct Pair_T));
+  dest = (struct Pair_T *) MALLOC_OUT(npairs * sizeof(struct Pair_T));
   memcpy(dest,source,npairs*sizeof(struct Pair_T));
   return dest;
 }
 
+
+void
+Pairpool_clean_join (List_T *left_path, List_T *right_pairs) {
+  Pair_T leftpair, rightpair;
+  int queryjump, genomejump;
+
+
+  debug15(printf("Entered clean_join\n"));
+  debug15(printf("left path:\n"));
+  debug15(Pair_dump_list(*left_path,true));
+  debug15(printf("right pairs:\n"));
+  debug15(Pair_dump_list(*right_pairs,true));
+
+
+  while (*left_path != NULL && ((Pair_T) (*left_path)->first)->gapp == true) {
+    debug15(printf("Clearing gap on left\n"));
+    *left_path = Pairpool_pop(*left_path,&leftpair);
+  }
+  while (*right_pairs != NULL && ((Pair_T) (*right_pairs)->first)->gapp == true) {
+    debug15(printf("Clearing gap on right\n"));
+    *right_pairs = Pairpool_pop(*right_pairs,&rightpair);
+  }
+  
+  if (*left_path != NULL && *right_pairs != NULL) {
+    leftpair = (Pair_T) (*left_path)->first;
+    rightpair = (Pair_T) (*right_pairs)->first;
+    queryjump = rightpair->querypos - leftpair->querypos - 1;
+    genomejump = rightpair->genomepos - leftpair->genomepos - 1;
+    debug15(printf("queryjump %d, genomejump %d\n",queryjump,genomejump));
+
+    /* Fix overlap */
+    while (*left_path != NULL && *right_pairs != NULL && (queryjump < 0 || genomejump < 0)) {
+      while (*left_path != NULL && ((Pair_T) (*left_path)->first)->gapp == true) {
+	debug15(printf("Clearing gap on left\n"));
+	*left_path = Pairpool_pop(*left_path,&leftpair);
+      }
+      while (*right_pairs != NULL && ((Pair_T) (*right_pairs)->first)->gapp == true) {
+	debug15(printf("Clearing gap on right\n"));
+	*right_pairs = Pairpool_pop(*right_pairs,&rightpair);
+      }
+      *left_path = Pairpool_pop(*left_path,&leftpair);
+      *right_pairs = Pairpool_pop(*right_pairs,&rightpair);
+      queryjump = rightpair->querypos - leftpair->querypos - 1;
+      genomejump = rightpair->genomepos - leftpair->genomepos - 1;
+      debug15(printf("Revising queryjump to be %d = %d - %d - 1\n",queryjump,rightpair->querypos,leftpair->querypos));
+    }
+  
+    while (*left_path != NULL && ((Pair_T) (*left_path)->first)->gapp == true) {
+      debug15(printf("Clearing gap on left\n"));
+      *left_path = Pairpool_pop(*left_path,&leftpair);
+    }
+    while (*right_pairs != NULL && ((Pair_T) (*right_pairs)->first)->gapp == true) {
+      debug15(printf("Clearing gap on right\n"));
+      *right_pairs = Pairpool_pop(*right_pairs,&rightpair);
+    }
+  }
+
+  return;
+}
+
+
+
+List_T
+Pairpool_join_end3 (List_T path_orig, List_T end3_pairs_orig, Pairpool_T pairpool,
+		    bool copy_end_p) {
+  List_T path, end3_pairs;
+  Pair_T pair, leftpair;
+  int queryjump = -1, genomejump = -1;
+  
+  path = Pairpool_copy(path_orig,pairpool);
+  if (copy_end_p == true) {
+    end3_pairs = Pairpool_copy(end3_pairs_orig,pairpool);
+  } else {
+    end3_pairs = end3_pairs_orig;
+  }
+
+  debug15(printf("Entered join_end3\n"));
+  debug15(printf("path:\n"));
+  debug15(Pair_dump_list(path,true));
+  debug15(printf("end3_pairs:\n"));
+  debug15(Pair_dump_list(end3_pairs,true));
+
+
+  leftpair = (Pair_T) path->first;
+  pair = (Pair_T) end3_pairs->first;
+  queryjump = pair->querypos - leftpair->querypos - 1;
+  genomejump = pair->genomepos - leftpair->genomepos - 1;
+  debug15(printf("queryjump %d, genomejump %d\n",queryjump,genomejump));
+
+  if (queryjump == 0 && genomejump == 0) {
+    /* Do nothing, although this is unexpected */
+  } else if (queryjump >= 0 && genomejump >= 0) {
+    /* Insert a gapholder */
+    path = Pairpool_push_gapholder(path,pairpool,queryjump,genomejump,
+				   /*leftpair*/NULL,/*rightpair*/NULL,/*knownp*/false);
+  } else {
+    /* Fix overlap */
+    while (path != NULL && end3_pairs != NULL && (queryjump < 0 || genomejump < 0)) {
+      pair = (Pair_T) end3_pairs->first;
+
+      if (path != NULL) {
+	path = Pairpool_pop(path,&leftpair);
+      }
+      if (end3_pairs != NULL) {
+	end3_pairs = Pairpool_pop(end3_pairs,&pair);
+      }
+      queryjump = pair->querypos - leftpair->querypos - 1;
+      genomejump = pair->genomepos - leftpair->genomepos - 1;
+      debug15(printf("Revising queryjump to be %d = %d - %d - 1\n",queryjump,pair->querypos,leftpair->querypos));
+    }
+
+    path = Pairpool_push_existing(path,pairpool,leftpair);
+    if (queryjump == 0 && genomejump == 0) {
+      /* No gapholder needed */
+    } else {
+      path = Pairpool_push_gapholder(path,pairpool,queryjump,genomejump,
+				     /*leftpair*/NULL,/*rightpair*/NULL,/*knownp*/false);
+    }
+    path = Pairpool_push_existing(path,pairpool,pair);
+  }
+  
+  while (end3_pairs != NULL) {
+    path = List_transfer_one(path,&end3_pairs);
+  }
+    
+  debug15(printf("joined path:\n"));
+  debug15(Pair_dump_list(path,true));
+  debug15(printf("\n"));
+
+  return path;
+}
+
+
+List_T
+Pairpool_join_end5 (List_T pairs_orig, List_T end5_path_orig, Pairpool_T pairpool,
+		    bool copy_end_p) {
+  List_T pairs, end5_path;
+  Pair_T pair, rightpair;
+  int queryjump = -1, genomejump = -1;
+  
+  pairs = Pairpool_copy(pairs_orig,pairpool);
+  if (copy_end_p == true) {
+    end5_path = Pairpool_copy(end5_path_orig,pairpool);
+  } else {
+    end5_path = end5_path_orig;
+  }
+
+  debug15(printf("Entered join_end5\n"));
+  debug15(printf("pairs:\n"));
+  debug15(Pair_dump_list(pairs,true));
+  debug15(printf("end5_path:\n"));
+  debug15(Pair_dump_list(end5_path,true));
+
+
+  rightpair = (Pair_T) pairs->first;
+  pair = (Pair_T) end5_path->first;
+  queryjump = rightpair->querypos - pair->querypos - 1;
+  genomejump = rightpair->genomepos - pair->genomepos - 1;
+  debug15(printf("queryjump %d, genomejump %d\n",queryjump,genomejump));
+
+  if (queryjump == 0 && genomejump == 0) {
+    /* Do nothing, although this is unexpected */
+  } else if (queryjump >= 0 && genomejump >= 0) {
+    /* Insert a gapholder */
+    pairs = Pairpool_push_gapholder(pairs,pairpool,queryjump,genomejump,
+				    /*leftpair*/NULL,/*rightpair*/NULL,/*knownp*/false);
+  } else {
+    /* Fix overlap */
+    while (pairs != NULL && end5_path != NULL && (queryjump < 0 || genomejump < 0)) {
+      pair = (Pair_T) end5_path->first;
+
+      if (pairs != NULL) {
+	pairs = Pairpool_pop(pairs,&rightpair);
+      }
+      if (end5_path != NULL) {
+	end5_path = Pairpool_pop(end5_path,&pair);
+      }
+      queryjump = rightpair->querypos - pair->querypos - 1;
+      genomejump = rightpair->genomepos - pair->genomepos - 1;
+      debug15(printf("Revising queryjump to be %d = %d - %d - 1\n",queryjump,pair->querypos,rightpair->querypos));
+    }
+
+    pairs = Pairpool_push_existing(pairs,pairpool,rightpair);
+    if (queryjump == 0 && genomejump == 0) {
+      /* No gapholder needed */
+    } else {
+      pairs = Pairpool_push_gapholder(pairs,pairpool,queryjump,genomejump,
+				      /*leftpair*/NULL,/*rightpair*/NULL,/*knownp*/false);
+    }
+    pairs = Pairpool_push_existing(pairs,pairpool,pair);
+  }
+  
+  while (end5_path != NULL) {
+    pairs = List_transfer_one(pairs,&end5_path);
+  }
+    
+  debug15(printf("joined pairs:\n"));
+  debug15(Pair_dump_list(pairs,true));
+  debug15(printf("\n"));
+
+  return pairs;
+}
 

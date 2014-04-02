@@ -62,8 +62,7 @@ AC_SYS_LARGEFILE
 AC_ARG_PROGRAM
 
 #AM_INIT_AUTOMAKE([no-dependencies])
-AM_INIT_AUTOMAKE([1.10.0])
-AM_MAINTAINER_MODE([enable])
+AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
 AM_CONDITIONAL(FULLDIST,test "x$enable_fulldist" = xyes)
 AC_ARG_ENABLE([fulldist],
@@ -153,6 +152,7 @@ case x"$answer" in
 	;;
 esac	
 
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_DIRENT
@@ -169,6 +169,7 @@ AC_CHECK_SIZEOF(unsigned long)
 AC_CHECK_SIZEOF(unsigned long long)
 AC_CHECK_SIZEOF(off_t)
 
+
 # Checks for library functions.
 #AC_FUNC_MALLOC -- Causes use of rpl_malloc
 #AC_FUNC_REALLOC -- Causes use of rpl_realloc
@@ -177,6 +178,7 @@ AC_CHECK_SIZEOF(off_t)
 AC_FUNC_FSEEKO
 
 #AC_FUNC_MMAP        # Checks only private fixed mapping of already-mapped memory
+
 
 AC_MSG_CHECKING(whether mmap is enabled)
 AC_ARG_ENABLE([mmap],
@@ -222,8 +224,6 @@ ACX_PAGESIZE
 ACX_FUNC_FOPEN_BINARY
 ACX_FUNC_FOPEN_TEXT
 
-ACX_BUILTIN
-ACX_ASM_BSR
 
 AC_MSG_CHECKING(for popcnt feature)
 AC_ARG_ENABLE([popcnt],
@@ -234,7 +234,7 @@ AC_ARG_ENABLE([popcnt],
 case x"$answer" in
 	xyes)
         AC_MSG_RESULT(enabled)
-	ACX_POPCNT
+	ACX_BUILTIN
 	;;
 	
 	xno)
@@ -243,10 +243,100 @@ case x"$answer" in
 
 	x)
 	AC_MSG_RESULT([not specified so enabled by default])
-	ACX_POPCNT
+	ACX_BUILTIN
 	;;
 esac	
 
+ACX_ASM_BSR
+
+AC_MSG_CHECKING(whether sse2 is enabled)
+AC_ARG_ENABLE([sse2],
+	      AC_HELP_STRING([--enable-sse2],
+                             [Enable sse2 simd commands if they compile and run (default=yes).]),
+              [answer="$enableval"],
+              [answer=""])
+case x"$answer" in
+     xyes)
+     AC_MSG_RESULT(enabled)
+     ax_cv_want_sse2_ext=yes
+     ;;
+
+     xno)
+     AC_MSG_RESULT(disabled)
+     ax_cv_want_sse2_ext=no
+     ;;
+
+     x)
+     AC_MSG_RESULT([not specified so enabled by default])
+     ax_cv_want_sse2_ext=yes
+     ;;
+esac	
+
+if test "$ax_cv_want_sse2_ext" = yes; then
+AC_MSG_CHECKING(whether user has declared a defective SSE2 compiler)
+AC_ARG_WITH([defective-sse2-compiler],
+            AC_HELP_STRING([--with-defective-sse2-compiler],
+                           [Using an old compiler that requires an immediate shift in slli and srli]),
+            [answer="$withval"],
+            [answer=""])
+if test x"$answer" = x; then
+	AC_MSG_RESULT(no)
+else
+	AC_DEFINE(DEFECTIVE_SSE2_COMPILER,1,[Define to 1 if your old compiler requires an immediate shift in slli and srli.])
+	AC_MSG_RESULT(yes)
+fi
+fi
+
+
+AC_MSG_CHECKING(whether sse4.1 is enabled)
+AC_ARG_ENABLE([sse4.1],
+	      AC_HELP_STRING([--enable-sse4.1],
+                             [Enable sse4.1 simd commands if they compile and run (default=yes).  Requires that sse2 be enabled.]),
+              [answer="$enableval"],
+              [answer=""])
+if test "$ax_cv_want_sse2_ext" = no; then
+   AC_MSG_RESULT([disabled because the user disabled sse2])
+   ax_cv_want_sse41_ext=no
+else
+    case x"$answer" in
+	 xyes)
+	 AC_MSG_RESULT(enabled)
+	 ax_cv_want_sse41_ext=yes
+	 ;;
+
+	 xno)
+	 AC_MSG_RESULT(disabled)
+	 ax_cv_want_sse41_ext=no
+	 ;;
+
+	 x)
+	 AC_MSG_RESULT([not specified so enabled by default])
+	 ax_cv_want_sse41_ext=yes
+	 ;;
+    esac	
+fi
+
+AC_MSG_CHECKING(whether simd is enabled)
+AC_ARG_ENABLE([simd],
+	      AC_HELP_STRING([--enable-simd],
+                             [Enable simd commands in general if they compile and run (default=yes).]),
+              [answer="$enableval"],
+              [answer=""])
+case x"$answer" in
+     xyes)
+     AC_MSG_RESULT(enabled)
+     AX_EXT   # Sets SIMD_FLAGS, and HAVE_ALTIVEC,HAVE_MMX,HAVE_SSE,HAVE_SSE2,HAVE_SSE3,HAVE_SSSE3,HAVE_SSE4_1,HAVE_SSE4_2,HAVE_AVX
+     ;;
+
+     xno)
+     AC_MSG_RESULT(disabled)
+     ;;
+
+     x)
+     AC_MSG_RESULT([not specified so enabled by default])
+     AX_EXT   # Sets SIMD_FLAGS, and HAVE_ALTIVEC,HAVE_MMX,HAVE_SSE,HAVE_SSE2,HAVE_SSE3,HAVE_SSSE3,HAVE_SSE4_1,HAVE_SSE4_2,HAVE_AVX
+     ;;
+esac	
 
 # Genome directory
 AC_MSG_CHECKING(gmapdb)
@@ -410,6 +500,7 @@ AC_CONFIG_FILES([util/gff3_splicesites.pl])
 AC_CONFIG_FILES([util/gff3_introns.pl])
 AC_CONFIG_FILES([util/gff3_genes.pl])
 AC_CONFIG_FILES([util/dbsnp_iit.pl])
+AC_CONFIG_FILES([util/gvf_iit.pl])
 AC_CONFIG_FILES([util/vcf_iit.pl])
 AC_CONFIG_FILES([tests/Makefile])
 AC_CONFIG_FILES([tests/align.test],[chmod +x tests/align.test])

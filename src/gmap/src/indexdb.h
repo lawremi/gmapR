@@ -1,4 +1,4 @@
-/* $Id: indexdb.h 78839 2012-11-09 21:34:05Z twu $ */
+/* $Id: indexdb.h 108105 2013-09-16 22:57:25Z twu $ */
 #ifndef INDEXDB_INCLUDED
 #define INDEXDB_INCLUDED
 #include <stdio.h>
@@ -13,7 +13,6 @@
 #ifdef PMAP
 #include "alphabet.h"
 #endif
-
 
 
 #ifdef PMAP
@@ -40,106 +39,132 @@ typedef struct T *T;
 
 #ifdef PMAP
 extern void
-Indexdb_setup (int index1part_aa_in);
+Indexdb_setup (Width_T index1part_aa_in);
 #else
 extern void
-Indexdb_setup (int index1part_in);
+Indexdb_setup (Width_T index1part_in);
 #endif
 
 extern void
 Indexdb_free (T *old);
 #ifndef PMAP
-extern int
+extern Width_T
 Indexdb_interval (T this);
 #endif
 extern bool
 Indexdb_positions_fileio_p (T this);
 extern double
-Indexdb_mean_size (T this, Mode_T mode, int index1part);
+Indexdb_mean_size (T this, Mode_T mode, Width_T index1part);
 
-extern bool
-Indexdb_get_filenames (char **gammaptrs_filename, char **offsetscomp_filename, char **positions_filename,
-		       char **gammaptrs_basename_ptr, char **offsetscomp_basename_ptr, char **positions_basename_ptr,
-		       char **gammaptrs_index1info_ptr, char **offsetscomp_index1info_ptr, char **positions_index1info_ptr,
+
+typedef struct Filenames_T *Filenames_T;
+struct Filenames_T {
+  char *pointers_filename;
+  char *offsets_filename;
+  char *positions_filename;
+
+  char *pointers_basename_ptr;
+  char *offsets_basename_ptr;
+  char *positions_basename_ptr;
+
+  char *pointers_index1info_ptr;
+  char *offsets_index1info_ptr;
+  char *positions_index1info_ptr;
+};
+
+
+extern void
+Filenames_free (Filenames_T *old);
+
+extern Filenames_T
+Indexdb_get_filenames_no_compression (Width_T *index1part, Width_T *index1interval,
+				      char *genomesubdir, char *fileroot, char *idx_filesuffix, char *snps_root,
+				      Width_T required_interval, bool offsets_only_p);
+extern Filenames_T
+Indexdb_get_filenames_bitpack64 (
+#ifdef PMAP
+				 Alphabet_T *alphabet, Alphabet_T required_alphabet,
+#endif
+				 Width_T *basesize, Width_T *index1part, Width_T *index1interval,
+				 char *genomesubdir, char *fileroot, char *idx_filesuffix, char *snps_root,
+				 Width_T required_basesize, Width_T required_index1part, Width_T required_interval,
+				 bool offsets_only_p);
+extern Filenames_T
+Indexdb_get_filenames_gamma (
+#ifdef PMAP
+			     Alphabet_T *alphabet, Alphabet_T required_alphabet,
+#endif
+			     Width_T *basesize, Width_T *index1part, Width_T *index1interval,
+			     char *genomesubdir, char *fileroot, char *idx_filesuffix, char *snps_root,
+			     Width_T required_basesize, Width_T required_index1part, Width_T required_interval,
+			     bool offsets_only_p);
+
+extern Filenames_T
+Indexdb_get_filenames (int *compression_type,
 #ifdef PMAP
 		       Alphabet_T *alphabet, Alphabet_T required_alphabet,
 #endif
-		       int *basesize, int *index1part, int *index1interval, char *genomesubdir,
+		       Width_T *basesize, Width_T *index1part, Width_T *index1interval, char *genomesubdir,
 		       char *fileroot, char *idx_filesuffix, char *snps_root,
-		       int required_basesize, int required_index1part, int required_interval);
+		       Width_T required_basesize, Width_T required_index1part, Width_T required_interval,
+		       bool offsets_only_p);
 
-extern Genomicpos_T *
+extern Univcoord_T *
 Indexdb_point_one_shift (int *nentries, T this, Storedoligomer_T subst);
 extern int
 Indexdb_count_one_shift (T this, Storedoligomer_T subst, int nadjacent);
 
 
-extern Positionsptr_T *
-Indexdb_offsets_from_gammas (char *gammaptrsfile, char *offsetscompfile, int offsetscomp_basesize
+Positionsptr_T *
+Indexdb_offsets_from_bitpack (char *bitpackptrsfile, char *offsetscompfile, Width_T offsetscomp_basesize
 #ifdef PMAP
-			     , int alphabet_size, int index1part_aa
+			     , int alphabet_size, Width_T index1part_aa
 #else
-			     , int index1part
+			     , Width_T index1part
+#endif
+			      );
+
+extern Positionsptr_T *
+Indexdb_offsets_from_gammas (char *gammaptrsfile, char *offsetscompfile, Width_T offsetscomp_basesize
+#ifdef PMAP
+			     , int alphabet_size, Width_T index1part_aa
+#else
+			     , Width_T index1part
 #endif
 			     );
 
 extern T
-Indexdb_new_genome (int *basesize, int *index1part, int *index1interval,
+Indexdb_new_genome (Width_T *basesize, Width_T *index1part, Width_T *index1interval,
 		    char *genomesubdir, char *fileroot, char *idx_filesuffix, char *snps_root,
 #ifdef PMAP
 		    Alphabet_T *alphabet, int *alphabet_size, Alphabet_T required_alphabet,
 #endif
-		    int required_basesize, int required_index1part, int required_interval, bool expand_offsets_p,
+		    Width_T required_basesize, Width_T required_index1part, Width_T required_interval, bool expand_offsets_p,
 		    Access_mode_T offsetscomp_access, Access_mode_T positions_access);
 extern T
 Indexdb_new_segment (char *genomicseg,
 #ifdef PMAP
-		     int alphabet_size, int index1part_aa, bool watsonp,
+		     int alphabet_size, Width_T index1part_aa, bool watsonp,
 #else
-		     int index1part,
+		     Width_T index1part,
 #endif
-		     int index1interval);
+		     Width_T index1interval);
 
 #ifdef PMAP
-extern Genomicpos_T *
-Indexdb_read (int *nentries, T this, unsigned int aaindex);
+extern Univcoord_T *
+Indexdb_read (int *nentries, T this, Storedoligomer_T aaindex);
 #else
-extern Genomicpos_T *
+extern Univcoord_T *
 Indexdb_read (int *nentries, T this, Storedoligomer_T oligo);
-extern Genomicpos_T *
+extern Univcoord_T *
 Indexdb_read_inplace (int *nentries, T this, Storedoligomer_T oligo);
 #endif
 
-extern Genomicpos_T *
+extern Univcoord_T *
 Indexdb_read_with_diagterm (int *nentries, T this, Storedoligomer_T oligo, int diagterm);
-extern Genomicpos_T *
+extern Univcoord_T *
 Indexdb_read_with_diagterm_sizelimit (int *nentries, T this, Storedoligomer_T oligo, int diagterm,
 				      int size_threshold);
-
-extern void
-Indexdb_write_gammaptrs (char *gammaptrsfile, char *offsetscompfile, Positionsptr_T *offsets,
-			 Oligospace_T oligospace, int blocksize);
-
-extern void
-Indexdb_write_offsets (char *gammaptrsfile, char *offsetscompfile, FILE *sequence_fp, IIT_T chromosome_iit,
-		       int offsetscomp_basesize,
-#ifdef PMAP
-		       int alphabet_size, int index1part_aa, bool watsonp,
-#else
-		       int index1part,
-#endif
-		       int index1interval, bool genome_lc_p, char *fileroot, bool mask_lowercase_p);
-
-extern void
-Indexdb_write_positions (char *positionsfile, char *gammaptrsfile, char *offsetscompfile,
-			 FILE *sequence_fp, IIT_T chromosome_iit, int offsetscomp_basesize,
-#ifdef PMAP
-			 int alphabet_size, int index1part_aa, bool watsonp,
-#else
-			 int index1part,
-#endif
-			 int index1interval, bool genome_lc_p, bool writefilep,
-			 char *fileroot, bool mask_lowercase_p);
 
 extern int
 Storedoligomer_compare (const void *a, const void *b);

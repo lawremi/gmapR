@@ -1,4 +1,4 @@
-/* $Id: compress.h 46784 2011-09-07 23:06:49Z twu $ */
+/* $Id: compress.h 102728 2013-07-24 22:48:20Z twu $ */
 #ifndef COMPRESS_INCLUDED
 #define COMPRESS_INCLUDED
 
@@ -7,30 +7,29 @@
 #include "types.h"
 #include "genomicpos.h"
 
+/* Store blocks every 4 uints, so they are on 128-bit boundaries.
+   This will waste one out of every 4 uints, but allows for use of
+   SIMD in Compress_shift */
+
+#define COMPRESS_BLOCKSIZE 4	/* 4 unsigned ints per block */
+
+
 #define T Compress_T
 typedef struct T *T;
 
-extern int
-Compress_get_char (FILE *sequence_fp, Genomicpos_T position, bool uncompressedp);
-extern void
-Compress_compress (FILE *fp);
-extern void
-Compress_uncompress (FILE *fp, int wraplength);
-extern int
-Compress_update_file (int nbadchars, FILE *fp, char *gbuffer, Genomicpos_T startpos,
-		      Genomicpos_T endpos, int index1part);
-extern int
-Compress_update_memory (int nbadchars, UINT4 *genomeseq, char *gbuffer, Genomicpos_T startpos,
-			Genomicpos_T endpos);
 extern void
 Compress_free (T *old);
 extern void
 Compress_print (T this);
 extern int
 Compress_nblocks (T this);
+extern void
+Compress_print_blocks (Genomecomp_T *blocks, int nblocks);
 extern T
-Compress_new (char *gbuffer, int length, bool plusp);
-extern UINT4 *
+Compress_new_fwd (char *gbuffer, Chrpos_T length);
+extern T
+Compress_new_rev (char *gbuffer, Chrpos_T length);
+extern Genomecomp_T *
 Compress_shift (T this, int nshift);
 
 #undef T

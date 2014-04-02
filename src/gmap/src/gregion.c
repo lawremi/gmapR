@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: gregion.c 79539 2012-11-19 22:34:57Z twu $";
+static char rcsid[] = "$Id: gregion.c 115191 2013-11-15 21:05:47Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -8,7 +8,7 @@ static char rcsid[] = "$Id: gregion.c 79539 2012-11-19 22:34:57Z twu $";
 #include "assert.h"
 #include "mem.h"
 #include "indexdb.h"		/* For SUFFICIENT_SUPPORT */
-#include "interval.h"
+#include "univinterval.h"
 #include "chrnum.h"
 #include "listdef.h"
 #include "uinttable.h"
@@ -46,25 +46,25 @@ static char rcsid[] = "$Id: gregion.c 79539 2012-11-19 22:34:57Z twu $";
 struct T {
   int nexons;
 
-  Genomicpos_T genomiclength;
+  Chrpos_T genomiclength;
   bool plusp;
   int genestrand;
 
-  Genomicpos_T extension5;
-  Genomicpos_T extension3;
+  Chrpos_T extension5;
+  Chrpos_T extension3;
   bool extendedp;
 
   Chrnum_T chrnum;
 
-  Genomicpos_T chrstart;
-  Genomicpos_T chrend;
+  Chrpos_T chrstart;
+  Chrpos_T chrend;
 
-  Genomicpos_T extentstart;
-  Genomicpos_T extentend;
+  Chrpos_T extentstart;
+  Chrpos_T extentend;
 
-  Genomicpos_T chroffset;	/* This is for chr, not the segment */
-  Genomicpos_T chrhigh;
-  Genomicpos_T chrlength;
+  Univcoord_T chroffset;	/* This is for chr, not the segment */
+  Univcoord_T chrhigh;
+  Chrpos_T chrlength;
 
   int querystart;		/* Used only for maponly mode */
   int queryend;			/* Used only for maponly mode */
@@ -85,8 +85,8 @@ struct T {
 
   int total_up;
   int total_down;
-  Genomicpos_T bestprev_ceiling;
-  Genomicpos_T bestprev_floor;
+  Chrpos_T bestprev_ceiling;
+  Chrpos_T bestprev_floor;
   int score_ceiling;
   int score_floor;
 
@@ -101,7 +101,7 @@ struct T {
 void
 Gregion_print (T this) {
 
-#if 0
+#if 1
   /* Off for debugging */
   printf(" %d..%d ",this->querystart,this->queryend);
 #endif
@@ -125,27 +125,27 @@ Gregion_free (T *old) {
   return;
 }
 
-Genomicpos_T
+Univcoord_T
 Gregion_genomicstart (T this) {
   return this->chroffset + this->chrstart;
 }
 
-Genomicpos_T
+Univcoord_T
 Gregion_genomicend (T this) {
   return this->chroffset + this->chrend;
 }
 
-Genomicpos_T
+Chrpos_T
 Gregion_chrstart (T this) {
   return this->chrstart;
 }
 
-Genomicpos_T
+Chrpos_T
 Gregion_chrend (T this) {
   return this->chrend;
 }
 
-Genomicpos_T
+Chrpos_T
 Gregion_genomiclength (T this) {
   return this->genomiclength;
 }
@@ -172,21 +172,21 @@ Gregion_chrnum (T this) {
 
 /* Used only for debugging.  String is allocated and should be freed. */
 char *
-Gregion_chr (T this, IIT_T chromosome_iit) {
+Gregion_chr (T this, Univ_IIT_T chromosome_iit) {
   return Chrnum_to_string(this->chrnum,chromosome_iit);
 }
 
-Genomicpos_T
+Univcoord_T
 Gregion_chroffset (T this) {
   return this->chroffset;
 }
 
-Genomicpos_T
+Univcoord_T
 Gregion_chrhigh (T this) {
   return this->chrhigh;
 }
 
-Genomicpos_T
+Chrpos_T
 Gregion_chrlength (T this) {
   return this->chrlength;
 }
@@ -236,25 +236,26 @@ Gregion_ncovered (T this) {
 
 
 T
-Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
-	     bool plusp, int genestrand, IIT_T chromosome_iit, int querystart, int queryend, int querylength,
+Gregion_new (int nexons, Univcoord_T genomicstart, Univcoord_T genomicend,
+	     bool plusp, int genestrand, Univ_IIT_T chromosome_iit, int querystart, int queryend, int querylength,
 	     int matchsize, int trimstart, int trimend, int circular_typeint) {
   T new = (T) MALLOC(sizeof(*new));
 
-  debug(printf("Creating gregion with genomicstart %u, genomicend %u\n",
-	       genomicstart,genomicend));
+  debug(printf("Creating gregion with genomicstart %u, genomicend %u, trimstart %d, trimend %d\n",
+	       genomicstart,genomicend,trimstart,trimend));
 
   new->nexons = nexons;
   if (chromosome_iit == NULL) {
+    /* Should not reach here, since user_genomicseg does not call stage 1 */
     new->chrnum = 0;
     new->chroffset = 0U;
     new->chrlength = 0U;
   } else {
-    new->chrnum = IIT_get_one(chromosome_iit,/*divstring*/NULL,genomicstart,genomicstart);
-    /* new->chroffset = Interval_low(IIT_interval(chromosome_iit,new->chrnum)); */
-    /* new->chrhigh = Interval_high(IIT_interval(chromosome_iit,new->chrnum)); */
-    IIT_interval_bounds(&new->chroffset,&new->chrhigh,&new->chrlength,
-			chromosome_iit,new->chrnum,circular_typeint);
+    new->chrnum = Univ_IIT_get_one(chromosome_iit,genomicstart,genomicstart);
+    /* new->chroffset = Univinterval_low(Univ_IIT_interval(chromosome_iit,new->chrnum)); */
+    /* new->chrhigh = Univinterval_high(Univ_IIT_interval(chromosome_iit,new->chrnum)); */
+    Univ_IIT_interval_bounds(&new->chroffset,&new->chrhigh,&new->chrlength,
+			     chromosome_iit,new->chrnum,circular_typeint);
   }
   
   assert(genomicstart < genomicend);
@@ -267,10 +268,20 @@ Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
   new->genestrand = genestrand;
 
   if (plusp == true) {
-    new->extentstart = new->chrstart - querystart;
+    if (new->chrstart < (Chrpos_T) querystart) {
+      /* Extends past beginning of genome */
+      new->extentstart = 0;
+    } else {
+      new->extentstart = new->chrstart - querystart;
+    }
     new->extentend = new->chrend + (querylength - queryend);
   } else {
-    new->extentstart = new->chrstart - (querylength - queryend);
+    if (new->chrstart < (Chrpos_T) (querylength - queryend)) {
+      /* Extends past beginning of genome */
+      new->extentstart = 0;
+    } else {
+      new->extentstart = new->chrstart - (querylength - queryend);
+    }
     new->extentend = new->chrend + querystart;
   }
 
@@ -313,7 +324,7 @@ Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
   new->total_up = 0;
   new->total_down = 0;
   new->bestprev_ceiling = 0;
-  new->bestprev_floor = (unsigned int) -1;
+  new->bestprev_floor = (Chrpos_T) -1;
   new->score_ceiling = 0;
   new->score_floor = 0;
 
@@ -327,10 +338,10 @@ Gregion_new (int nexons, Genomicpos_T genomicstart, Genomicpos_T genomicend,
 
 
 T
-Gregion_new_from_matches (Match_T match5, Match_T match3, int genestrand, IIT_T chromosome_iit, 
+Gregion_new_from_matches (Match_T match5, Match_T match3, int genestrand, Univ_IIT_T chromosome_iit, 
 			  int querylength, int matchsize, int trimstart, int trimend, int circular_typeint) {
   T gregion;
-  Genomicpos_T genomicstart, genomicend;
+  Univcoord_T genomicstart, genomicend;
   int querystart, queryend;
 
   querystart = Match_querypos(match5);
@@ -351,7 +362,7 @@ Gregion_new_from_matches (Match_T match5, Match_T match3, int genestrand, IIT_T 
   if (chromosome_iit == NULL) {
     chroffset = 0U;
   } else {
-    chroffset = Interval_low(IIT_interval(chromosome_iit,chrnum));
+    chroffset = Univinterval_low(Univ_IIT_interval(chromosome_iit,chrnum));
   }
 #endif
 
@@ -396,15 +407,88 @@ weight_cmp (const void *x, const void *y) {
 /* Not intended for qsort.  Returns 0 when not comparable. */
 static bool
 gregion_overlap_p (T x, T y) {
+  Univcoord_T x_genomicstart, x_genomicend, y_genomicstart, y_genomicend;
+  Univcoord_T overlap;
+  double fraction;
 
   if (x->plusp != y->plusp) {
     return false;			/* Different strands */
 
-  } else if (y->extentstart > x->extentend || x->extentstart > y->extentend) {
-    return false;		/* No overlap */
-
   } else {
-    return true;
+    x_genomicstart = x->chroffset + x->chrstart;
+    x_genomicend = x->chroffset + x->chrend;
+    y_genomicstart = y->chroffset + y->chrstart;
+    y_genomicend = y->chroffset + y->chrend;
+
+    if (y_genomicstart > x_genomicend || x_genomicstart > y_genomicend) {
+      /*
+      /-- x --/ /-- y --/ or /-- y --/ /-- x --/
+      */
+      return false;		/* No overlap */
+
+    } else if (y_genomicstart < x_genomicstart) {
+      debug(printf("x %u..%u, y %u..%u",x_genomicstart,x_genomicend,y_genomicstart,y_genomicend));
+      if (y_genomicend < x_genomicend) {
+	/*
+	    /-- x --/
+	/-- y --/
+	*/
+	overlap = y_genomicend - x_genomicstart;
+	if (y_genomicend - y_genomicstart < x_genomicend - x_genomicstart) {
+	  fraction = (double) overlap/(double) (y_genomicend - y_genomicstart);
+	} else {
+	  fraction = (double) overlap/(double) (x_genomicend - x_genomicstart);
+	}
+	debug(printf(" => fraction %f",fraction));
+	if (fraction > 0.5) {
+	  debug(printf(" => overlap\n",fraction));
+	  return true;
+	} else {
+	  debug(printf(" => no overlap\n",fraction));
+	  return false;
+	}
+
+      } else {
+	/*
+	    /-- x --/
+	/----- y -----/
+	*/
+	debug(printf(" => subsumption\n"));
+	return true;
+      }
+
+    } else {
+      debug(printf("x %u..%u, y %u..%u\n",x_genomicstart,x_genomicend,y_genomicstart,y_genomicend));
+      if (y_genomicend < x_genomicend) {
+	/*
+	/----- x -----/
+	  /-- y --/
+	*/
+	debug(printf(" => subsumption\n"));
+	return true;
+
+      } else {
+	/*
+	/-- x --/
+	  /-- y --/
+	*/
+	overlap = x_genomicend - y_genomicstart;
+	if (y_genomicend - y_genomicstart < x_genomicend - x_genomicstart) {
+	  fraction = (double) overlap/(double) (y_genomicend - y_genomicstart);
+	} else {
+	  fraction = (double) overlap/(double) (x_genomicend - x_genomicstart);
+	}
+	debug(printf(" => fraction %f",fraction));
+	if (fraction > 0.5) {
+	  debug(printf(" => overlap\n",fraction));
+	  return true;
+	} else {
+	  debug(printf(" => no overlap\n",fraction));
+	  return false;
+	}
+
+      }
+    }
   }
 }
 
@@ -450,6 +534,14 @@ Gregion_filter_unique (List_T gregionlist) {
     for (j = i+1; j < n; j++) {
       y = array[j];
       if (gregion_overlap_p(x,y) == true) {
+#ifdef DEBUG
+	printf("Found overlap between these regions:\n");
+	printf("   ");
+	Gregion_print(x);
+	printf("   ");
+	Gregion_print(y);
+	printf("\n");
+#endif
 	eliminate[j] = true;
       }
     }
@@ -558,9 +650,9 @@ Gregion_sufficient_support (T this) {
 
 
 void
-Gregion_extend (T this, Genomicpos_T extension5, Genomicpos_T extension3, int querylength,
+Gregion_extend (T this, Chrpos_T extension5, Chrpos_T extension3, int querylength,
 		int min_extra_end) {
-  Genomicpos_T left, right;
+  Chrpos_T left, right;
   int extra_end;
 
   debug(printf("Entering Gregion_extend with extension5 %u and extension3 %u\n",extension5,extension3));
@@ -610,10 +702,10 @@ Gregion_extend (T this, Genomicpos_T extension5, Genomicpos_T extension3, int qu
     this->chrstart -= left;
   }
 
-  /* printf("genomicend %u + right %u vs chrhigh %u\n",this->genomicend,right,this->chrhigh); */
+  /* printf("chroffset %u + chrend %u + right %u vs chrhigh %u\n",this->chroffset,this->chrend,right,this->chrhigh); */
   if (this->chroffset + this->chrend + right >= this->chrhigh) {
     /* At end of chromosome */
-    this->chrend = this->chrlength;
+    this->chrend = this->chrlength - 1;
   } else {
     this->chrend += right;
   }
@@ -784,9 +876,9 @@ Gregion_sort_high_ascending (List_T gregions) {
 
 typedef struct Base_T *Base_T;
 struct Base_T {
-  Genomicpos_T prevpos;
-  Genomicpos_T minextent;
-  Genomicpos_T maxextent;
+  Chrpos_T prevpos;
+  Chrpos_T minextent;
+  Chrpos_T maxextent;
   List_T gregions;
 
   bool usedp;
@@ -818,7 +910,7 @@ Base_new () {
 
 /* Assumes gregions are arranged low to high */
 static Gregion_T
-apply_ceiling (List_T gregions, Genomicpos_T ceiling) {
+apply_ceiling (List_T gregions, Chrpos_T ceiling) {
   List_T p;
   Gregion_T prevgregion = NULL, gregion;
 
@@ -835,7 +927,7 @@ apply_ceiling (List_T gregions, Genomicpos_T ceiling) {
 
 /* Assumes gregions are arranged high to low */
 static Gregion_T
-apply_floor (List_T gregions, Genomicpos_T floor) {
+apply_floor (List_T gregions, Chrpos_T floor) {
   List_T p;
   Gregion_T prevgregion = NULL, gregion;
 
@@ -851,12 +943,12 @@ apply_floor (List_T gregions, Genomicpos_T floor) {
 }
 
 
-static Genomicpos_T
+static Chrpos_T
 compute_ceilings (Uinttable_T low_basetable) {
-  Genomicpos_T ceiling, bestprevpos, prevpos;
+  Chrpos_T ceiling, bestprevpos, prevpos;
   long int bestscore, score;
   int nlookback;
-  Genomicpos_T *keys;
+  Chrpos_T *keys;
   Base_T base, prevbase;
   Gregion_T gregion, prevgregion;
 #ifdef DEBUG2
@@ -963,12 +1055,12 @@ compute_ceilings (Uinttable_T low_basetable) {
 
 
 
-static Genomicpos_T
+static Chrpos_T
 compute_floors (Uinttable_T high_basetable) {
-  Genomicpos_T floor, bestprevpos, prevpos;
+  Chrpos_T floor, bestprevpos, prevpos;
   long int bestscore, score;
   int nlookback;
-  Genomicpos_T *keys;
+  Chrpos_T *keys;
   Base_T base, prevbase;
   Gregion_T gregion, prevgregion;
 #ifdef DEBUG2
@@ -981,7 +1073,7 @@ compute_floors (Uinttable_T high_basetable) {
   keys = Uinttable_keys(high_basetable,/*sortp*/true);
   debug2(printf("high_basetable has %d entries\n",n));
 
-  prevpos = (unsigned int) -1U;
+  prevpos = (Chrpos_T) -1U;
   for (i = n-1; i >= 0; --i) {
     base = (Base_T) Uinttable_get(high_basetable,keys[i]);
     base->gregions = Gregion_sort_low_descending(base->gregions);
@@ -996,7 +1088,7 @@ compute_floors (Uinttable_T high_basetable) {
   for (p = base->gregions; p != NULL; p = List_next(p)) {
     gregion = (Gregion_T) List_head(p);
     gregion->score_floor = gregion->total_down;
-    gregion->bestprev_floor = (unsigned int) -1U;
+    gregion->bestprev_floor = (Chrpos_T) -1U;
   }
 
   for (i = n-2; i >= 0; --i) {
@@ -1054,7 +1146,7 @@ compute_floors (Uinttable_T high_basetable) {
 
   /* Get best overall gregion */
   bestscore = 0;
-  bestprevpos = (unsigned int) -1U;
+  bestprevpos = (Chrpos_T) -1U;
 
   for (i = n-1; i >= 0; --i) {
     base = (Base_T) Uinttable_get(high_basetable,keys[i]);
@@ -1074,17 +1166,17 @@ compute_floors (Uinttable_T high_basetable) {
 
 
 static void
-traceback_ceilings (Uinttable_T low_basetable, Genomicpos_T prevpos) {
-  Genomicpos_T ceiling;
+traceback_ceilings (Uinttable_T low_basetable, Chrpos_T prevpos) {
+  Chrpos_T ceiling;
   Gregion_T end_gregion;
   Base_T base, prevbase;
-  Genomicpos_T *keys;
+  Chrpos_T *keys;
   int n, i;
   
   n = Uinttable_length(low_basetable);
   keys = Uinttable_keys(low_basetable,/*sortp*/true);
 
-  ceiling = (unsigned int) -1U;
+  ceiling = (Chrpos_T) -1U;
 
   i = n-1;
   while (prevpos > keys[0]) {
@@ -1120,11 +1212,11 @@ traceback_ceilings (Uinttable_T low_basetable, Genomicpos_T prevpos) {
 
 
 static void
-traceback_floors (Uinttable_T high_basetable, Genomicpos_T prevpos) {
-  Genomicpos_T floor;
+traceback_floors (Uinttable_T high_basetable, Chrpos_T prevpos) {
+  Chrpos_T floor;
   Gregion_T start_gregion;
   Base_T base, prevbase;
-  Genomicpos_T *keys;
+  Chrpos_T *keys;
   int n, i;
 
   n = Uinttable_length(high_basetable);
@@ -1167,11 +1259,11 @@ traceback_floors (Uinttable_T high_basetable, Genomicpos_T prevpos) {
 
 static void
 bound_gregions (Uinttable_T low_basetable, Uinttable_T high_basetable) {
-  Genomicpos_T minextent, maxextent;
+  Chrpos_T minextent, maxextent;
   Base_T base_low, base_high;
   Gregion_T gregion;
   List_T p;
-  Genomicpos_T *keys;
+  Chrpos_T *keys;
   int n, i;
 
   n = Uinttable_length(low_basetable);
@@ -1229,7 +1321,7 @@ List_T
 Gregion_filter_clean (List_T gregionlist, int nchrs) {
   Uinttable_T *low_basetables, *high_basetables, basetable;
   Base_T base;
-  Genomicpos_T prevpos;
+  Chrpos_T prevpos;
   Chrnum_T chrnum;
 
   List_T unique = NULL, p;
@@ -1242,6 +1334,7 @@ Gregion_filter_clean (List_T gregionlist, int nchrs) {
 #endif
 #ifdef DEBUG
   List_T q;
+  int i;
 #endif
 
   n = List_length(gregionlist);
