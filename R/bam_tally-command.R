@@ -132,10 +132,10 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
 
 checkTallyConsistency <- function(x) {
   with(mcols(x), {
-    stopifnot(all(raw.count + raw.count.ref <= raw.count.total))
+    stopifnot(all(raw.count + raw.count.ref <= raw.count.total, na.rm=TRUE))
     stopifnot(all(altDepth(x) <= raw.count, na.rm=TRUE))
     stopifnot(all(refDepth(x) <= raw.count.ref, na.rm=TRUE))
-    stopifnot(all(count.pos + count.neg == raw.count))
+    stopifnot(all(count.pos + count.neg == raw.count, na.rm=TRUE))
     stopifnot(all(count.pos.ref + count.neg.ref == raw.count.ref))
   })
 }
