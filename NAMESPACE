@@ -1,6 +1,7 @@
 useDynLib(gmapR, .registration = TRUE)
 
-importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList)
+importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList,
+           BamSampler)
 importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
            list_files_with_exts)
 importFrom(Biobase, createPackage)
@@ -21,6 +22,8 @@ importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed, VRanges, ref, alt,
            "ref<-", "alt<-", altDepth, refDepth)
 importClassesFrom(VariantAnnotation, "VCF", "VRanges")
 importFrom(BSgenome, getSeq, providerVersion)
+importFrom(GenomicAlignments, readGAlignments)
+importMethodsFrom(GenomicAlignments, qwidth)
 
 ## public API
 

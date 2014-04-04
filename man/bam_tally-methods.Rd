@@ -55,9 +55,10 @@ variantSummary(x, read_pos_breaks = NULL, high_base_quality = 0L,
   \item{raw.count.ref}{The number of reads with the reference allele.}
   \item{raw.count.total}{The total number of reads at that position,
     including reference and all alternates.}
-  \item{mean.quality}{The mean mapping quality for the alt allele.}
-  \item{mean.quality.ref}{The mean mapping quality for the reference
-    allele.}
+  \item{mean.quality}{The mean base quality for the alt allele,
+    truncated at \code{high_base_quality}.}
+  \item{mean.quality.ref}{The mean base quality for the ref allele,
+    truncated at \code{high_base_quality}.}
   \item{count.plus}{The number of positive strand reads for the alternate
     allele, \code{NA} for the reference allele row.}
   \item{count.plus.ref}{The number of positive strand reads for the reference
