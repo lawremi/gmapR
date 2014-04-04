@@ -77,19 +77,24 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
   if (length(read_length) != 1L) {
     stop("'read_length' must be a single integer")
   }
+  if (is.na(read_length)) {
+    read_length <- guessReadLengthFromBam(bamFile(x))
+  }
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
                  normArgSingleInteger(high_base_quality),
                  NULL, read_length)
   
-  tally_names <- c("seqnames", "pos", "ref", "alt",
-                   "raw.count", "raw.count.ref",
+  tally_names <- c("seqnames", "pos", "ref", "alt", "n.read.pos",
+                   "n.read.pos.ref", "raw.count", "raw.count.ref",
                    "raw.count.total",
                    "high.quality", "high.quality.ref",
                    "high.quality.total", "mean.quality",
                    "mean.quality.ref",
-                   "count.pos", "count.pos.ref",
-                   "count.neg", "count.neg.ref",
+                   "count.plus", "count.plus.ref",
+                   "count.minus", "count.minus.ref",
+                   "read.pos.mean", "read.pos.mean.ref",
+                   "read.pos.var", "read.pos.var.ref",
                    "mdfne", "mdfne.ref")
   break_names <- character()
   if (length(read_pos_breaks) > 0L) {
@@ -153,6 +158,14 @@ normalizeIndelAlleles <- function(x, genome) {
     ranges(x)[is.indel] <- resize(ranges(flanks), nchar(ref(x)[is.indel]))
   }
   x
+}
+
+guessReadLengthFromBam <- function(x, n=100L) {
+  ga <- readGAlignments(BamSampler(x, yieldSize=n))
+  readlen <- unique(qwidth(ga))
+  if (length(readlen) != 1L)
+    NA
+  else readlen
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -232,15 +245,21 @@ normArgTRUEorFALSE <- function(x) {
 
 variantSummaryColumnDescriptions <- function(read_pos_breaks) {
   desc <- c(
+    n.read.pos = "Number of unique read positions for the ALT",
+    n.read.pos.ref = "Number of unique read positions for the REF",
     raw.count = "Raw ALT count",
     raw.count.ref = "Raw REF count",
     raw.count.total = "Raw total count",
     mean.quality = "Average ALT base quality",
     mean.quality.ref = "Average REF base quality",
-    count.pos = "Raw positive strand ALT count",
-    count.pos.ref = "Raw positive strand REF count",
-    count.neg = "Raw negative strand ALT count",
-    count.neg.ref = "Raw negative strand REF count",
+    count.plus = "Raw positive strand ALT count",
+    count.plus.ref = "Raw positive strand REF count",
+    count.minus = "Raw negative strand ALT count",
+    count.minus.ref = "Raw negative strand REF count",
+    read.pos.mean = "Average read position for the ALT",
+    read.pos.mean.ref = "Average read position for the ALT",
+    read.pos.var = "Variance in read position for the ALT",
+    read.pos.var.ref = "Variance in read position for the REF",
     mdfne = "Median distance from nearest end of read for the ALT",
     mdfne.ref = "Median distance from nearest end of read for the REF")
   if (length(read_pos_breaks) > 0L) {

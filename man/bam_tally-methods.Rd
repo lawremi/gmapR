@@ -50,27 +50,28 @@ variantSummary(x, read_pos_breaks = NULL, high_base_quality = 0L,
   after quality filtering (except for indels, for which there is no
   quality filtering). The following \code{elementMetadata}
   columns are also present:
-  \item{n.read.pos}{The number of unique cycles at which the alternate allele was
-    observed, \code{NA} for the reference allele row.}
-  \item{n.read.pos.ref}{The number of unique cycles at which the reference
-    allele was observed.}
   \item{raw.count}{The number of reads with the alternate allele,
     \code{NA} for the reference allele row.}
   \item{raw.count.ref}{The number of reads with the reference allele.}
   \item{raw.count.total}{The total number of reads at that position,
     including reference and all alternates.}
+  \item{mean.quality}{The mean mapping quality for the alt allele.}
   \item{mean.quality.ref}{The mean mapping quality for the reference
     allele.}
-  \item{count.pos}{The number of positive strand reads for the alternate
+  \item{count.plus}{The number of positive strand reads for the alternate
     allele, \code{NA} for the reference allele row.}
-  \item{count.pos.ref}{The number of positive strand reads for the reference
+  \item{count.plus.ref}{The number of positive strand reads for the reference
     allele.}
-  \item{count.neg}{The number of negative strand reads for the alternate
+  \item{count.minus}{The number of negative strand reads for the alternate
     allele, \code{NA} for the reference allele row.}
-  \item{count.neg.ref}{The number of negative strand reads for the reference
+  \item{count.minus.ref}{The number of negative strand reads for the reference
     allele.}
+  \item{read.pos.mean}{Mean read position for the alt allele.}
+  \item{read.pos.mean.ref}{Mean read position for the ref allele.}
   \item{read.pos.var}{Variance in the read positions for the alt allele.}
   \item{read.pos.var.ref}{Variance in the read positions for the ref allele.}
+  \item{mdfne}{Median distance from nearest end for the alt allele.}
+  \item{mdfne.ref}{Median distance from nearest end for the ref allele.}
   
   An additional column is present for each bin formed by
   the \code{read_pos_breaks} parameter, with the read count for that bin.
