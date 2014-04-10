@@ -16,7 +16,8 @@
 
 \usage{
 \S4method{gsnap}{character,characterORNULL,GsnapParam}(input_a, input_b, params,
-                   output = file_path_sans_ext(input_a, TRUE),
+                   output = file.path(getwd(),
+                                      file_path_sans_ext(input_a, TRUE)),
                    consolidate = TRUE, ...)
 }
 
