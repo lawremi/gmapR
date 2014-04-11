@@ -1,3 +1,29 @@
+CHANGES IN VERSION 1.6.0
+-----------------------
+
+NEW FEATURES
+
+    o Add median distance from nearest end (MDFNE) statistics to output
+      of variantSummary.
+
+    o Updated GSNAP, which is orders of magnitude faster than the
+      previous version, brings many fixes and offers many new
+      features. One new feature is the clip_overlap argument, which
+      clips overlapping ends of read pairs (important for variant
+      calling).
+
+    o Updated bam_tally, which is faster and includes support for
+      counting in soft-clipped regions.
+    
+USER-VISIBLE CHANGES
+
+    o Changes to tallyVariant statistics: drop the unique read
+      position counts; renamed count.pos/count.neg to
+      count.plus/count.minus (way better names)
+
+    o tallyVariants does a better job of carrying over the Seqinfo
+      from the BAM file.
+    
 CHANGES IN VERSION 1.4.0
 -----------------------
 
