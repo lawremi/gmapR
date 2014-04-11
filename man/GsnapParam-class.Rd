@@ -24,7 +24,7 @@ GsnapParam(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
            terminal_threshold = if (molecule == "DNA") 1000L else 2L,
            gmap_mode = if (molecule == "DNA") "none" else
                        "pairsearch,terminal,improve",
-           clip_overlaps = FALSE, ...)
+           clip_overlap = FALSE, ...)
 }
 
 \arguments{
@@ -80,7 +80,7 @@ GsnapParam(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
     delegates to GMAP (a Smith-Waterman aligner) in difficult cases. We
     have disabled this for DNA, since such difficult cases are only
     anticipated in the context of splicing or complex rearrangements.}
-  \item{clip_overlaps}{Whether to equally clip paired ends that
+  \item{clip_overlap}{Whether to equally clip paired ends that
     overlap each other (due to the fragment length being shorter than 2X
     the read length). This can be important for getting accurate counts
     from \code{bam_tally}.
