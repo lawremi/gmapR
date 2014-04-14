@@ -77,9 +77,6 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
   if (length(read_length) != 1L) {
     stop("'read_length' must be a single integer")
   }
-  if (is.na(read_length)) {
-    read_length <- guessReadLengthFromBam(bamFile(x))
-  }
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
                  normArgSingleInteger(high_base_quality),
@@ -161,7 +158,7 @@ normalizeIndelAlleles <- function(x, genome) {
 }
 
 guessReadLengthFromBam <- function(x, n=100L) {
-  ga <- readGAlignments(BamSampler(x, yieldSize=n))
+  ga <- readGAlignments(BamFile(x, yieldSize=n))
   readlen <- unique(qwidth(ga))
   if (length(readlen) != 1L)
     NA
