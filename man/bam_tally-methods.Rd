@@ -36,11 +36,9 @@ variantSummary(x, read_pos_breaks = NULL, high_base_quality = 0L,
     reference calls, i.e., where ref and alt are the same. These are
     useful when one needs the reference counts even when there are no
     alts at that position.}
-  \item{read_length}{The expected read length. If NA, a best guess is
-    made by inspecting a random sample from the BAM file. If the read
-    length is determined to be variable, the
-    MDFNE (median distance from nearest end) statistic will NOT
-    be calculated.}
+  \item{read_length}{The expected read length. If the read length is NA,
+    the MDFNE (median distance from nearest end) statistic will NOT be
+    calculated.}
   \item{...}{Arguments that override settings in \code{param}.}
 }
 
