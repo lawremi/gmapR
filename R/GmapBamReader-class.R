@@ -44,7 +44,7 @@ setMethod("path", "GmapBamReader", function(object) object@path)
 GmapBamReader <- function(path, which = NULL) {
   if (is(path, "BamFile"))
     path <- path(path)
-  if (!IRanges:::isSingleString(path))
+  if (!isSingleString(path))
     stop("'path' must be a single, non-NA string")
   path <- path.expand(path)
   obj <- new("GmapBamReader", .extptr = .Call(R_Bamread_new, path), path = path)
