@@ -91,8 +91,13 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/config/acx_mmap_fixed.m4 \
 	$(top_srcdir)/config/acx_mmap_variable.m4 \
-	$(top_srcdir)/config/expand.m4 $(top_srcdir)/config/fopen.m4 \
-	$(top_srcdir)/config/libtool.m4 \
+	$(top_srcdir)/config/asm-bsr.m4 \
+	$(top_srcdir)/config/ax_check_compile_flag.m4 \
+	$(top_srcdir)/config/ax_ext.m4 \
+	$(top_srcdir)/config/ax_gcc_x86_avx_xgetbv.m4 \
+	$(top_srcdir)/config/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/config/builtin.m4 $(top_srcdir)/config/expand.m4 \
+	$(top_srcdir)/config/fopen.m4 $(top_srcdir)/config/libtool.m4 \
 	$(top_srcdir)/config/ltoptions.m4 \
 	$(top_srcdir)/config/ltsugar.m4 \
 	$(top_srcdir)/config/ltversion.m4 \
@@ -100,6 +105,7 @@ am__aclocal_m4_deps = $(top_srcdir)/config/acx_mmap_fixed.m4 \
 	$(top_srcdir)/config/madvise-flags.m4 \
 	$(top_srcdir)/config/mmap-flags.m4 \
 	$(top_srcdir)/config/pagesize.m4 $(top_srcdir)/config/perl.m4 \
+	$(top_srcdir)/config/sse2_shift_defect.m4 \
 	$(top_srcdir)/config/struct-stat64.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -151,9 +157,10 @@ am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST =  \
 	genomicpos.c genomicpos.h md5.c md5.h sequence.c sequence.h \
 	genome.c genome.h uinttable.c uinttable.h table.c table.h \
 	chrnum.c chrnum.h bamread.c bamread.h samread.c samread.h \
-	parserange.c parserange.h tableuint.c tableuint.h iit-write.c \
-	iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
-	datadir.c datadir.h
+	parserange.c parserange.h dynprog.c dynprog.h dynprog_simd.c \
+	dynprog_simd.h dynprog_single.c dynprog_single.h tableuint.c \
+	tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
+	bamtally.c bamtally.h datadir.c datadir.h
 am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-assert.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mem.lo \
@@ -177,6 +184,9 @@ am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamread.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-samread.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-iit-write.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo \
@@ -243,9 +253,11 @@ am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h except.c \
 	genomicpos.c genomicpos.h md5.c md5.h complement.h sequence.c \
 	sequence.h genome.c genome.h uinttable.c uinttable.h table.c \
 	table.h chrnum.c chrnum.h bamread.c bamread.h samread.c \
-	samread.h parserange.c parserange.h tableuint.c tableuint.h \
-	iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c \
-	bamtally.h datadir.c datadir.h getopt.c getopt1.c getopt.h \
+	samread.h parserange.c parserange.h dynprog.c dynprog.h \
+	dynprog_simd.c dynprog_simd.h dynprog_single.c \
+	dynprog_single.h tableuint.c tableuint.h iit-write.c \
+	iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
+	datadir.c datadir.h getopt.c getopt1.c getopt.h \
 	bamtally_main.c
 am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-mem.$(OBJEXT) bam_tally-intlist.$(OBJEXT) \
@@ -258,11 +270,13 @@ am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-genome.$(OBJEXT) bam_tally-uinttable.$(OBJEXT) \
 	bam_tally-table.$(OBJEXT) bam_tally-chrnum.$(OBJEXT) \
 	bam_tally-bamread.$(OBJEXT) bam_tally-samread.$(OBJEXT) \
-	bam_tally-parserange.$(OBJEXT) bam_tally-tableuint.$(OBJEXT) \
-	bam_tally-iit-write.$(OBJEXT) bam_tally-ucharlist.$(OBJEXT) \
-	bam_tally-bamtally.$(OBJEXT) bam_tally-datadir.$(OBJEXT) \
-	bam_tally-getopt.$(OBJEXT) bam_tally-getopt1.$(OBJEXT) \
-	bam_tally-bamtally_main.$(OBJEXT)
+	bam_tally-parserange.$(OBJEXT) bam_tally-dynprog.$(OBJEXT) \
+	bam_tally-dynprog_simd.$(OBJEXT) \
+	bam_tally-dynprog_single.$(OBJEXT) \
+	bam_tally-tableuint.$(OBJEXT) bam_tally-iit-write.$(OBJEXT) \
+	bam_tally-ucharlist.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
+	bam_tally-datadir.$(OBJEXT) bam_tally-getopt.$(OBJEXT) \
+	bam_tally-getopt1.$(OBJEXT) bam_tally-bamtally_main.$(OBJEXT)
 @SAMTOOLS_TRUE@dist_bam_tally_OBJECTS = $(am__objects_4)
 bam_tally_OBJECTS = $(dist_bam_tally_OBJECTS)
 @SAMTOOLS_TRUE@bam_tally_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -416,6 +430,7 @@ SAMTOOLS_LIBS = @SAMTOOLS_LIBS@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SIMD_FLAGS = @SIMD_FLAGS@
 STATIC_LDFLAG = @STATIC_LDFLAG@
 STRIP = @STRIP@
 UNIQSCAN = @UNIQSCAN@
@@ -509,11 +524,12 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
-@SAMTOOLS_TRUE@bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+@SAMTOOLS_TRUE@bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 @SAMTOOLS_TRUE@bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 @SAMTOOLS_TRUE@bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
 @SAMTOOLS_TRUE@dist_bam_tally_SOURCES = $(BAM_TALLY_FILES)
@@ -528,12 +544,13 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 
 # Do not add SAMTOOLS LIBS here
-@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 @SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
 @SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
 @SAMTOOLS_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES = $(LIBGSTRUCT_LA_FILES)
@@ -552,6 +569,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  uinttable.h table.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
+ dynprog.h dynprog_simd.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h bamtally.h datadir.h
 
 
@@ -939,6 +957,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-chrnum.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-chrom.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-datadir.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog_simd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog_single.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-except.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genome.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genomicpos.Po@am__quote@
@@ -969,6 +990,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-chrnum.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-chrom.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genome.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genomicpos.Plo@am__quote@
@@ -1171,6 +1195,27 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo: parserange.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parserange.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo `test -f 'parserange.c' || echo '$(srcdir)/'`parserange.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo: dynprog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo: dynprog_simd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo: dynprog_single.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
 
 libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo: tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo `test -f 'tableuint.c' || echo '$(srcdir)/'`tableuint.c
@@ -2172,6 +2217,48 @@ bam_tally-parserange.obj: parserange.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parserange.c' object='bam_tally-parserange.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-parserange.obj `if test -f 'parserange.c'; then $(CYGPATH_W) 'parserange.c'; else $(CYGPATH_W) '$(srcdir)/parserange.c'; fi`
+
+bam_tally-dynprog.o: dynprog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog.Tpo -c -o bam_tally-dynprog.o `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog.Tpo $(DEPDIR)/bam_tally-dynprog.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='bam_tally-dynprog.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog.o `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
+
+bam_tally-dynprog.obj: dynprog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog.Tpo -c -o bam_tally-dynprog.obj `if test -f 'dynprog.c'; then $(CYGPATH_W) 'dynprog.c'; else $(CYGPATH_W) '$(srcdir)/dynprog.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog.Tpo $(DEPDIR)/bam_tally-dynprog.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='bam_tally-dynprog.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog.obj `if test -f 'dynprog.c'; then $(CYGPATH_W) 'dynprog.c'; else $(CYGPATH_W) '$(srcdir)/dynprog.c'; fi`
+
+bam_tally-dynprog_simd.o: dynprog_simd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_simd.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_simd.Tpo -c -o bam_tally-dynprog_simd.o `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_simd.Tpo $(DEPDIR)/bam_tally-dynprog_simd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='bam_tally-dynprog_simd.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_simd.o `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
+
+bam_tally-dynprog_simd.obj: dynprog_simd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_simd.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_simd.Tpo -c -o bam_tally-dynprog_simd.obj `if test -f 'dynprog_simd.c'; then $(CYGPATH_W) 'dynprog_simd.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_simd.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_simd.Tpo $(DEPDIR)/bam_tally-dynprog_simd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='bam_tally-dynprog_simd.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_simd.obj `if test -f 'dynprog_simd.c'; then $(CYGPATH_W) 'dynprog_simd.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_simd.c'; fi`
+
+bam_tally-dynprog_single.o: dynprog_single.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_single.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_single.Tpo -c -o bam_tally-dynprog_single.o `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_single.Tpo $(DEPDIR)/bam_tally-dynprog_single.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='bam_tally-dynprog_single.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_single.o `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
+
+bam_tally-dynprog_single.obj: dynprog_single.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_single.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_single.Tpo -c -o bam_tally-dynprog_single.obj `if test -f 'dynprog_single.c'; then $(CYGPATH_W) 'dynprog_single.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_single.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_single.Tpo $(DEPDIR)/bam_tally-dynprog_single.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='bam_tally-dynprog_single.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_single.obj `if test -f 'dynprog_single.c'; then $(CYGPATH_W) 'dynprog_single.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_single.c'; fi`
 
 bam_tally-tableuint.o: tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-tableuint.o -MD -MP -MF $(DEPDIR)/bam_tally-tableuint.Tpo -c -o bam_tally-tableuint.o `test -f 'tableuint.c' || echo '$(srcdir)/'`tableuint.c

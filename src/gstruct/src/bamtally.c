@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 129100 2014-03-04 18:45:02Z twu $";
+static char rcsid[] = "$Id: bamtally.c 134416 2014-04-25 22:12:58Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -29,6 +29,8 @@ static char rcsid[] = "$Id: bamtally.c 129100 2014-03-04 18:45:02Z twu $";
 #include "genome.h"
 #include "table.h"
 #include "ucharlist.h"
+#include "dynprog.h"
+#include "dynprog_single.h"
 
 
 /* Specific to BAM */
@@ -66,6 +68,13 @@ static bool totals_only_p = false;
 #define debug2(x) x
 #else
 #define debug2(x)
+#endif
+
+/* indelfix */
+#ifdef DEBUG3
+#define debug3(x) x
+#else
+#define debug3(x)
 #endif
 
 
@@ -1584,13 +1593,55 @@ block_total (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr) {
 
 
 static void
+print_zeroes (Genomicpos_T start, Genomicpos_T end, char *printchr, int blocksize, 
+	      Genome_T genome, Genomicpos_T chroffset, bool blockp) {
+  Genomicpos_T chrpos, chrpos0, blockstart, blockend;
+  
+  if (start < end) {
+    for (chrpos = start; chrpos + blocksize < end; chrpos += blocksize) {
+      blockstart = chrpos;
+      blockend = chrpos + blocksize;
+      if (blockp == true) {
+	printf(">%ld %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
+      }
+      for (chrpos0 = blockstart; chrpos0 < blockend; chrpos0++) {
+	if (blockp == false) {
+	  /* Genomic position */
+	  printf("%s\t%u\t",printchr,chrpos0);
+	}
+	printf("%c0\n",Genome_get_char(genome,chroffset+chrpos0-1U));
+      }
+    }
+
+    if (chrpos < end) {
+      blockstart = chrpos;
+      blockend = end;
+      if (blockp == true) {
+	printf(">%ld %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
+      }
+      for (chrpos0 = blockstart; chrpos0 < blockend; chrpos0++) {
+	if (blockp == false) {
+	  /* Genomic position */
+	  printf("%s\t%u\t",printchr,chrpos0);
+	}
+	printf("%c0\n",Genome_get_char(genome,chroffset+chrpos0-1U));
+      }
+    }
+  }
+
+  return;
+}
+
+
+
+static void
 print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
 	     Genome_T genome, char *printchr, Genomicpos_T chroffset,
 	     bool blockp, int quality_score_adj, int min_depth, int variant_strands,
 	     bool genomic_diff_p, bool signed_counts_p,
 	     bool print_totals_p, bool print_cycles_p,
 	     bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
-	     bool readlevel_p) {
+	     bool readlevel_p, bool print_noncovered_p) {
   T this;
   double probs[NGENOTYPES], loglik[NGENOTYPES];
   int length, i, j, g, bestg;
@@ -1621,8 +1672,27 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
     }
   }
   
-  /* Total could be 0 if the block is outside chrstart..chrend */
-  if (total > 0) {
+  if (blockstart == blockptr) {
+    /* Skip */
+
+  } else if (total == 0) {
+    /* Total could be 0 if the block is outside chrstart..chrend */
+    if (print_noncovered_p == true) {
+      if (blockp == true) {
+	printf(">%ld %s:%u..%u\n",total,printchr,blockstart,blockptr-1U);
+      }
+
+      for (blocki = 0; blocki < lasti; blocki++) {
+	chrpos = blockstart + blocki;
+	if (blockp == false) {
+	  /* Genomic position */
+	  printf("%s\t%u\t",printchr,chrpos);
+	}
+	printf("%c0\n",Genome_get_char(genome,chroffset+chrpos-1U));
+      }
+    }
+
+  } else {
     if (blockp == true) {
       printf(">%ld %s:%u..%u\n",total,printchr,blockstart,blockptr-1U);
     }
@@ -1791,15 +1861,16 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	List_free(&unique_deletions_byshift);
       }
 
-
       /* Handle mismatches */
-      if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,
+      if (print_noncovered_p == false && 
+	  pass_variant_filter_p(this->nmatches,this->mismatches_byshift,
 				min_depth,variant_strands) == false) {
 	if (blockp == true) {
 	  printf("\n");
 	}
 
-      } else if (pass_difference_filter_p(probs,loglik,this,genome,
+      } else if (print_noncovered_p == false &&
+		 pass_difference_filter_p(probs,loglik,this,genome,
 					  printchr,chroffset,chrpos,
 					  quality_score_adj,genomic_diff_p) == false) {
 	if (blockp == true) {
@@ -2107,11 +2178,302 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 }
 
 
+/* Designed to work with DEBUG2 in dynprog_simd.c */
+static void
+print_nindels (char *nindels, int glength) {
+  int j;
+
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d ",nindels[j]);
+  }
+  printf("\n");
+
+  return;
+}
+
+
+/* Assume we are down to our best two candidates */
+static void
+realign_reads (Bamreader_T realign_bamreader, char *chr, Genomicpos_T indel_chrpos, 
+	       int indelsize, Genomicpos_T segment_chrpos,
+	       char *genomicseg0, char *genomicseg1, char *nindels0, char *nindels1,
+	       char *deletion_string, Dynprog_T dynprog) {
+  Bamline_T bamline;
+  char *rsequence;
+
+  int finalc0, finalc1;
+  int score0, score1;
+  char *orig_cigar, *cigar0, *cigar1;
+  char *md_string_0, *md_string_1;
+
+	       
+  Bamread_limit_region(realign_bamreader,chr,indel_chrpos-indelsize,indel_chrpos+indelsize);
+
+  while ((bamline = Bamread_next_bamline(realign_bamreader,/*desired_read_group*/NULL,
+					 /*minimum_mapq*/0,/*good_unique_mapq*/0,/*maximum_nhits*/1000000,
+					 /*need_unique_p*/false,/*need_primary_p*/false,/*ignore_duplicates_p*/false,
+					 /*need_concordant_p*/false)) != NULL) {
+    debug3(printf("\n"));
+    debug3(printf(">%s:%u..%u ",chr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
+    debug3(Bamread_print_cigar(stdout,bamline));
+
+    rsequence = Bamline_read(bamline);
+    cigar0 = Dynprog_single_gap(&score0,&finalc0,&md_string_0,dynprog,
+				rsequence,genomicseg0,genomicseg0,nindels0,/*deletion_string*/NULL,
+				/*rlength*/75,/*glength*/190,/*jump_late_p*/false,
+				/*extraband_single*/3);
+    debug3(printf(" wildtype:%d at %d (%u) %s",score0,finalc0,segment_chrpos+finalc0,cigar0));
+	
+#if 0
+    print_nindels(nindels1,/*glength*/190);
+#endif
+    cigar1 = Dynprog_single_gap(&score1,&finalc1,&md_string_1,dynprog,
+				rsequence,genomicseg1,genomicseg1,nindels1,deletion_string,
+				/*rlength*/75,/*glength*/190,/*jump_late_p*/false,
+				/*extraband_single*/3);
+    debug3(printf(" indel:%d at %d (%u) %s",score1,finalc1,segment_chrpos+finalc1,cigar1));
+
+    if (score1 > score0) {
+      orig_cigar = Bamline_cigar_string(bamline);
+      if (strcmp(cigar1,orig_cigar)) {
+	/* Aligns better to genome with indel and changes CIGAR string */
+	Bamline_print_new_cigar(stdout,bamline,segment_chrpos + finalc1,cigar1,md_string_1);
+      }
+      FREE(orig_cigar);
+    }
+    debug3(printf("\n"));
+
+    FREE(md_string_1);
+    FREE(md_string_0);
+    FREE(cigar1);
+    FREE(cigar0);
+
+    Bamline_free(&bamline);
+  }
+
+  Bamread_unlimit_region(realign_bamreader);
+  return;
+}
+
+
+static void
+process_indels (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
+		Dynprog_T dynprog, Genome_T genome, Genomicpos_T chroffset,
+		Bamreader_T realign_bamreader, char *printchr) {
+  T this;
+  int i;
+  Genomicpos_T chrpos, segment_chrpos;
+  int blocki, lasti;
+  Insertion_T ins, ins0, *ins_array;
+  Deletion_T del, del0, *del_array;
+  List_T ptr;
+  List_T unique_insertions_byshift, unique_deletions_byshift;
+  int k, c;
+  char genomicseg0[1000], genomicseg1[1000], *dest, *indel;
+  char nindels0[1000], nindels1[1000];
+
+  lasti = blockptr - blockstart;
+  debug1(printf("Printing blocki 0 to %d\n",lasti));
+
+  /* Block total */
+  for (blocki = 0; blocki < lasti; blocki++) {
+    this = block_tallies[blocki];
+    chrpos = blockstart + blocki;
+
+    /* Handle insertions */
+    if (this->insertions_byshift != NULL) {
+      unique_insertions_byshift = NULL;
+      for (ptr = this->insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	ins = (Insertion_T) List_head(ptr);
+	if ((ins0 = find_insertion_seg(unique_insertions_byshift,ins->segment,ins->mlength)) != NULL) {
+	  if (ins->shift > 0) {
+	    ins0->count_plus += ins->count;
+	  } else {
+	    ins0->count_minus += ins->count;
+	  }
+
+	  /* Insert insertion into list */
+	  ins->next = ins0->next;
+	  ins0->next = ins;
+	  
+	  ins0->shift += 1; /* Used here as nshifts */
+	} else {
+	  ins0 = Insertion_new(ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
+	  if (ins->shift > 0) {
+	    ins0->count_plus = ins->count;
+	    ins0->count_minus = 0;
+	  } else {
+	    ins0->count_minus = ins->count;
+	    ins0->count_plus = 0;
+	  }
+	  ins0->next = ins;
+	  unique_insertions_byshift = List_push(unique_insertions_byshift,ins0);
+	}
+      }
+
+      /* wildtype */
+      memset(nindels0,0,200*sizeof(char));
+      dest = genomicseg0;
+      segment_chrpos = chrpos-100;
+      for (k = -100; k < 0; k++) {
+	*dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+      }
+      for (k = 0; k < 100; k++) {
+	*dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+      }
+      *dest = '\0';
+      debug3(printf("%s\n",genomicseg0));
+
+      ins_array = (Insertion_T *) List_to_array(unique_insertions_byshift,NULL);
+      qsort(ins_array,List_length(unique_insertions_byshift),sizeof(Insertion_T),Insertion_count_cmp);
+
+      /* TODO: Find best two alternatives */
+
+      for (i = 0; i < List_length(unique_insertions_byshift); i++) {
+	/* insertion */
+	ins0 = ins_array[i];
+
+	dest = genomicseg1;
+	memset(nindels1,0,200*sizeof(char));
+	for (k = -100, c = 0; k < 0; k++, c++) {
+	  *dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+	}
+
+	/* Insert query sequence */
+	indel = ins0->segment;
+	debug3(printf("Insertion segment is %s\n",indel));
+	while (*indel != '\0') {
+	  *dest++ = *indel++;
+	  /* Put mlength instead of 1, so dynprog can use soft-clipping for incomplete insertions */
+	  nindels1[c++] = +(ins0->mlength);
+	}
+
+	for (k = 0; k < 100; k++) {
+	  *dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+	}
+	*dest = '\0';
+	debug3(printf("%s\n",genomicseg1));
+      }
+	
+      FREE(ins_array);
+
+      /* Align each read against the alternatives */
+      realign_reads(realign_bamreader,printchr,/*indel_chrpos*/chrpos,
+		    /*indelsize*/3,segment_chrpos,genomicseg0,genomicseg1,
+		    nindels0,nindels1,/*deletion_string*/NULL,dynprog);
+
+      for (ptr = unique_insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	ins0 = List_head(ptr);
+	Insertion_free(&ins0);
+      }
+      List_free(&unique_insertions_byshift);
+    }
+
+    /* Handle deletions */
+    if (this->deletions_byshift != NULL) {
+      unique_deletions_byshift = NULL;
+      for (ptr = this->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	del = (Deletion_T) List_head(ptr);
+	if ((del0 = find_deletion_seg(unique_deletions_byshift,del->segment,del->mlength)) != NULL) {
+	  if (del->shift > 0) {
+	    del0->count_plus += del->count;
+	  } else {
+	    del0->count_minus += del->count;
+	  }
+
+	  /* Insert deletion into list */
+	  del->next = del0->next;
+	  del0->next = del;
+
+	  del0->shift += 1; /* Used here as nshifts */
+	} else {
+	  del0 = Deletion_new(del->segment,del->mlength,/*shift, used here as nshifts*/1,/*mapq*/0);
+	  if (del->shift > 0) {
+	    del0->count_plus = del->count;
+	    del0->count_minus = 0;
+	  } else {
+	    del0->count_minus = del->count;
+	    del0->count_plus = 0;
+	  }
+	  del0->next = del;
+	  unique_deletions_byshift = List_push(unique_deletions_byshift,del0);
+	}
+      }
+
+      /* wildtype */
+      memset(nindels0,0,200*sizeof(char));
+      dest = genomicseg0;
+      segment_chrpos = chrpos-100;
+      for (k = -100; k < 0; k++) {
+	*dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+      }
+      for (k = 0; k < 100; k++) {
+	*dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+      }
+      *dest = '\0';
+      debug3(printf("%s\n",genomicseg0));
+
+      del_array = (Deletion_T *) List_to_array(unique_deletions_byshift,NULL);
+      qsort(del_array,List_length(unique_deletions_byshift),sizeof(Deletion_T),Deletion_count_cmp);
+
+      /* TODO: Find best two alternatives */
+
+      for (i = 0; i < List_length(unique_deletions_byshift); i++) {
+	/* deletion */
+	del0 = del_array[i];
+
+	dest = genomicseg1;
+	memset(nindels1,0,200*sizeof(char));
+	for (k = -100, c = 0; k < 0; k++, c++) {
+	  *dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+	}
+
+	indel = del0->segment;
+	while (*indel != '\0') {
+	  k++;			/* Skip genome */
+	  indel++;
+	}
+	nindels1[c-1] = -(del0->mlength);
+	debug3(printf("Putting %d at nindels[%d]\n",nindels1[c-1],c-1));
+
+	for ( ; k < 100; k++) {
+	  *dest++ = Genome_get_char(genome,chroffset+chrpos+k-1U);
+	}
+	*dest = '\0';
+	debug3(printf("%s\n",genomicseg1));
+      }
+
+      FREE(del_array);
+
+      /* Align each read against the alternatives */
+      realign_reads(realign_bamreader,printchr,/*indel_chrpos*/chrpos,
+		    /*indelsize*/3,segment_chrpos,genomicseg0,genomicseg1,
+		    nindels0,nindels1,/*deletion_string*/del0->segment,dynprog);
+
+
+      for (ptr = unique_deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	del0 = List_head(ptr);
+	Deletion_free(&del0);
+      }
+      List_free(&unique_deletions_byshift);
+    }
+
+    /* Reset */
+    Tally_clear(this);
+  }
+    
+  return;
+}
+
+
+
 static void
 tally_block (long int *tally_matches, long int *tally_mismatches,
 	     T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
 	     Genome_T genome, char *printchr, Genomicpos_T chroffset, Genomicpos_T chrstart,
-	     int quality_score_adj, int min_depth, int variant_strands, bool genomic_diff_p) {
+	     int quality_score_adj, int min_depth, int variant_strands, bool genomic_diff_p,
+	     bool print_noncovered_p) {
   T this;
   double probs[NGENOTYPES], loglik[NGENOTYPES];
   Genomicpos_T chrpos;
@@ -2141,11 +2503,13 @@ tally_block (long int *tally_matches, long int *tally_mismatches,
       this = block_tallies[blocki];
       chrpos = blockstart + blocki;
 
-      if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,
+      if (print_noncovered_p == false &&
+	  pass_variant_filter_p(this->nmatches,this->mismatches_byshift,
 				min_depth,variant_strands) == false) {
 	/* Skip */
 
-      } else if (pass_difference_filter_p(probs,loglik,this,genome,
+      } else if (print_noncovered_p == false &&
+		 pass_difference_filter_p(probs,loglik,this,genome,
 					  printchr,chroffset,chrpos,
 					  quality_score_adj,genomic_diff_p) == false) {
 	/* Skip */
@@ -2231,7 +2595,7 @@ static void
 iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	   T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	   Genome_T genome, Genomicpos_T chroffset, int quality_score_adj,
-	   int min_depth, int variant_strands) {
+	   int min_depth, int variant_strands, bool print_noncovered_p) {
   T this;
   char Buffer[100], *label;
   int length, i, j, k;
@@ -2258,7 +2622,8 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
   total = 0;
   for (blocki = 0; blocki < lasti; blocki++) {
     this = block_tallies[blocki];
-    if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,min_depth,variant_strands) == true) {
+    if (print_noncovered_p == true ||
+	pass_variant_filter_p(this->nmatches,this->mismatches_byshift,min_depth,variant_strands) == true) {
       total += this->nmatches;
       for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	mismatch = (Mismatch_T) List_head(ptr);
@@ -2435,7 +2800,8 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
       /* Handle allele counts at this position */
       debug2(printf("Pointers for allele counts:\n"));
       pointers = push_int(&ignore,pointers,nbytes);
-      if (pass_variant_filter_p(this->nmatches,this->mismatches_byshift,min_depth,variant_strands) == true) {
+      if (print_noncovered_p == true ||
+	  pass_variant_filter_p(this->nmatches,this->mismatches_byshift,min_depth,variant_strands) == true) {
 	total_matches_plus = total_matches_minus = 0;
 	if (this->use_array_p == false) {
 	  for (ptr = this->list_matches_byshift; ptr != NULL; ptr = List_next(ptr)) {
@@ -2513,6 +2879,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	      bytes = push_int(&nbytes,bytes,match_array[j]->shift);
 	      bytes = push_int(&nbytes,bytes,match_array[j]->count);
 	    }
+	    FREE(match_array);
 	  } else {
 	    length = 0;
 	    for (shift = 1; shift < this->n_matches_byshift_minus; shift++) {
@@ -2551,6 +2918,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	      bytes = push_int(&nbytes,bytes,match_array[j]->quality - quality_score_adj);
 	      bytes = push_int(&nbytes,bytes,match_array[j]->count);
 	    }
+	    FREE(match_array);
 	  } else {
 	    length = 0;
 	    for (quality = 0; quality < this->n_matches_byquality; quality++) {
@@ -2601,6 +2969,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    }
 	    FREE(mm_subarray);
 	  }
+	  FREE(mm_array);
 
 	  for (ptr = unique_mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	    mismatch0 = List_head(ptr);
@@ -2641,7 +3010,6 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 }
 
 
-
 static Genomicpos_T
 transfer_position (long int *grand_total, T *alloc_tallies, T *block_tallies,
 		   Genomicpos_T *exonstart, Genomicpos_T lastpos,
@@ -2655,7 +3023,8 @@ transfer_position (long int *grand_total, T *alloc_tallies, T *block_tallies,
 		   int quality_score_adj, int min_depth, int variant_strands,
 		   bool genomic_diff_p, bool signed_counts_p,
 		   bool print_totals_p, bool print_cycles_p, bool print_quality_scores_p,
-		   bool print_mapq_scores_p, bool want_genotypes_p, bool readlevel_p) {
+		   bool print_mapq_scores_p, bool want_genotypes_p, bool readlevel_p,
+		   bool print_noncovered_p, Bamreader_T realign_bamreader, Dynprog_T dynprog) {
   int blocki;
 
   if (chrpos < chrstart) {
@@ -2668,25 +3037,37 @@ transfer_position (long int *grand_total, T *alloc_tallies, T *block_tallies,
     if (chrpos >= *blockend) {
       debug0(printf("    chrpos %u >= blockend %u\n",chrpos,*blockend));
       debug0(printf("      print block from blockstart %u to blockptr %u\n",*blockstart,*blockptr));
-      
+
       if (output_type == OUTPUT_RUNLENGTHS) {
 	lastpos = print_runlength(block_tallies,&(*exonstart),lastpos,*blockstart,*blockptr,printchr);
       } else if (output_type == OUTPUT_TALLY) {
 	tally_block(tally_matches,tally_mismatches,
 		    block_tallies,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		    quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+		    quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		    print_noncovered_p);
       } else if (output_type == OUTPUT_IIT) {
 	iit_block(&(*intervallist),&(*labellist),&(*datalist),
 		  block_tallies,*blockstart,*blockptr,
-		  genome,chroffset,quality_score_adj,min_depth,variant_strands);
+		  genome,chroffset,quality_score_adj,min_depth,variant_strands,
+		  print_noncovered_p);
       } else if (output_type == OUTPUT_TOTAL) {
 	*grand_total += block_total(block_tallies,*blockstart,*blockptr);
+      } else if (output_type == PROCESS_INDELS) {
+	process_indels(block_tallies,*blockstart,*blockptr,dynprog,genome,chroffset,
+		       realign_bamreader,printchr);
       } else {
+	if (print_noncovered_p == true) {
+	  debug0(printf("Printing zeroes from lastpos %u to blockstart %u\n",lastpos,*blockstart));
+	  print_zeroes(lastpos,*blockstart,printchr,blocksize,genome,chroffset,blockp);
+	}
 	print_block(block_tallies,*blockstart,*blockptr,genome,printchr,chroffset,blockp,
 		    quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 		    signed_counts_p,print_totals_p,print_cycles_p,
 		    print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
-		    readlevel_p);
+		    readlevel_p,print_noncovered_p);
+	if (*blockptr > lastpos) {
+	  lastpos = *blockptr;
+	}
       }
       debug0(printf("      set blockstart to chrpos, blockend to chrpos + blocksize\n"));
       *blockstart = chrpos;
@@ -2724,7 +3105,8 @@ transfer_position_lh (T *alloc_tallies_low, T *alloc_tallies_high, T *block_tall
 		      Genome_T genome, char *printchr, Genomicpos_T chroffset,
 		      Genomicpos_T chrstart, Genomicpos_T chrend, int blocksize,
 		      int quality_score_adj, int min_depth, int variant_strands,
-		      bool genomic_diff_p) {
+		      bool genomic_diff_p, bool print_noncovered_p) {
+  /* Genomicpos_T lastpos; */
   int blocki;
 
   if (chrpos < chrstart) {
@@ -2742,11 +3124,13 @@ transfer_position_lh (T *alloc_tallies_low, T *alloc_tallies_high, T *block_tall
       
       tally_block(tally_matches_low,tally_mismatches_low,
 		  block_tallies_low,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		  quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+		  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		  print_noncovered_p);
 
       tally_block(tally_matches_high,tally_mismatches_high,
 		  block_tallies_high,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		  quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+		  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		  print_noncovered_p);
 
       debug0(printf("      set blockstart to chrpos, blockend to chrpos + blocksize\n"));
       *blockstart = chrpos;
@@ -3587,7 +3971,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p,
 	      bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
-	      bool verbosep, bool readlevel_p, int max_softclip) {
+	      bool verbosep, bool readlevel_p, int max_softclip, bool print_noncovered_p,
+	      char *bamfile) {
   long int grand_total = 0;
   T this;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
@@ -3595,12 +3980,19 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   int delta, alloci;
   bool goodp;
   Bamline_T bamline;
+  Bamreader_T realign_bamreader = NULL;
+  Dynprog_T dynprog;
   int i;
 
-  Genomicpos_T exonstart = 0U, lastpos = 0U;
+  Genomicpos_T exonstart = 0U, lastpos = chrstart;
 
   T *alloc_tallies, *block_tallies, *alloc_tallies_alloc, *block_tallies_alloc;
   
+
+  if (output_type == PROCESS_INDELS) {
+    realign_bamreader = Bamread_new(bamfile);
+    dynprog = Dynprog_new(/*max_rlength*/100,/*max_glength*/200,/*doublep*/false);
+  }
 
   /* Create tally at position N to store n_fromleft */
   alloc_tallies_alloc = (T *) CALLOC(alloclength + 2*max_softclip + 1,sizeof(T));
@@ -3692,8 +4084,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					 need_concordant_p)) != NULL) {
     /* chrpos_high = Samread_chrpos_high(types,npositions,chrpos_low); */
 
-    debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  ",
-		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend));
+    debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  lastpos: %u ",
+		  alloc_low,alloc_ptr,alloc_high,blockstart,blockptr,blockend,lastpos));
     debug0(printf("\n"));
     debug0(printf(">%s:%u..%u ",printchr,Bamline_chrpos_low(bamline),Bamline_chrpos_high(bamline)));
     debug0(Bamread_print_cigar(stdout,bamline));
@@ -3729,7 +4121,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 					signed_counts_p,print_totals_p,print_cycles_p,
 					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
-					readlevel_p);
+					readlevel_p,print_noncovered_p,realign_bamreader,dynprog);
 	  }
 	}
 
@@ -3756,7 +4148,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 					signed_counts_p,print_totals_p,print_cycles_p,
 					print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
-					readlevel_p);
+					readlevel_p,print_noncovered_p,realign_bamreader,dynprog);
 	  }
 	}
 
@@ -3765,7 +4157,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	} else {
 	  delta = chrpos_low - (alloc_low + max_softclip);
 	}
-	debug0(printf("    shift alloc upward by %d so alloc_low = chrpos_low - max_softclip\n",delta,max_softclip));
+	debug0(printf("    shift alloc upward by %d so alloc_low = chrpos_low - max_softclip %d\n",delta,max_softclip));
 	for (alloci = 0; alloci < (int) (alloc_ptr - alloc_low - delta); alloci++) {
 	  Tally_transfer(&(alloc_tallies[alloci]),&(alloc_tallies[alloci+delta]));
 	}
@@ -3830,7 +4222,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 				  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 				  signed_counts_p,print_totals_p,print_cycles_p,
 				  print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
-				  readlevel_p);
+				  readlevel_p,print_noncovered_p,realign_bamreader,dynprog);
     }
   }
 
@@ -3840,19 +4232,32 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   } else if (output_type == OUTPUT_TALLY) {
     tally_block(*tally_matches,*tally_mismatches,
 		block_tallies,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-		quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+		quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		print_noncovered_p);
   } else if (output_type == OUTPUT_IIT) {
     iit_block(&(*intervallist),&(*labellist),&(*datalist),
 	      block_tallies,blockstart,blockptr,
-	      genome,chroffset,quality_score_adj,min_depth,variant_strands);
+	      genome,chroffset,quality_score_adj,min_depth,variant_strands,
+	      print_noncovered_p);
   } else if (output_type == OUTPUT_TOTAL) {
     grand_total += block_total(block_tallies,blockstart,blockptr);
+  } else if (output_type == PROCESS_INDELS) {
+    process_indels(block_tallies,blockstart,blockptr,dynprog,genome,chroffset,realign_bamreader,
+		   printchr);
   } else{
+    if (print_noncovered_p == true) {
+      debug0(printf("Printing zeroes from lastpos %u to blockstart %u\n",lastpos,blockstart));
+      print_zeroes(lastpos,blockstart,printchr,blocksize,genome,chroffset,blockp);
+    }
     print_block(block_tallies,blockstart,blockptr,genome,printchr,chroffset,blockp,
 		quality_score_adj,min_depth,variant_strands,genomic_diff_p,
 		signed_counts_p,print_totals_p,print_cycles_p,
 		print_quality_scores_p,print_mapq_scores_p,want_genotypes_p,
-		readlevel_p);
+		readlevel_p,print_noncovered_p);
+    if (print_noncovered_p == true) {
+      debug0(printf("Printing zeroes from blockptr %u to chrend %u\n",blockptr,chrend));
+      print_zeroes(blockptr,chrend,printchr,blocksize,genome,chroffset,blockp);
+    }
   }
 
 
@@ -3865,6 +4270,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     Tally_free(&(block_tallies_alloc[i]));
   }
   FREE(block_tallies_alloc);
+
+  if (output_type == PROCESS_INDELS) {
+    Dynprog_free(&dynprog);
+    Bamread_free(&realign_bamreader);
+  }
 
   return grand_total;
 }
@@ -3881,7 +4291,7 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
 		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p,
-		 int max_softclip) {
+		 int max_softclip, bool print_noncovered_p) {
   T this_low, this_high;
   Genomicpos_T alloc_ptr, alloc_low, alloc_high, chrpos_low, chrpos_high, chrpos;
   Genomicpos_T blockptr = 0U, blockstart = 0U, blockend = 0U;
@@ -4008,9 +4418,9 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 			       &blockptr,&blockstart,&blockend,
 			       *tally_matches_low,*tally_mismatches_low,
 			       *tally_matches_high,*tally_mismatches_high,
-			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			       blocksize,
-			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,blocksize,
+			       quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+			       print_noncovered_p);
 	}
       }
 
@@ -4033,9 +4443,9 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 			       &blockptr,&blockstart,&blockend,
 			       *tally_matches_low,*tally_mismatches_low,
 			       *tally_matches_high,*tally_mismatches_high,
-			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			       blocksize,
-			       quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,blocksize,
+			       quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+			       print_noncovered_p);
 	}
       }
 
@@ -4107,19 +4517,21 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 			   &blockptr,&blockstart,&blockend,
 			   *tally_matches_low,*tally_mismatches_low,
 			   *tally_matches_high,*tally_mismatches_high,
-			   chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			   blocksize,
-			   quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+			   chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,blocksize,
+			   quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+			   print_noncovered_p);
     }
   }
 
   debug0(printf("print block from blockstart %u to blockptr %u\n",blockstart,blockptr));
   tally_block(*tally_matches_low,*tally_mismatches_low,
 	      block_tallies_low,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+	      quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+	      print_noncovered_p);
   tally_block(*tally_matches_high,*tally_mismatches_high,
 	      block_tallies_high,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-	      quality_score_adj,min_depth,variant_strands,genomic_diff_p);
+	      quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+	      print_noncovered_p);
 
 
   for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
@@ -4150,7 +4562,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
-	      int max_softclip) {
+	      int max_softclip, bool print_noncovered_p) {
   IIT_T iit;
 
   long int *tally_matches, *tally_mismatches;
@@ -4210,7 +4622,8 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 		   /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
 		   print_indels_p,/*print_totals_p*/false,/*print_cycles_p*/false,
 		   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-		   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip);
+		   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip,
+		   print_noncovered_p,/*bamfile*/NULL);
       /* Reverse lists so we can specify presortedp == true */
       Table_put(intervaltable,(void *) chr,List_reverse(intervallist));
       Table_put(labeltable,(void *) chr,List_reverse(labellist));
@@ -4259,7 +4672,8 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
                    ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
                    /*print_cycles_p*/false,
                    /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,
-                   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip);
+                   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip,
+		   print_noncovered_p,/*bamfile*/NULL);
     }
     /* Reverse lists so we can specify presortedp == true */
     Table_put(intervaltable,(void *) desired_chr,List_reverse(intervallist));

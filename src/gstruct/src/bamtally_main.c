@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 129019 2014-03-03 23:32:29Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 134420 2014-04-25 22:15:40Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -43,6 +43,7 @@ static char *dbroot = NULL;
 static char *dbversion = NULL;
 
 /* Filters */
+static bool print_noncovered_p = false;
 static int min_depth = 1;
 static int variant_strands = 0;
 static bool genomic_diff_p = false;
@@ -109,7 +110,8 @@ static struct option long_options[] = {
   {"db", required_argument, 0, 'd'}, /* dbroot */
 
   /* Filters */
-  {"min-depth", required_argument, 0, 'n'}, /* min_depth */
+  {"noncovered", no_argument, 0, 0},	   /* print_noncovered_p */
+  {"depth", required_argument, 0, 0}, /* min_depth */
   {"variants", required_argument, 0, 'X'}, /* variant_strands */
   {"diffs-only", no_argument, 0, 0},	   /* genomic_diff_p */
 
@@ -235,6 +237,8 @@ main (int argc, char *argv[]) {
 	print_indels_p = true;
       } else if (!strcmp(long_name,"cycles")) {
 	print_cycles_p = true;
+      } else if (!strcmp(long_name,"noncovered")) {
+	print_noncovered_p = true;
       } else if (!strcmp(long_name,"depth")) {
 	min_depth = atoi(optarg);
       } else if (!strcmp(long_name,"ignore-duplicates")) {
@@ -376,7 +380,8 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
-				  print_indels_p,blocksize,verbosep,readlevel_p,max_softclip);
+				  print_indels_p,blocksize,verbosep,readlevel_p,max_softclip,
+				  print_noncovered_p);
     } else {
       for (index = 1; index <= IIT_total_nintervals(chromosome_iit); index++) {
 	chromosome = IIT_label(chromosome_iit,index,&allocp);
@@ -408,7 +413,7 @@ main (int argc, char *argv[]) {
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
 				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
-				     max_softclip);
+				     max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {
@@ -444,7 +449,7 @@ main (int argc, char *argv[]) {
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep,readlevel_p,
-				  max_softclip);
+				  max_softclip,print_noncovered_p);
       IIT_free(&chromosome_iit);
 
     } else {
@@ -473,7 +478,7 @@ main (int argc, char *argv[]) {
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
 				   print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
-				   max_softclip);
+				   max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	Bamread_unlimit_region(bamreader);
       }
       if (output_type == OUTPUT_TOTAL) {
@@ -533,7 +538,7 @@ main (int argc, char *argv[]) {
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
 				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
-				     max_softclip);
+				     max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	  Bamread_unlimit_region(bamreader);
 	}
 	if (output_type == OUTPUT_TOTAL) {
@@ -656,11 +661,16 @@ Compute options\n\
                                    in their BAM lines\n\
   --include-soft-clips=INT       Include soft clips of up to this length in the tally results\n\
                                    (May want to set to maximum read length) [default = 0]\n\
+                                   Soft clips as part of terminal alignments (marked with PG:Z:T\n\
+                                   by GSNAP) are excluded\n\
 \n\
 Coordinates\n\
   --whole-genome                 Compute tally over entire genome\n\
 \n\
 Filtering of output (options may be combined)\n\
+  --noncovered                   Print positions even if not covered by reads (somewhat equivalent to --depth=0,\n\
+                                   but includes all positions in the given range\n\
+                                   This option invalidates all other filtering options\n\
   --depth=INT                    Print only positions with this depth or more\n\
   -X, --variants=INT             Print only positions showing a variant allele\n\
                                    Argument of 0 means all positions (default)\n\

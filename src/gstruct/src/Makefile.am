@@ -47,12 +47,13 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
 if SAMTOOLS
-bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
 dist_bam_tally_SOURCES = $(BAM_TALLY_FILES)
@@ -70,12 +71,13 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 # Do not add SAMTOOLS LIBS here
 if SAMTOOLS
-libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
 dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES = $(LIBGSTRUCT_LA_FILES)
@@ -97,6 +99,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  uinttable.h table.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
+ dynprog.h dynprog_simd.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h bamtally.h datadir.h
 
 # May want nodist_bamtally_libinclude_HEADERS = ../lib/bamtally.h

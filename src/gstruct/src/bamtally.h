@@ -1,4 +1,4 @@
-/* $Id: bamtally.h 129018 2014-03-03 23:32:01Z twu $ */
+/* $Id: bamtally.h 133068 2014-04-11 20:18:08Z twu $ */
 #ifndef BAMTALLY_INCLUDED
 #define BAMTALLY_INCLUDED
 #include "bamread.h"
@@ -9,7 +9,8 @@
 #include "tableuint.h"
 
 
-typedef enum {OUTPUT_BLOCKS, OUTPUT_RUNLENGTHS, OUTPUT_TALLY, OUTPUT_IIT, OUTPUT_TOTAL} Tally_outputtype_T;
+typedef enum {OUTPUT_BLOCKS, OUTPUT_RUNLENGTHS, OUTPUT_TALLY, OUTPUT_IIT, OUTPUT_TOTAL,
+	      PROCESS_INDELS} Tally_outputtype_T;
 #define DEFAULT_QUALITY 40  /* quality_score_adj + 40 */
 
 extern long int
@@ -27,7 +28,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p,
 	      bool print_quality_scores_p, bool print_mapq_scores_p, bool want_genotypes_p,
-	      bool verbosep, bool readlevel_p, int max_softclip);
+	      bool verbosep, bool readlevel_p, int max_softclip, bool print_noncovered_p,
+	      char *bamfile);
 
 /* Version that keeps separate tallies for the low and high ends of paired-end reads */
 extern void
@@ -40,7 +42,7 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
 		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p,
-		 int max_softclip);
+		 int max_softclip, bool print_noncovered_p);
 
 extern IIT_T
 Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
@@ -50,6 +52,6 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
-	      int max_softclip);
+	      int max_softclip, bool print_noncovered_p);
 
 #endif

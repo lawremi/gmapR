@@ -1,4 +1,4 @@
-/* $Id: bamread.h 129099 2014-03-04 18:44:44Z twu $ */
+/* $Id: bamread.h 134418 2014-04-25 22:14:34Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -70,6 +70,8 @@ extern char *
 Bamline_chr (Bamline_T this);
 extern Genomicpos_T
 Bamline_chrpos_low (Bamline_T this);
+extern Genomicpos_T
+Bamline_chrpos_low_noclip (Bamline_T this);
 extern char *
 Bamline_mate_chr (Bamline_T this);
 extern Genomicpos_T
@@ -98,6 +100,9 @@ extern char *
 Bamline_read_group (Bamline_T this);
 extern void
 Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj);
+extern void
+Bamline_print_new_cigar (FILE *fp, Bamline_T this, Genomicpos_T chrpos_low, char *new_cigar,
+			 char *new_md_string);
 
 extern char
 Bamline_splice_strand (Bamline_T this);

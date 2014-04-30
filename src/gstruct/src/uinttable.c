@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uinttable.c 81700 2012-12-14 21:27:59Z twu $";
+static char rcsid[] = "$Id: uinttable.c 132899 2014-04-09 23:51:20Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -198,23 +198,27 @@ Uinttable_keys_by_timeindex (T table) {
   int i, j = 0;
   struct binding **buckets, *p;
 
-  assert(table);
-  buckets = (struct binding **) CALLOC(table->length+1,sizeof(struct binding *));
-  for (i = 0; i < table->size; i++) {
-    for (p = table->buckets[i]; p; p = p->link) {
-      buckets[j++] = p;
+  if (table->length == 0) {
+    return (unsigned int *) NULL;
+  } else {
+    assert(table);
+    buckets = (struct binding **) CALLOC(table->length+1,sizeof(struct binding *));
+    for (i = 0; i < table->size; i++) {
+      for (p = table->buckets[i]; p; p = p->link) {
+	buckets[j++] = p;
+      }
     }
-  }
-  qsort(buckets,table->length,sizeof(struct binding *),timeindex_cmp);
+    qsort(buckets,table->length,sizeof(struct binding *),timeindex_cmp);
 
-  keyarray = (unsigned int *) CALLOC(table->length,sizeof(unsigned int));
-  for (j = 0; j < table->length; j++) {
-    p = buckets[j];
-    keyarray[j] = p->key;
-  }
-  FREE(buckets);
+    keyarray = (unsigned int *) CALLOC(table->length,sizeof(unsigned int));
+    for (j = 0; j < table->length; j++) {
+      p = buckets[j];
+      keyarray[j] = p->key;
+    }
+    FREE(buckets);
 
-  return keyarray;
+    return keyarray;
+  }
 }
 
 
@@ -225,13 +229,17 @@ Uinttable_values (T table) {
   struct binding *p;
 
   assert(table);
-  valuearray = (void **) CALLOC(table->length,sizeof(void *));
-  for (i = 0; i < table->size; i++) {
-    for (p = table->buckets[i]; p; p = p->link) {
-      valuearray[j++] = (void *) p->value;
+  if (table->length == 0) {
+    return (void **) NULL;
+  } else {
+    valuearray = (void **) CALLOC(table->length,sizeof(void *));
+    for (i = 0; i < table->size; i++) {
+      for (p = table->buckets[i]; p; p = p->link) {
+	valuearray[j++] = (void *) p->value;
+      }
     }
+    return valuearray;
   }
-  return valuearray;
 }
 
 void 

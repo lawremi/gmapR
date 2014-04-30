@@ -646,6 +646,7 @@ ZLIB_LIBS
 MAKE_BINARIES_FALSE
 MAKE_BINARIES_TRUE
 GMAPDB
+SIMD_FLAGS
 UNIQSCAN
 GSNAP
 GMAP
@@ -801,6 +802,10 @@ with_gnu_ld
 with_sysroot
 enable_libtool_lock
 with_gmap
+enable_popcnt
+enable_sse2
+enable_sse4_1
+enable_simd
 with_gmapdb
 enable_binaries
 enable_zlib
@@ -1452,6 +1457,15 @@ Optional Features:
   --enable-fast-install[=PKGS]
                           optimize for fast installation [default=yes]
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-popcnt         Enable -mpopcnt if it compiles and runs
+                          (default=yes). May want to disable if compiling on
+                          one machine and running on another.
+  --enable-sse2           Enable sse2 simd commands if they compile and run
+                          (default=yes).
+  --enable-sse4.1         Enable sse4.1 simd commands if they compile and run
+                          (default=yes). Requires that sse2 be enabled.
+  --enable-simd           Enable simd commands in general if they compile and
+                          run (default=yes).
   --enable-binaries       Enable building of binaries (default=yes)
   --enable-zlib           Enable zlib support (option needed for uncompressing
                           gzip files) (default=yes)
@@ -14657,6 +14671,32 @@ $as_echo "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for MADV_SEQUENTIAL in madvise" >&5
+$as_echo_n "checking for MADV_SEQUENTIAL in madvise... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <sys/types.h>
+#include <sys/mman.h>
+int
+main ()
+{
+int flags = MADV_SEQUENTIAL;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_MADVISE_MADV_SEQUENTIAL 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -14864,6 +14904,2477 @@ if test x$cvx_cv_func_fopen_t = xyes; then
 $as_echo "#define USE_FOPEN_TEXT 1" >>confdefs.h
 
 fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for popcnt feature" >&5
+$as_echo_n "checking for popcnt feature... " >&6; }
+# Check whether --enable-popcnt was given.
+if test "${enable_popcnt+set}" = set; then :
+  enableval=$enable_popcnt; answer="$enableval"
+else
+  answer=""
+fi
+
+case x"$answer" in
+	xyes)
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: enabled" >&5
+$as_echo "enabled" >&6; }
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_popcount" >&5
+$as_echo_n "checking for __builtin_popcount... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_popcount(0xffffffffu) == 32) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_POPCOUNT 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_clz" >&5
+$as_echo_n "checking for __builtin_clz... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_clz(0x1u) == 31) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_CLZ 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_ctz" >&5
+$as_echo_n "checking for __builtin_ctz... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_ctz(0x80000000u) == 31) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_CTZ 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+	;;
+
+	xno)
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
+	;;
+
+	x)
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: not specified so enabled by default" >&5
+$as_echo "not specified so enabled by default" >&6; }
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_popcount" >&5
+$as_echo_n "checking for __builtin_popcount... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_popcount(0xffffffffu) == 32) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_POPCOUNT 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_clz" >&5
+$as_echo_n "checking for __builtin_clz... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_clz(0x1u) == 31) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_CLZ 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for __builtin_ctz" >&5
+$as_echo_n "checking for __builtin_ctz... " >&6; }
+if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return (__builtin_ctz(0x80000000u) == 31) ? 0 : 9;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_BUILTIN_CTZ 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+	;;
+esac
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for bsr instruction in assembly" >&5
+$as_echo_n "checking for bsr instruction in assembly... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+int msb; unsigned int x = rand(); asm("bsr %1,%0" : "=r"(msb) : "r"(x));
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+$as_echo "#define HAVE_ASM_BSR 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse2 is enabled" >&5
+$as_echo_n "checking whether sse2 is enabled... " >&6; }
+# Check whether --enable-sse2 was given.
+if test "${enable_sse2+set}" = set; then :
+  enableval=$enable_sse2; answer="$enableval"
+else
+  answer=""
+fi
+
+case x"$answer" in
+     xyes)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: enabled" >&5
+$as_echo "enabled" >&6; }
+     ax_cv_want_sse2_ext=yes
+     ;;
+
+     xno)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
+     ax_cv_want_sse2_ext=no
+     ;;
+
+     x)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: not specified so enabled by default" >&5
+$as_echo "not specified so enabled by default" >&6; }
+     ax_cv_want_sse2_ext=yes
+     ;;
+esac
+
+ax_cv_sse2_shift_defect=no
+if test "$ax_cv_want_sse2_ext" = yes; then
+
+
+
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking compiler is defective and requires an immediate in sse2 shift commands" >&5
+$as_echo_n "checking compiler is defective and requires an immediate in sse2 shift commands... " >&6; }
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+#include <stdlib.h>
+#include <emmintrin.h>
+int
+main ()
+{
+int nshift = rand() % 32;
+__m128i shifted;
+shifted = _mm_slli_epi32(_mm_set1_epi32(1),nshift);
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_sse2_shift_defect=no
+else
+  ax_cv_sse2_shift_defect=yes
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_sse2_shift_defect" >&5
+$as_echo "$ax_cv_sse2_shift_defect" >&6; }
+  if test "$ax_cv_sse2_shift_defect" = yes; then
+
+$as_echo "#define DEFECTIVE_SSE2_COMPILER 1" >>confdefs.h
+
+  fi
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse4.1 is enabled" >&5
+$as_echo_n "checking whether sse4.1 is enabled... " >&6; }
+# Check whether --enable-sse4.1 was given.
+if test "${enable_sse4_1+set}" = set; then :
+  enableval=$enable_sse4_1; answer="$enableval"
+else
+  answer=""
+fi
+
+if test "$ax_cv_want_sse2_ext" = no; then
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled because the user disabled sse2" >&5
+$as_echo "disabled because the user disabled sse2" >&6; }
+   ax_cv_want_sse41_ext=no
+else
+    case x"$answer" in
+	 xyes)
+	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: enabled" >&5
+$as_echo "enabled" >&6; }
+	 ax_cv_want_sse41_ext=yes
+	 ;;
+
+	 xno)
+	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
+	 ax_cv_want_sse41_ext=no
+	 ;;
+
+	 x)
+	 { $as_echo "$as_me:${as_lineno-$LINENO}: result: not specified so enabled by default" >&5
+$as_echo "not specified so enabled by default" >&6; }
+	 ax_cv_want_sse41_ext=yes
+	 ;;
+    esac
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether simd is enabled" >&5
+$as_echo_n "checking whether simd is enabled... " >&6; }
+# Check whether --enable-simd was given.
+if test "${enable_simd+set}" = set; then :
+  enableval=$enable_simd; answer="$enableval"
+else
+  answer=""
+fi
+
+case x"$answer" in
+     xyes)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: enabled" >&5
+$as_echo "enabled" >&6; }
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid  output" >&5
+$as_echo_n "checking for x86 cpuid  output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = , eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86-AVX xgetbv  output" >&5
+$as_echo_n "checking for x86-AVX xgetbv  output... " >&6; }
+if ${ax_cv_gcc_x86_avx_xgetbv_+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_avx_xgetbv_=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = , eax, edx;
+     FILE *f;
+      /* Opcodes for xgetbv */
+      __asm__(".byte 0x0f, 0x01, 0xd0"
+        : "=a" (eax), "=d" (edx)
+        : "c" (op));
+     f = fopen("conftest_xgetbv", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x\n", eax, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_avx_xgetbv_=`cat conftest_xgetbv`; rm -f conftest_xgetbv
+else
+  ax_cv_gcc_x86_avx_xgetbv_=unknown; rm -f conftest_xgetbv
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_avx_xgetbv_" >&5
+$as_echo "$ax_cv_gcc_x86_avx_xgetbv_" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+
+  case $host_cpu in
+    powerpc*)
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether altivec is enabled and supported" >&5
+$as_echo_n "checking whether altivec is enabled and supported... " >&6; }
+if ${ax_cv_have_altivec_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+            if test `/usr/sbin/sysctl -a 2>/dev/null| grep -c hw.optional.altivec` != 0; then
+                if test `/usr/sbin/sysctl -n hw.optional.altivec` = 1; then
+                  ax_cv_have_altivec_ext=yes
+                fi
+            fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_altivec_ext" >&5
+$as_echo "$ax_cv_have_altivec_ext" >&6; }
+
+          if test "$ax_cv_have_altivec_ext" = yes; then
+
+$as_echo "#define HAVE_ALTIVEC 1" >>confdefs.h
+
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -faltivec" >&5
+$as_echo_n "checking whether C compiler accepts -faltivec... " >&6; }
+if ${ax_cv_check_cflags___faltivec+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -faltivec"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___faltivec=yes
+else
+  ax_cv_check_cflags___faltivec=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___faltivec" >&5
+$as_echo "$ax_cv_check_cflags___faltivec" >&6; }
+if test x"$ax_cv_check_cflags___faltivec" = xyes; then :
+  SIMD_FLAGS="$SIMD_FLAGS -faltivec"
+else
+  :
+fi
+
+          fi
+    ;;
+
+
+    i[3456]86*|x86_64*|amd64*)
+
+
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x00000001 output" >&5
+$as_echo_n "checking for x86 cpuid 0x00000001 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x00000001+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x00000001=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000001, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x00000001=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x00000001=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x00000001" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x00000001" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ecx=0
+      edx=0
+      if test "$ax_cv_gcc_x86_cpuid_0x00000001" != "unknown";
+      then
+        ecx=`echo $ax_cv_gcc_x86_cpuid_0x00000001 | cut -d ":" -f 3`
+        edx=`echo $ax_cv_gcc_x86_cpuid_0x00000001 | cut -d ":" -f 4`
+      fi
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether mmx is enabled and supported" >&5
+$as_echo_n "checking whether mmx is enabled and supported... " >&6; }
+if ${ax_cv_have_mmx_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_mmx_ext=no
+        if test "$((0x$edx>>23&0x01))" = 1; then
+          ax_cv_have_mmx_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_mmx_ext" >&5
+$as_echo "$ax_cv_have_mmx_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse is enabled and supported" >&5
+$as_echo_n "checking whether sse is enabled and supported... " >&6; }
+if ${ax_cv_have_sse_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse_ext=no
+        if test "$((0x$edx>>25&0x01))" = 1; then
+          ax_cv_have_sse_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse_ext" >&5
+$as_echo "$ax_cv_have_sse_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse2 is enabled and supported" >&5
+$as_echo_n "checking whether sse2 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse2_ext=no
+        if test "$ax_cv_want_sse2_ext" = yes; then
+          if test "$((0x$edx>>26&0x01))" = 1; then
+            ax_cv_have_sse2_ext=yes
+          fi
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse2_ext" >&5
+$as_echo "$ax_cv_have_sse2_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse3 is enabled and supported" >&5
+$as_echo_n "checking whether sse3 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse3_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse3_ext=no
+        if test "$((0x$ecx&0x01))" = 1; then
+          ax_cv_have_sse3_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse3_ext" >&5
+$as_echo "$ax_cv_have_sse3_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether ssse3 is enabled and supported" >&5
+$as_echo_n "checking whether ssse3 is enabled and supported... " >&6; }
+if ${ax_cv_have_ssse3_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_ssse3_ext=no
+        if test "$((0x$ecx>>9&0x01))" = 1; then
+          ax_cv_have_ssse3_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_ssse3_ext" >&5
+$as_echo "$ax_cv_have_ssse3_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse4.1 is enabled and supported" >&5
+$as_echo_n "checking whether sse4.1 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse41_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse41_ext=no
+        if test "$ax_cv_want_sse41_ext" = yes; then
+          if test "$((0x$ecx>>19&0x01))" = 1; then
+            ax_cv_have_sse41_ext=yes
+          fi
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse41_ext" >&5
+$as_echo "$ax_cv_have_sse41_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse4.2 is enabled and supported" >&5
+$as_echo_n "checking whether sse4.2 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse42_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse42_ext=no
+        if test "$((0x$ecx>>20&0x01))" = 1; then
+          ax_cv_have_sse42_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse42_ext" >&5
+$as_echo "$ax_cv_have_sse42_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx is enabled and supported by processor" >&5
+$as_echo_n "checking whether avx is enabled and supported by processor... " >&6; }
+if ${ax_cv_have_avx_cpu_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_avx_cpu_ext=no
+        if test "$((0x$ecx>>28&0x01))" = 1; then
+          ax_cv_have_avx_cpu_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx_cpu_ext" >&5
+$as_echo "$ax_cv_have_avx_cpu_ext" >&6; }
+
+      if test x"$ax_cv_have_avx_cpu_ext" = x"yes"; then
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86-AVX xgetbv 0x00000000 output" >&5
+$as_echo_n "checking for x86-AVX xgetbv 0x00000000 output... " >&6; }
+if ${ax_cv_gcc_x86_avx_xgetbv_0x00000000+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000000, eax, edx;
+     FILE *f;
+      /* Opcodes for xgetbv */
+      __asm__(".byte 0x0f, 0x01, 0xd0"
+        : "=a" (eax), "=d" (edx)
+        : "c" (op));
+     f = fopen("conftest_xgetbv", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x\n", eax, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=`cat conftest_xgetbv`; rm -f conftest_xgetbv
+else
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=unknown; rm -f conftest_xgetbv
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_avx_xgetbv_0x00000000" >&5
+$as_echo "$ax_cv_gcc_x86_avx_xgetbv_0x00000000" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+        xgetbv_eax="0"
+        if test x"$ax_cv_gcc_x86_avx_xgetbv_0x00000000" != x"unknown"; then
+          xgetbv_eax=`echo $ax_cv_gcc_x86_avx_xgetbv_0x00000000 | cut -d ":" -f 1`
+        fi
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx is supported by operating system" >&5
+$as_echo_n "checking whether avx is supported by operating system... " >&6; }
+if ${ax_cv_have_avx_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+          ax_cv_have_avx_ext=no
+
+          if test "$((0x$ecx>>27&0x01))" = 1; then
+            if test "$((0x$xgetbv_eax&0x6))" = 6; then
+              ax_cv_have_avx_ext=yes
+            fi
+          fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx_ext" >&5
+$as_echo "$ax_cv_have_avx_ext" >&6; }
+        if test x"$ax_cv_have_avx_ext" = x"no"; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports AVX, but your operating system doesn't" >&5
+$as_echo "$as_me: WARNING: Your processor supports AVX, but your operating system doesn't" >&2;}
+        fi
+      fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether popcnt is enabled and supported" >&5
+$as_echo_n "checking whether popcnt is enabled and supported... " >&6; }
+if ${ax_cv_have_popcnt_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_popcnt_ext=no
+        if test "$((0x$ecx>>23&0x01))" = 1; then
+          ax_cv_have_popcnt_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_popcnt_ext" >&5
+$as_echo "$ax_cv_have_popcnt_ext" >&6; }
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x80000001 output" >&5
+$as_echo_n "checking for x86 cpuid 0x80000001 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x80000001+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x80000001=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x80000001, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x80000001=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x80000001=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x80000001" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x80000001" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ecx=`echo $ax_cv_gcc_x86_cpuid_0x80000001 | cut -d ":" -f 3`
+      edx=`echo $ax_cv_gcc_x86_cpuid_0x80000001 | cut -d ":" -f 4`
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether lzcnt is enabled and supported" >&5
+$as_echo_n "checking whether lzcnt is enabled and supported... " >&6; }
+if ${ax_cv_have_lzcnt_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_lzcnt_ext=no
+        if test "$((0x$ecx>>5&0x01))" = 1; then
+          ax_cv_have_lzcnt_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_lzcnt_ext" >&5
+$as_echo "$ax_cv_have_lzcnt_ext" >&6; }
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x00000007 output" >&5
+$as_echo_n "checking for x86 cpuid 0x00000007 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x00000007+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x00000007=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000007, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x00000007=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x00000007=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x00000007" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x00000007" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ebx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 2`
+      ecx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 3`
+      edx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 4`
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx2 is enabled and supported" >&5
+$as_echo_n "checking whether avx2 is enabled and supported... " >&6; }
+if ${ax_cv_have_avx2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_avx2_ext=no
+        if test "$((0x$ebx>>5&0x01))" = 1; then
+          ax_cv_have_avx2_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx2_ext" >&5
+$as_echo "$ax_cv_have_avx2_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether bmi1 is enabled and supported" >&5
+$as_echo_n "checking whether bmi1 is enabled and supported... " >&6; }
+if ${ax_cv_have_bmi1_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_bmi1_ext=no
+        if test "$((0x$ebx>>3&0x01))" = 1; then
+          ax_cv_have_bmi1_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_bmi1_ext" >&5
+$as_echo "$ax_cv_have_bmi1_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether bmi2 is enabled and supported" >&5
+$as_echo_n "checking whether bmi2 is enabled and supported... " >&6; }
+if ${ax_cv_have_bmi2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_bmi2_ext=no
+        if test "$((0x$ebx>>8&0x01))" = 1; then
+          ax_cv_have_bmi2_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_bmi2_ext" >&5
+$as_echo "$ax_cv_have_bmi2_ext" >&6; }
+
+
+
+      if test "$ax_cv_have_mmx_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -mmmx" >&5
+$as_echo_n "checking whether C compiler accepts -mmmx... " >&6; }
+if ${ax_cv_check_cflags___mmmx+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -mmmx"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___mmmx=yes
+else
+  ax_cv_check_cflags___mmmx=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___mmmx" >&5
+$as_echo "$ax_cv_check_cflags___mmmx" >&6; }
+if test x"$ax_cv_check_cflags___mmmx" = xyes; then :
+  ax_cv_support_mmx_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_mmx_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -mmmx"
+
+$as_echo "#define HAVE_MMX 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports mmx instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports mmx instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse" >&5
+$as_echo_n "checking whether C compiler accepts -msse... " >&6; }
+if ${ax_cv_check_cflags___msse+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse=yes
+else
+  ax_cv_check_cflags___msse=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse" >&5
+$as_echo "$ax_cv_check_cflags___msse" >&6; }
+if test x"$ax_cv_check_cflags___msse" = xyes; then :
+  ax_cv_support_sse_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse"
+
+$as_echo "#define HAVE_SSE 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse2_ext" = yes; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse2" >&5
+$as_echo_n "checking whether C compiler accepts -msse2... " >&6; }
+if ${ax_cv_check_cflags___msse2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse2"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse2=yes
+else
+  ax_cv_check_cflags___msse2=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse2" >&5
+$as_echo "$ax_cv_check_cflags___msse2" >&6; }
+if test x"$ax_cv_check_cflags___msse2" = xyes; then :
+  ax_cv_support_sse2_ext=yes
+else
+  :
+fi
+
+	if test x"$ax_cv_support_sse2_ext" = x"yes"; then
+	  SIMD_FLAGS="$SIMD_FLAGS -msse2"
+
+$as_echo "#define HAVE_SSE2 1" >>confdefs.h
+
+	else
+	  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse2 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse2 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+	fi
+      fi
+
+      if test "$ax_cv_have_sse3_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse3" >&5
+$as_echo_n "checking whether C compiler accepts -msse3... " >&6; }
+if ${ax_cv_check_cflags___msse3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse3"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse3=yes
+else
+  ax_cv_check_cflags___msse3=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse3" >&5
+$as_echo "$ax_cv_check_cflags___msse3" >&6; }
+if test x"$ax_cv_check_cflags___msse3" = xyes; then :
+  ax_cv_support_sse3_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse3_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse3"
+
+$as_echo "#define HAVE_SSE3 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_ssse3_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -mssse3" >&5
+$as_echo_n "checking whether C compiler accepts -mssse3... " >&6; }
+if ${ax_cv_check_cflags___mssse3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -mssse3"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___mssse3=yes
+else
+  ax_cv_check_cflags___mssse3=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___mssse3" >&5
+$as_echo "$ax_cv_check_cflags___mssse3" >&6; }
+if test x"$ax_cv_check_cflags___mssse3" = xyes; then :
+  ax_cv_support_ssse3_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_ssse3_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -mssse3"
+
+$as_echo "#define HAVE_SSSE3 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports ssse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports ssse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse41_ext" = yes; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse4.1" >&5
+$as_echo_n "checking whether C compiler accepts -msse4.1... " >&6; }
+if ${ax_cv_check_cflags___msse4_1+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse4.1"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse4_1=yes
+else
+  ax_cv_check_cflags___msse4_1=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse4_1" >&5
+$as_echo "$ax_cv_check_cflags___msse4_1" >&6; }
+if test x"$ax_cv_check_cflags___msse4_1" = xyes; then :
+  ax_cv_support_sse41_ext=yes
+else
+  :
+fi
+
+	if test x"$ax_cv_support_sse41_ext" = x"yes"; then
+	  SIMD_FLAGS="$SIMD_FLAGS -msse4.1"
+
+$as_echo "#define HAVE_SSE4_1 1" >>confdefs.h
+
+	else
+	  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse4.1 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse4.1 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+	fi
+      fi
+
+      if test "$ax_cv_have_sse42_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse4.2" >&5
+$as_echo_n "checking whether C compiler accepts -msse4.2... " >&6; }
+if ${ax_cv_check_cflags___msse4_2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse4.2"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse4_2=yes
+else
+  ax_cv_check_cflags___msse4_2=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse4_2" >&5
+$as_echo "$ax_cv_check_cflags___msse4_2" >&6; }
+if test x"$ax_cv_check_cflags___msse4_2" = xyes; then :
+  ax_cv_support_sse42_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse42_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse4.2"
+
+$as_echo "#define HAVE_SSE4_2 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse4.2 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse4.2 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+#      if test "$ax_cv_have_avx_ext" = yes; then
+#        AX_CHECK_COMPILE_FLAG(-mavx, ax_cv_support_avx_ext=yes, [])
+#        if test x"$ax_cv_support_avx_ext" = x"yes"; then
+#          SIMD_FLAGS="$SIMD_FLAGS -mavx"
+#          AC_DEFINE(HAVE_AVX,1,[Define to 1 if you support AVX (Advanced Vector Extensions) instructions])
+#        else
+#          AC_MSG_WARN([Your processor supports avx instructions but not your compiler.  Can you try another compiler or update yours?])
+#        fi
+#      fi
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for immintrin.h header file" >&5
+$as_echo_n "checking for immintrin.h header file... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ax_cv_have_immintrin_h=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+      if test x"$a_cv_have_immintrin_h" = x"yes"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        if test "$ax_cv_have_popcnt_ext" = yes; then
+
+$as_echo "#define HAVE_POPCNT 1" >>confdefs.h
+
+        fi
+
+        if test "$ax_cv_have_lzcnt_ext" = yes; then
+
+$as_echo "#define HAVE_LZCNT 1" >>confdefs.h
+
+        fi
+
+        if test "$ax_cv_have_bmi1_ext" = yes; then
+
+$as_echo "#define HAVE_BMI1 1" >>confdefs.h
+
+        fi
+      else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+        if test "$ax_cv_have_popcnt_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports _popcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports _popcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+        if test "$ax_cv_have_lzcnt_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports _lzcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports _lzcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+        if test "$ax_cv_have_bmi1_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports bmi instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports bmi instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_bmi2_ext" = yes; then
+
+$as_echo "#define HAVE_BMI2 1" >>confdefs.h
+
+      fi
+
+#      if test "$ax_cv_have_avx2_ext" = yes; then
+#        AX_CHECK_COMPILE_FLAG(-mavx2, ax_cv_support_avx2_ext=yes, [])
+#        if test x"$ax_cv_support_avx2_ext" = x"yes"; then
+#          SIMD_FLAGS="$SIMD_FLAGS -mavx2"
+#          AC_DEFINE(HAVE_AVX2,1,[Define to 1 if you support AVX2 (Advanced Vector Extensions 2) instructions])
+#        else
+#          AC_MSG_WARN([Your processor supports avx2 instructions but not your compiler.  Can you try another compiler or update yours?])
+#        fi
+#      fi
+
+  ;;
+  esac
+
+
+   # Sets SIMD_FLAGS, and HAVE_ALTIVEC,HAVE_MMX,HAVE_SSE,HAVE_SSE2,HAVE_SSE3,HAVE_SSSE3,HAVE_SSE4_1,HAVE_SSE4_2,HAVE_AVX
+     ;;
+
+     xno)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: disabled" >&5
+$as_echo "disabled" >&6; }
+     ;;
+
+     x)
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: not specified so enabled by default" >&5
+$as_echo "not specified so enabled by default" >&6; }
+
+
+
+  case $host_cpu in
+    powerpc*)
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether altivec is enabled and supported" >&5
+$as_echo_n "checking whether altivec is enabled and supported... " >&6; }
+if ${ax_cv_have_altivec_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+            if test `/usr/sbin/sysctl -a 2>/dev/null| grep -c hw.optional.altivec` != 0; then
+                if test `/usr/sbin/sysctl -n hw.optional.altivec` = 1; then
+                  ax_cv_have_altivec_ext=yes
+                fi
+            fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_altivec_ext" >&5
+$as_echo "$ax_cv_have_altivec_ext" >&6; }
+
+          if test "$ax_cv_have_altivec_ext" = yes; then
+
+$as_echo "#define HAVE_ALTIVEC 1" >>confdefs.h
+
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -faltivec" >&5
+$as_echo_n "checking whether C compiler accepts -faltivec... " >&6; }
+if ${ax_cv_check_cflags___faltivec+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -faltivec"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___faltivec=yes
+else
+  ax_cv_check_cflags___faltivec=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___faltivec" >&5
+$as_echo "$ax_cv_check_cflags___faltivec" >&6; }
+if test x"$ax_cv_check_cflags___faltivec" = xyes; then :
+  SIMD_FLAGS="$SIMD_FLAGS -faltivec"
+else
+  :
+fi
+
+          fi
+    ;;
+
+
+    i[3456]86*|x86_64*|amd64*)
+
+
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x00000001 output" >&5
+$as_echo_n "checking for x86 cpuid 0x00000001 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x00000001+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x00000001=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000001, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x00000001=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x00000001=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x00000001" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x00000001" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ecx=0
+      edx=0
+      if test "$ax_cv_gcc_x86_cpuid_0x00000001" != "unknown";
+      then
+        ecx=`echo $ax_cv_gcc_x86_cpuid_0x00000001 | cut -d ":" -f 3`
+        edx=`echo $ax_cv_gcc_x86_cpuid_0x00000001 | cut -d ":" -f 4`
+      fi
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether mmx is enabled and supported" >&5
+$as_echo_n "checking whether mmx is enabled and supported... " >&6; }
+if ${ax_cv_have_mmx_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_mmx_ext=no
+        if test "$((0x$edx>>23&0x01))" = 1; then
+          ax_cv_have_mmx_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_mmx_ext" >&5
+$as_echo "$ax_cv_have_mmx_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse is enabled and supported" >&5
+$as_echo_n "checking whether sse is enabled and supported... " >&6; }
+if ${ax_cv_have_sse_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse_ext=no
+        if test "$((0x$edx>>25&0x01))" = 1; then
+          ax_cv_have_sse_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse_ext" >&5
+$as_echo "$ax_cv_have_sse_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse2 is enabled and supported" >&5
+$as_echo_n "checking whether sse2 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse2_ext=no
+        if test "$ax_cv_want_sse2_ext" = yes; then
+          if test "$((0x$edx>>26&0x01))" = 1; then
+            ax_cv_have_sse2_ext=yes
+          fi
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse2_ext" >&5
+$as_echo "$ax_cv_have_sse2_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse3 is enabled and supported" >&5
+$as_echo_n "checking whether sse3 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse3_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse3_ext=no
+        if test "$((0x$ecx&0x01))" = 1; then
+          ax_cv_have_sse3_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse3_ext" >&5
+$as_echo "$ax_cv_have_sse3_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether ssse3 is enabled and supported" >&5
+$as_echo_n "checking whether ssse3 is enabled and supported... " >&6; }
+if ${ax_cv_have_ssse3_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_ssse3_ext=no
+        if test "$((0x$ecx>>9&0x01))" = 1; then
+          ax_cv_have_ssse3_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_ssse3_ext" >&5
+$as_echo "$ax_cv_have_ssse3_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse4.1 is enabled and supported" >&5
+$as_echo_n "checking whether sse4.1 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse41_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse41_ext=no
+        if test "$ax_cv_want_sse41_ext" = yes; then
+          if test "$((0x$ecx>>19&0x01))" = 1; then
+            ax_cv_have_sse41_ext=yes
+          fi
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse41_ext" >&5
+$as_echo "$ax_cv_have_sse41_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether sse4.2 is enabled and supported" >&5
+$as_echo_n "checking whether sse4.2 is enabled and supported... " >&6; }
+if ${ax_cv_have_sse42_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_sse42_ext=no
+        if test "$((0x$ecx>>20&0x01))" = 1; then
+          ax_cv_have_sse42_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_sse42_ext" >&5
+$as_echo "$ax_cv_have_sse42_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx is enabled and supported by processor" >&5
+$as_echo_n "checking whether avx is enabled and supported by processor... " >&6; }
+if ${ax_cv_have_avx_cpu_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_avx_cpu_ext=no
+        if test "$((0x$ecx>>28&0x01))" = 1; then
+          ax_cv_have_avx_cpu_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx_cpu_ext" >&5
+$as_echo "$ax_cv_have_avx_cpu_ext" >&6; }
+
+      if test x"$ax_cv_have_avx_cpu_ext" = x"yes"; then
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86-AVX xgetbv 0x00000000 output" >&5
+$as_echo_n "checking for x86-AVX xgetbv 0x00000000 output... " >&6; }
+if ${ax_cv_gcc_x86_avx_xgetbv_0x00000000+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000000, eax, edx;
+     FILE *f;
+      /* Opcodes for xgetbv */
+      __asm__(".byte 0x0f, 0x01, 0xd0"
+        : "=a" (eax), "=d" (edx)
+        : "c" (op));
+     f = fopen("conftest_xgetbv", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x\n", eax, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=`cat conftest_xgetbv`; rm -f conftest_xgetbv
+else
+  ax_cv_gcc_x86_avx_xgetbv_0x00000000=unknown; rm -f conftest_xgetbv
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_avx_xgetbv_0x00000000" >&5
+$as_echo "$ax_cv_gcc_x86_avx_xgetbv_0x00000000" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+        xgetbv_eax="0"
+        if test x"$ax_cv_gcc_x86_avx_xgetbv_0x00000000" != x"unknown"; then
+          xgetbv_eax=`echo $ax_cv_gcc_x86_avx_xgetbv_0x00000000 | cut -d ":" -f 1`
+        fi
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx is supported by operating system" >&5
+$as_echo_n "checking whether avx is supported by operating system... " >&6; }
+if ${ax_cv_have_avx_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+          ax_cv_have_avx_ext=no
+
+          if test "$((0x$ecx>>27&0x01))" = 1; then
+            if test "$((0x$xgetbv_eax&0x6))" = 6; then
+              ax_cv_have_avx_ext=yes
+            fi
+          fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx_ext" >&5
+$as_echo "$ax_cv_have_avx_ext" >&6; }
+        if test x"$ax_cv_have_avx_ext" = x"no"; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports AVX, but your operating system doesn't" >&5
+$as_echo "$as_me: WARNING: Your processor supports AVX, but your operating system doesn't" >&2;}
+        fi
+      fi
+
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether popcnt is enabled and supported" >&5
+$as_echo_n "checking whether popcnt is enabled and supported... " >&6; }
+if ${ax_cv_have_popcnt_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_popcnt_ext=no
+        if test "$((0x$ecx>>23&0x01))" = 1; then
+          ax_cv_have_popcnt_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_popcnt_ext" >&5
+$as_echo "$ax_cv_have_popcnt_ext" >&6; }
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x80000001 output" >&5
+$as_echo_n "checking for x86 cpuid 0x80000001 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x80000001+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x80000001=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x80000001, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x80000001=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x80000001=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x80000001" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x80000001" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ecx=`echo $ax_cv_gcc_x86_cpuid_0x80000001 | cut -d ":" -f 3`
+      edx=`echo $ax_cv_gcc_x86_cpuid_0x80000001 | cut -d ":" -f 4`
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether lzcnt is enabled and supported" >&5
+$as_echo_n "checking whether lzcnt is enabled and supported... " >&6; }
+if ${ax_cv_have_lzcnt_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_lzcnt_ext=no
+        if test "$((0x$ecx>>5&0x01))" = 1; then
+          ax_cv_have_lzcnt_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_lzcnt_ext" >&5
+$as_echo "$ax_cv_have_lzcnt_ext" >&6; }
+
+
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for x86 cpuid 0x00000007 output" >&5
+$as_echo_n "checking for x86 cpuid 0x00000007 output... " >&6; }
+if ${ax_cv_gcc_x86_cpuid_0x00000007+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  ax_cv_gcc_x86_cpuid_0x00000007=unknown
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+
+     int op = 0x00000007, eax, ebx, ecx, edx;
+     FILE *f;
+      __asm__("cpuid"
+        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+        : "a" (op));
+     f = fopen("conftest_cpuid", "w"); if (!f) return 1;
+     fprintf(f, "%x:%x:%x:%x\n", eax, ebx, ecx, edx);
+     fclose(f);
+     return 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_run "$LINENO"; then :
+  ax_cv_gcc_x86_cpuid_0x00000007=`cat conftest_cpuid`; rm -f conftest_cpuid
+else
+  ax_cv_gcc_x86_cpuid_0x00000007=unknown; rm -f conftest_cpuid
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_gcc_x86_cpuid_0x00000007" >&5
+$as_echo "$ax_cv_gcc_x86_cpuid_0x00000007" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+      ebx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 2`
+      ecx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 3`
+      edx=`echo $ax_cv_gcc_x86_cpuid_0x00000007 | cut -d ":" -f 4`
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether avx2 is enabled and supported" >&5
+$as_echo_n "checking whether avx2 is enabled and supported... " >&6; }
+if ${ax_cv_have_avx2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_avx2_ext=no
+        if test "$((0x$ebx>>5&0x01))" = 1; then
+          ax_cv_have_avx2_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_avx2_ext" >&5
+$as_echo "$ax_cv_have_avx2_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether bmi1 is enabled and supported" >&5
+$as_echo_n "checking whether bmi1 is enabled and supported... " >&6; }
+if ${ax_cv_have_bmi1_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_bmi1_ext=no
+        if test "$((0x$ebx>>3&0x01))" = 1; then
+          ax_cv_have_bmi1_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_bmi1_ext" >&5
+$as_echo "$ax_cv_have_bmi1_ext" >&6; }
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether bmi2 is enabled and supported" >&5
+$as_echo_n "checking whether bmi2 is enabled and supported... " >&6; }
+if ${ax_cv_have_bmi2_ext+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+        ax_cv_have_bmi2_ext=no
+        if test "$((0x$ebx>>8&0x01))" = 1; then
+          ax_cv_have_bmi2_ext=yes
+        fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_have_bmi2_ext" >&5
+$as_echo "$ax_cv_have_bmi2_ext" >&6; }
+
+
+
+      if test "$ax_cv_have_mmx_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -mmmx" >&5
+$as_echo_n "checking whether C compiler accepts -mmmx... " >&6; }
+if ${ax_cv_check_cflags___mmmx+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -mmmx"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___mmmx=yes
+else
+  ax_cv_check_cflags___mmmx=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___mmmx" >&5
+$as_echo "$ax_cv_check_cflags___mmmx" >&6; }
+if test x"$ax_cv_check_cflags___mmmx" = xyes; then :
+  ax_cv_support_mmx_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_mmx_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -mmmx"
+
+$as_echo "#define HAVE_MMX 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports mmx instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports mmx instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse" >&5
+$as_echo_n "checking whether C compiler accepts -msse... " >&6; }
+if ${ax_cv_check_cflags___msse+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse=yes
+else
+  ax_cv_check_cflags___msse=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse" >&5
+$as_echo "$ax_cv_check_cflags___msse" >&6; }
+if test x"$ax_cv_check_cflags___msse" = xyes; then :
+  ax_cv_support_sse_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse"
+
+$as_echo "#define HAVE_SSE 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse2_ext" = yes; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse2" >&5
+$as_echo_n "checking whether C compiler accepts -msse2... " >&6; }
+if ${ax_cv_check_cflags___msse2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse2"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse2=yes
+else
+  ax_cv_check_cflags___msse2=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse2" >&5
+$as_echo "$ax_cv_check_cflags___msse2" >&6; }
+if test x"$ax_cv_check_cflags___msse2" = xyes; then :
+  ax_cv_support_sse2_ext=yes
+else
+  :
+fi
+
+	if test x"$ax_cv_support_sse2_ext" = x"yes"; then
+	  SIMD_FLAGS="$SIMD_FLAGS -msse2"
+
+$as_echo "#define HAVE_SSE2 1" >>confdefs.h
+
+	else
+	  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse2 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse2 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+	fi
+      fi
+
+      if test "$ax_cv_have_sse3_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse3" >&5
+$as_echo_n "checking whether C compiler accepts -msse3... " >&6; }
+if ${ax_cv_check_cflags___msse3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse3"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse3=yes
+else
+  ax_cv_check_cflags___msse3=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse3" >&5
+$as_echo "$ax_cv_check_cflags___msse3" >&6; }
+if test x"$ax_cv_check_cflags___msse3" = xyes; then :
+  ax_cv_support_sse3_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse3_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse3"
+
+$as_echo "#define HAVE_SSE3 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_ssse3_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -mssse3" >&5
+$as_echo_n "checking whether C compiler accepts -mssse3... " >&6; }
+if ${ax_cv_check_cflags___mssse3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -mssse3"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___mssse3=yes
+else
+  ax_cv_check_cflags___mssse3=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___mssse3" >&5
+$as_echo "$ax_cv_check_cflags___mssse3" >&6; }
+if test x"$ax_cv_check_cflags___mssse3" = xyes; then :
+  ax_cv_support_ssse3_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_ssse3_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -mssse3"
+
+$as_echo "#define HAVE_SSSE3 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports ssse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports ssse3 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_sse41_ext" = yes; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse4.1" >&5
+$as_echo_n "checking whether C compiler accepts -msse4.1... " >&6; }
+if ${ax_cv_check_cflags___msse4_1+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse4.1"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse4_1=yes
+else
+  ax_cv_check_cflags___msse4_1=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse4_1" >&5
+$as_echo "$ax_cv_check_cflags___msse4_1" >&6; }
+if test x"$ax_cv_check_cflags___msse4_1" = xyes; then :
+  ax_cv_support_sse41_ext=yes
+else
+  :
+fi
+
+	if test x"$ax_cv_support_sse41_ext" = x"yes"; then
+	  SIMD_FLAGS="$SIMD_FLAGS -msse4.1"
+
+$as_echo "#define HAVE_SSE4_1 1" >>confdefs.h
+
+	else
+	  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse4.1 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse4.1 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+	fi
+      fi
+
+      if test "$ax_cv_have_sse42_ext" = yes; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts -msse4.2" >&5
+$as_echo_n "checking whether C compiler accepts -msse4.2... " >&6; }
+if ${ax_cv_check_cflags___msse4_2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  ax_check_save_flags=$CFLAGS
+  CFLAGS="$CFLAGS  -msse4.2"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ax_cv_check_cflags___msse4_2=yes
+else
+  ax_cv_check_cflags___msse4_2=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS=$ax_check_save_flags
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_cflags___msse4_2" >&5
+$as_echo "$ax_cv_check_cflags___msse4_2" >&6; }
+if test x"$ax_cv_check_cflags___msse4_2" = xyes; then :
+  ax_cv_support_sse42_ext=yes
+else
+  :
+fi
+
+        if test x"$ax_cv_support_sse42_ext" = x"yes"; then
+          SIMD_FLAGS="$SIMD_FLAGS -msse4.2"
+
+$as_echo "#define HAVE_SSE4_2 1" >>confdefs.h
+
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports sse4.2 instructions but not your compiler.  Can you try another compiler or update yours?" >&5
+$as_echo "$as_me: WARNING: Your processor supports sse4.2 instructions but not your compiler.  Can you try another compiler or update yours?" >&2;}
+        fi
+      fi
+
+#      if test "$ax_cv_have_avx_ext" = yes; then
+#        AX_CHECK_COMPILE_FLAG(-mavx, ax_cv_support_avx_ext=yes, [])
+#        if test x"$ax_cv_support_avx_ext" = x"yes"; then
+#          SIMD_FLAGS="$SIMD_FLAGS -mavx"
+#          AC_DEFINE(HAVE_AVX,1,[Define to 1 if you support AVX (Advanced Vector Extensions) instructions])
+#        else
+#          AC_MSG_WARN([Your processor supports avx instructions but not your compiler.  Can you try another compiler or update yours?])
+#        fi
+#      fi
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for immintrin.h header file" >&5
+$as_echo_n "checking for immintrin.h header file... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ax_cv_have_immintrin_h=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+      if test x"$a_cv_have_immintrin_h" = x"yes"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        if test "$ax_cv_have_popcnt_ext" = yes; then
+
+$as_echo "#define HAVE_POPCNT 1" >>confdefs.h
+
+        fi
+
+        if test "$ax_cv_have_lzcnt_ext" = yes; then
+
+$as_echo "#define HAVE_LZCNT 1" >>confdefs.h
+
+        fi
+
+        if test "$ax_cv_have_bmi1_ext" = yes; then
+
+$as_echo "#define HAVE_BMI1 1" >>confdefs.h
+
+        fi
+      else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+        if test "$ax_cv_have_popcnt_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports _popcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports _popcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+        if test "$ax_cv_have_lzcnt_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports _lzcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports _lzcnt instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+        if test "$ax_cv_have_bmi1_ext" = yes; then
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your processor supports bmi instructions but your compiler cannot find immintrin.h.  Will try another method." >&5
+$as_echo "$as_me: WARNING: Your processor supports bmi instructions but your compiler cannot find immintrin.h.  Will try another method." >&2;}
+        fi
+      fi
+
+      if test "$ax_cv_have_bmi2_ext" = yes; then
+
+$as_echo "#define HAVE_BMI2 1" >>confdefs.h
+
+      fi
+
+#      if test "$ax_cv_have_avx2_ext" = yes; then
+#        AX_CHECK_COMPILE_FLAG(-mavx2, ax_cv_support_avx2_ext=yes, [])
+#        if test x"$ax_cv_support_avx2_ext" = x"yes"; then
+#          SIMD_FLAGS="$SIMD_FLAGS -mavx2"
+#          AC_DEFINE(HAVE_AVX2,1,[Define to 1 if you support AVX2 (Advanced Vector Extensions 2) instructions])
+#        else
+#          AC_MSG_WARN([Your processor supports avx2 instructions but not your compiler.  Can you try another compiler or update yours?])
+#        fi
+#      fi
+
+  ;;
+  esac
+
+
+   # Sets SIMD_FLAGS, and HAVE_ALTIVEC,HAVE_MMX,HAVE_SSE,HAVE_SSE2,HAVE_SSE3,HAVE_SSSE3,HAVE_SSE4_1,HAVE_SSE4_2,HAVE_AVX
+     ;;
+esac
 
 
 # Genome directory
