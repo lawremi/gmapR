@@ -18,7 +18,8 @@ setClass("BamTallyParam",
                         variant_strand = "integer",
                         ignore_query_Ns = "logical",
                         indels = "logical",
-                        include_soft_clips = "integer"))
+                        include_soft_clips = "integer",
+                        noncovered = "logical"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Constructor
@@ -39,7 +40,8 @@ BamTallyParam <- function(genome, which = GRanges(),
                           primary_only = FALSE, ignore_duplicates = FALSE,
                           min_depth = 0L, variant_strand = 0L,
                           ignore_query_Ns = FALSE,
-                          indels = FALSE, include_soft_clips = 0L)
+                          indels = FALSE, include_soft_clips = 0L,
+                          noncovered = FALSE)
 {
   if (!is.null(desired_read_group) && !isSingleString(desired_read_group))
     stop("'desired_read_group' must be NULL or a single, non-NA string")
@@ -70,7 +72,7 @@ BamTallyParam <- function(genome, which = GRanges(),
   integer_params <- c("minimum_mapq", "min_depth", "variant_strand",
                       "include_soft_clips")
   params[integer_params] <- lapply(params[integer_params], as.integer)
-  do.call(new, c("BamTallyParam", params))  
+  do.call(new, c("BamTallyParam", params))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

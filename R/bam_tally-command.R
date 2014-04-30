@@ -195,7 +195,7 @@ normArgTRUEorFALSE <- function(x) {
                          ignore_query_Ns = FALSE,
                          indels = FALSE,
                          blocksize = 1000L, verbosep = FALSE,
-                         include_soft_clips = 0L)
+                         include_soft_clips = 0L, noncovered = FALSE)
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
@@ -217,7 +217,7 @@ normArgTRUEorFALSE <- function(x) {
     if (is.unsorted(read_pos_breaks))
       stop("'read_pos_breaks' must be sorted")
   }
-  .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+  ptr <- .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
         desired_read_group,
         normArgSingleInteger(alloclength),
         normArgSingleInteger(minimum_mapq),
@@ -233,7 +233,8 @@ normArgTRUEorFALSE <- function(x) {
         normArgTRUEorFALSE(indels),
         normArgSingleInteger(blocksize),
         normArgTRUEorFALSE(verbosep),
-        normArgSingleInteger(include_soft_clips))
+        normArgSingleInteger(include_soft_clips),
+        normArgTRUEorFALSE(noncovered))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
