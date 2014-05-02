@@ -53,6 +53,8 @@ variantSummary(x, read_pos_breaks = NULL, high_base_quality = 0L,
   after quality filtering (except for indels, for which there is no
   quality filtering). The following \code{elementMetadata}
   columns are also present:
+  \item{n.read.pos}{The number of unique read positions for the alt allele.}
+  \item{n.read.pos.ref}{The number of unique read positions for the ref allele.}
   \item{raw.count}{The number of reads with the alternate allele,
     \code{NA} for the reference allele row.}
   \item{raw.count.ref}{The number of reads with the reference allele.}

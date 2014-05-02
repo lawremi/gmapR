@@ -83,6 +83,7 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                  NULL, read_length)
   
   tally_names <- c("seqnames", "pos", "ref", "alt",
+                   "n.read.pos", "n.read.pos.ref",
                    "raw.count", "raw.count.ref",
                    "raw.count.total",
                    "high.quality", "high.quality.ref",
@@ -243,6 +244,8 @@ normArgTRUEorFALSE <- function(x) {
 
 variantSummaryColumnDescriptions <- function(read_pos_breaks) {
   desc <- c(
+    n.read.pos = "Number of unique read positions for the ALT",
+    n.read.pos.ref = "Number of unique read positions for the REF",
     raw.count = "Raw ALT count",
     raw.count.ref = "Raw REF count",
     raw.count.total = "Raw total count",
