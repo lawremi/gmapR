@@ -1,18 +1,18 @@
 useDynLib(gmapR, .registration = TRUE)
 
-importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList,
-           BamSampler)
+import(methods)
 importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
            list_files_with_exts)
+importFrom(utils, packageVersion)
+
+importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList,
+           BamSampler)
 importFrom(Biobase, createPackage)
 import(S4Vectors)
 import(IRanges)
-import(methods)
+import(GenomeInfoDb)
 import(GenomicRanges)
-importFrom(utils, packageVersion)
 importFrom(Biostrings, getSeq, readDNAStringSet, DNAStringSet)
-importFrom(GenomicRanges, genome, seqinfo)
-importMethodsFrom(GenomicRanges, seqnames, strand)
 importMethodsFrom(Rsamtools, asBam)
 importClassesFrom(GenomicFeatures, TranscriptDb)
 importFrom(GenomicFeatures, transcripts, exons)
