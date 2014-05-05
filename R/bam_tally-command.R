@@ -218,7 +218,7 @@ normArgTRUEorFALSE <- function(x) {
     if (is.unsorted(read_pos_breaks))
       stop("'read_pos_breaks' must be sorted")
   }
-  ptr <- .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
+  .Call(R_Bamtally_iit, bamreader@.extptr, genome_dir, db, which,
         desired_read_group,
         normArgSingleInteger(alloclength),
         normArgSingleInteger(minimum_mapq),

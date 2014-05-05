@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bam_fastq.c 121683 2013-12-17 02:52:04Z twu $";
+static char rcsid[] = "$Id: bam_fastq.c 134975 2014-05-03 01:13:55Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1147,7 +1147,7 @@ print_fastq_paired (FILE *fp1, FILE *fp2, char *acc, T read1, T read2) {
 
 
 static void
-parse_bam_input (FILE *fp1, FILE *fp2, Bamreader_T bamreader, Table_T read_table1, Table_T read_table2) {
+parse_bam_input (FILE *fp0, FILE *fp1, FILE *fp2, Bamreader_T bamreader, Table_T read_table1, Table_T read_table2) {
   Bamline_T bamline;
   char *acc, *acc_copy;
   Read_T read1, read2;
@@ -1169,9 +1169,9 @@ parse_bam_input (FILE *fp1, FILE *fp2, Bamreader_T bamreader, Table_T read_table
 	Table_put(read_table1,found1p ? acc : string_copy(acc),read1);
       } else {
 	if (fastap == true) {
-	  print_fasta_single(fp1,acc,read1);
+	  print_fasta_single(fp0,acc,read1);
 	} else {
-	  print_fastq_single(fp1,acc,read1);
+	  print_fastq_single(fp0,acc,read1);
 	}
 	if (found1p == true) {
 	  acc_copy = Table_remove(read_table1,acc);
@@ -1390,7 +1390,7 @@ empty_table (FILE *fp, Table_T read_table, char *suffix) {
 
 int
 main (int argc, char *argv[]) {
-  FILE *fp1, *fp2 = NULL, *err1 = NULL, *err2 = NULL;
+  FILE *fp0, *fp1, *fp2 = NULL, *err1 = NULL, *err2 = NULL;
   char *filename;
   Bamreader_T bamreader;
   Table_T read_table1, read_table2;
@@ -1488,6 +1488,11 @@ main (int argc, char *argv[]) {
       fp1 = stdout;
       
     } else {
+      filename = (char *) CALLOC(strlen(output_root) + strlen(".fq") + 1,sizeof(char));
+      sprintf(filename,"%s.fq",output_root);
+      fp0 = fopen(filename,"w");
+      FREE(filename);
+
       filename = (char *) CALLOC(strlen(output_root) + strlen("_1.fq") + 1,sizeof(char));
       sprintf(filename,"%s_1.fq",output_root);
       fp1 = fopen(filename,"w");
@@ -1507,7 +1512,7 @@ main (int argc, char *argv[]) {
       read_table2 = Table_new(1000000,Table_string_compare,Table_string_hash);
 
       bamreader = Bamread_new(argv[i]);
-      parse_bam_input(fp1,fp2,bamreader,read_table1,read_table2);
+      parse_bam_input(fp0,fp1,fp2,bamreader,read_table1,read_table2);
       Bamread_free(&bamreader);
     }
   }
@@ -1561,6 +1566,7 @@ main (int argc, char *argv[]) {
   }
   if (fastap == false) {
     fclose(fp1);
+    fclose(fp0);
   }
 
   if (fastap == false) {

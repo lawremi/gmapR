@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 134416 2014-04-25 22:12:58Z twu $";
+static char rcsid[] = "$Id: bamtally.c 134973 2014-05-03 01:11:47Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -31,6 +31,12 @@ static char rcsid[] = "$Id: bamtally.c 134416 2014-04-25 22:12:58Z twu $";
 #include "ucharlist.h"
 #include "dynprog.h"
 #include "dynprog_single.h"
+
+#include "matchdef.h"
+#include "matchpool.h"
+#include "mismatchdef.h"
+#include "mismatchpool.h"
+
 
 
 /* Specific to BAM */
@@ -86,15 +92,11 @@ typedef struct T *T;
 typedef enum {FIRST, SECOND} Pairend_T;
 
 
+#define USE_MATCHPOOL 1
+#define USE_MISMATCHPOOL 1
 
-typedef struct Match_T *Match_T;
-struct Match_T {
-  int shift;			/* Used to record shifts */
-  int mapq;
-  char quality;
-  long int count;
-};
 
+#ifndef USE_MATCHPOOL
 static Match_T
 Match_new (int shift, int mapq, char quality) {
   Match_T new = (Match_T) MALLOC(sizeof(*new));
@@ -112,6 +114,9 @@ Match_free (Match_T *old) {
   FREE(*old);
   return;
 }
+#endif
+
+
 
 static Match_T
 find_match_byshift (List_T matches, int shift) {
@@ -206,21 +211,7 @@ Match_mapq_cmp (const void *a, const void *b) {
 }
 
 
-typedef struct Mismatch_T *Mismatch_T;
-struct Mismatch_T {
-  char nt;
-  int shift;			/* Used to record shifts */
-  char mapq;
-  char quality;
-  long int count;
-
-  long int count_plus;		/* Used by unique elements */
-  long int count_minus;		/* Used by unique elements */
-
-  Mismatch_T next;		/* Used for linking similar mismatches together */
-};
-
-
+#ifndef USE_MISMATCHPOOL
 static Mismatch_T
 Mismatch_new (char nt, int shift, int mapq, char quality) {
   Mismatch_T new = (Mismatch_T) MALLOC(sizeof(*new));
@@ -244,6 +235,8 @@ Mismatch_free (Mismatch_T *old) {
   FREE(*old);
   return;
 }
+#endif
+
 
 static int
 Mismatch_chain_length (Mismatch_T this) {
@@ -637,11 +630,24 @@ struct T {
   long int n_fromleft_plus; /* Used for reference count for insertions */
   long int n_fromleft_minus; /* Used for reference count for insertions */
 
+#ifdef USE_MATCHPOOL
+  Matchpool_T matchpool;
+#endif
+#ifdef USE_MISMATCHPOOL
+  Mismatchpool_T mismatchpool;
+#endif
+
   bool use_array_p;
   List_T list_matches_byshift;
   List_T list_matches_byquality;
   List_T list_matches_bymapq;
 
+#ifdef REUSE_ARRAYS
+  int avail_matches_byshift_plus;
+  int avail_matches_byshift_minus;
+  int avail_matches_byquality;
+  int avail_matches_bymapq;
+#endif
   int n_matches_byshift_plus;
   int *matches_byshift_plus;
   int n_matches_byshift_minus;
@@ -670,6 +676,10 @@ Tally_new () {
   new->n_fromleft_plus = 0;
   new->n_fromleft_minus = 0;
   
+#ifdef USE_MATCHPOOL
+  new->matchpool = Matchpool_new();
+#endif
+
   new->use_array_p = false;
   new->list_matches_byshift = (List_T) NULL;
   new->list_matches_byquality = (List_T) NULL;
@@ -684,6 +694,10 @@ Tally_new () {
   new->n_matches_bymapq = MAX_MAPQ_SCORE+1;
   new->matches_byquality = (int *) CALLOC(new->n_matches_byquality,sizeof(int));
   new->matches_bymapq = (int *) CALLOC(new->n_matches_bymapq,sizeof(int));
+
+#ifdef USE_MISMATCHPOOL
+  new->mismatchpool = Mismatchpool_new();
+#endif
 
   new->mismatches_byshift = (List_T) NULL;
   new->mismatches_byquality = (List_T) NULL;
@@ -719,6 +733,10 @@ Tally_clear (T this) {
 #endif
     this->use_array_p = false;
   } else {
+
+#ifdef USE_MATCHPOOL
+    Matchpool_reset(this->matchpool);
+#else
     for (ptr = this->list_matches_byshift; ptr != NULL; ptr = List_next(ptr)) {
       match = (Match_T) List_head(ptr);
       Match_free(&match);
@@ -739,9 +757,12 @@ Tally_clear (T this) {
     }
     List_free(&(this->list_matches_bymapq));
     this->list_matches_bymapq = (List_T) NULL;
+#endif
   }
 
-
+#ifdef USE_MISMATCHPOOL
+  Mismatchpool_reset(this->mismatchpool);
+#else
   for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
     Mismatch_free(&mismatch);
@@ -762,6 +783,8 @@ Tally_clear (T this) {
   }
   List_free(&(this->mismatches_bymapq));
   this->mismatches_bymapq = (List_T) NULL;
+#endif
+
 
   for (ptr = this->insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     ins = (Insertion_T) List_head(ptr);
@@ -837,6 +860,9 @@ Tally_free (T *old) {
   FREE((*old)->matches_byquality);
   FREE((*old)->matches_bymapq);
 
+#ifdef USE_MATCHPOOL
+  Matchpool_free(&((*old)->matchpool));
+#else
   for (ptr = (*old)->list_matches_byshift; ptr != NULL; ptr = List_next(ptr)) {
     match = (Match_T) List_head(ptr);
     Match_free(&match);
@@ -857,8 +883,12 @@ Tally_free (T *old) {
   }
   List_free(&((*old)->list_matches_bymapq));
   (*old)->list_matches_bymapq = (List_T) NULL;
+#endif
 
 
+#ifdef USE_MISMATCHPOOL
+  Mismatchpool_free(&(*old)->mismatchpool);
+#else
   for (ptr = (*old)->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
     Mismatch_free(&mismatch);
@@ -879,6 +909,8 @@ Tally_free (T *old) {
   }
   List_free(&((*old)->mismatches_bymapq));
   (*old)->mismatches_bymapq = (List_T) NULL;
+#endif
+
 
   for (ptr = (*old)->insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     ins = (Insertion_T) List_head(ptr);
@@ -1501,7 +1533,11 @@ print_runlength (T *block_tallies, Genomicpos_T *exonstart, Genomicpos_T lastpos
 
 
 static List_T
-make_mismatches_unique (List_T mismatches) {
+make_mismatches_unique (List_T mismatches
+#ifdef USE_MISMATCHPOOL
+			, Mismatchpool_T mismatchpool
+#endif
+			) {
   List_T unique_mismatches = NULL, ptr;
   Mismatch_T mismatch, mismatch0;
 
@@ -1516,10 +1552,18 @@ make_mismatches_unique (List_T mismatches) {
 
       mismatch0->shift += 1; /* Used here as nshifts */
     } else {
+#ifdef USE_MISMATCHPOOL
+      unique_mismatches = Mismatchpool_push(unique_mismatches,mismatchpool,
+					    mismatch->nt,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
+      mismatch0 = (Mismatch_T) List_head(unique_mismatches);
+      mismatch0->count = mismatch->count;
+      mismatch0->next = mismatch;
+#else
       mismatch0 = Mismatch_new(mismatch->nt,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
       mismatch0->count = mismatch->count;
       mismatch0->next = mismatch;
       unique_mismatches = List_push(unique_mismatches,mismatch0);
+#endif
     }
   }
 
@@ -1527,7 +1571,11 @@ make_mismatches_unique (List_T mismatches) {
 }
 
 static List_T
-make_mismatches_unique_signed (List_T mismatches) {
+make_mismatches_unique_signed (List_T mismatches
+#ifdef USE_MISMATCHPOOL
+	, Mismatchpool_T mismatchpool
+#endif
+	) {
   List_T unique_mismatches = NULL, ptr;
   Mismatch_T mismatch, mismatch0;
 
@@ -1547,6 +1595,20 @@ make_mismatches_unique_signed (List_T mismatches) {
 
       mismatch0->shift += 1; /* Used here as nshifts */
     } else {
+#ifdef USE_MISMATCHPOOL
+      unique_mismatches = Mismatchpool_push(unique_mismatches,mismatchpool,
+	mismatch->nt,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
+      mismatch0 = (Mismatch_T) List_head(unique_mismatches);
+      mismatch0->count = mismatch->count;
+      if (mismatch->shift > 0) {
+	mismatch0->count_plus = mismatch->count;
+	mismatch0->count_minus = 0;
+      } else {
+	mismatch0->count_minus = mismatch->count;
+	mismatch0->count_plus = 0;
+      }
+      mismatch0->next = mismatch;
+#else
       mismatch0 = Mismatch_new(mismatch->nt,/*shift, used here as nshifts*/1,/*mapq*/0,' ');
       mismatch0->count = mismatch->count;
       if (mismatch->shift > 0) {
@@ -1558,6 +1620,7 @@ make_mismatches_unique_signed (List_T mismatches) {
       }
       mismatch0->next = mismatch;
       unique_mismatches = List_push(unique_mismatches,mismatch0);
+#endif
     }
   }
 
@@ -2045,9 +2108,15 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	}
 
 	if (this->mismatches_byshift != NULL) {
+#ifdef USE_MISMATCHPOOL
+	  unique_mismatches_byshift = make_mismatches_unique_signed(this->mismatches_byshift,this->mismatchpool);
+	  unique_mismatches_byquality = make_mismatches_unique(this->mismatches_byquality,this->mismatchpool);
+	  unique_mismatches_bymapq = make_mismatches_unique(this->mismatches_bymapq,this->mismatchpool);
+#else
 	  unique_mismatches_byshift = make_mismatches_unique_signed(this->mismatches_byshift);
 	  unique_mismatches_byquality = make_mismatches_unique(this->mismatches_byquality);
 	  unique_mismatches_bymapq = make_mismatches_unique(this->mismatches_bymapq);
+#endif
 
 	  mm_array = (Mismatch_T *) List_to_array(unique_mismatches_byshift,NULL);
 	  qsort(mm_array,List_length(unique_mismatches_byshift),sizeof(Mismatch_T),Mismatch_count_cmp);
@@ -2115,6 +2184,9 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 
 	  FREE(mm_array);
 
+#ifdef USE_MISMATCHPOOL
+	  Mismatchpool_reset(this->mismatchpool);
+#else
 	  for (ptr = unique_mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	    mismatch0 = List_head(ptr);
 	    Mismatch_free(&mismatch0);
@@ -2132,6 +2204,7 @@ print_block (T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	    Mismatch_free(&mismatch0);
 	  }
 	  List_free(&unique_mismatches_bymapq);
+#endif
 	}
 
 	if (want_genotypes_p == true) {
@@ -2850,9 +2923,15 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 
 	/* Alternate nucleotide and counts */
 	if (this->mismatches_byshift != NULL) {
+#ifdef USE_MISMATCHPOOL
+	  unique_mismatches_byshift = make_mismatches_unique_signed(this->mismatches_byshift,this->mismatchpool);
+	  unique_mismatches_byquality = make_mismatches_unique(this->mismatches_byquality,this->mismatchpool);
+	  unique_mismatches_bymapq = make_mismatches_unique(this->mismatches_bymapq,this->mismatchpool);
+#else
 	  unique_mismatches_byshift = make_mismatches_unique_signed(this->mismatches_byshift);
 	  unique_mismatches_byquality = make_mismatches_unique(this->mismatches_byquality);
 	  unique_mismatches_bymapq = make_mismatches_unique(this->mismatches_bymapq);
+#endif
 
 	  mm_array = (Mismatch_T *) List_to_array(unique_mismatches_byshift,NULL);
 	  qsort(mm_array,List_length(unique_mismatches_byshift),sizeof(Mismatch_T),Mismatch_count_cmp);
@@ -2971,6 +3050,9 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	  }
 	  FREE(mm_array);
 
+#ifdef USE_MISMATCHPOOL
+	  Mismatchpool_reset(this->mismatchpool);
+#else
 	  for (ptr = unique_mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	    mismatch0 = List_head(ptr);
 	    Mismatch_free(&mismatch0);
@@ -2988,6 +3070,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    Mismatch_free(&mismatch0);
 	  }
 	  List_free(&unique_mismatches_bymapq);
+#endif
 	}
       }
 
@@ -3304,6 +3387,9 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
 	this->matches_byshift_minus = newarray;
       }
 
+#ifdef USE_MATCHPOOL
+      Matchpool_reset(this->matchpool);
+#else
       for (ptr = this->list_matches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	match = (Match_T) List_head(ptr);
 	if (match->shift > 0) {
@@ -3315,7 +3401,6 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
       }
       List_free(&(this->list_matches_byshift));
       this->list_matches_byshift = (List_T) NULL;
-
 
       for (ptr = this->list_matches_byquality; ptr != NULL; ptr = List_next(ptr)) {
 	match = (Match_T) List_head(ptr);
@@ -3332,27 +3417,41 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
       }
       List_free(&(this->list_matches_bymapq));
       this->list_matches_bymapq = (List_T) NULL;
+#endif
 
       this->use_array_p = true;
+
     }
 
     if (this->use_array_p == false) {
       if ((match = find_match_byshift(this->list_matches_byshift,signed_shift)) != NULL) {
 	match->count += 1;
       } else {
+#ifdef USE_MATCHPOOL
+	this->list_matches_byshift = Matchpool_push(this->list_matches_byshift,this->matchpool,signed_shift,mapq,quality);
+#else
 	this->list_matches_byshift = List_push(this->list_matches_byshift,(void *) Match_new(signed_shift,mapq,quality));
+#endif
       }
 
       if ((match = find_match_byquality(this->list_matches_byquality,quality)) != NULL) {
 	match->count += 1;
       } else {
+#ifdef USE_MATCHPOOL
+	this->list_matches_byquality = Matchpool_push(this->list_matches_byquality,this->matchpool,signed_shift,mapq,quality);
+#else
 	this->list_matches_byquality = List_push(this->list_matches_byquality,(void *) Match_new(signed_shift,mapq,quality));
+#endif
       }
       
       if ((match = find_match_bymapq(this->list_matches_bymapq,mapq)) != NULL) {
 	match->count += 1;
       } else {
+#ifdef USE_MATCHPOOL
+	this->list_matches_bymapq = Matchpool_push(this->list_matches_bymapq,this->matchpool,signed_shift,mapq,quality);
+#else
 	this->list_matches_bymapq = List_push(this->list_matches_bymapq,(void *) Match_new(signed_shift,mapq,quality));
+#endif
       }
 
     } else {
@@ -3398,19 +3497,34 @@ revise_position (char querynt, char genomicnt, int mapq, int quality, int signed
     if ((mismatch = find_mismatch_byshift(this->mismatches_byshift,toupper(querynt),signed_shift)) != NULL) {
       mismatch->count += 1;
     } else {
+#ifdef USE_MISMATCHPOOL
+      this->mismatches_byshift = Mismatchpool_push(this->mismatches_byshift,this->mismatchpool,
+						   toupper(querynt),signed_shift,mapq,quality);
+#else
       this->mismatches_byshift = List_push(this->mismatches_byshift,(void *) Mismatch_new(toupper(querynt),signed_shift,mapq,quality));
+#endif
     }
 
     if ((mismatch = find_mismatch_byquality(this->mismatches_byquality,toupper(querynt),quality)) != NULL) {
       mismatch->count += 1;
     } else {
+#ifdef USE_MISMATCHPOOL
+      this->mismatches_byquality = Mismatchpool_push(this->mismatches_byquality,this->mismatchpool,
+						     toupper(querynt),signed_shift,mapq,quality);
+#else
       this->mismatches_byquality = List_push(this->mismatches_byquality,(void *) Mismatch_new(toupper(querynt),signed_shift,mapq,quality));
+#endif
     }
 
     if ((mismatch = find_mismatch_bymapq(this->mismatches_bymapq,toupper(querynt),mapq)) != NULL) {
       mismatch->count += 1;
     } else {
+#ifdef USE_MISMATCHPOOL
+      this->mismatches_bymapq = Mismatchpool_push(this->mismatches_bymapq,this->mismatchpool,
+	toupper(querynt),signed_shift,mapq,quality);
+#else
       this->mismatches_bymapq = List_push(this->mismatches_bymapq,(void *) Mismatch_new(toupper(querynt),signed_shift,mapq,quality));
+#endif
     }
 
     quality_counts_mismatch[quality] += 1;

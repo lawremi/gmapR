@@ -160,7 +160,9 @@ am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST =  \
 	parserange.c parserange.h dynprog.c dynprog.h dynprog_simd.c \
 	dynprog_simd.h dynprog_single.c dynprog_single.h tableuint.c \
 	tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
-	bamtally.c bamtally.h datadir.c datadir.h
+	matchdef.h matchpool.c matchpool.h mismatchdef.h \
+	mismatchpool.c mismatchpool.h bamtally.c bamtally.h datadir.c \
+	datadir.h
 am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-assert.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mem.lo \
@@ -190,6 +192,8 @@ am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-iit-write.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo
 @SAMTOOLS_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
@@ -256,9 +260,10 @@ am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h except.c \
 	samread.h parserange.c parserange.h dynprog.c dynprog.h \
 	dynprog_simd.c dynprog_simd.h dynprog_single.c \
 	dynprog_single.h tableuint.c tableuint.h iit-write.c \
-	iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
-	datadir.c datadir.h getopt.c getopt1.c getopt.h \
-	bamtally_main.c
+	iit-write.h ucharlist.c ucharlist.h matchdef.h matchpool.c \
+	matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h \
+	bamtally.c bamtally.h datadir.c datadir.h getopt.c getopt1.c \
+	getopt.h bamtally_main.c
 am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-mem.$(OBJEXT) bam_tally-intlist.$(OBJEXT) \
 	bam_tally-list.$(OBJEXT) bam_tally-littleendian.$(OBJEXT) \
@@ -274,7 +279,8 @@ am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-dynprog_simd.$(OBJEXT) \
 	bam_tally-dynprog_single.$(OBJEXT) \
 	bam_tally-tableuint.$(OBJEXT) bam_tally-iit-write.$(OBJEXT) \
-	bam_tally-ucharlist.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
+	bam_tally-ucharlist.$(OBJEXT) bam_tally-matchpool.$(OBJEXT) \
+	bam_tally-mismatchpool.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
 	bam_tally-datadir.$(OBJEXT) bam_tally-getopt.$(OBJEXT) \
 	bam_tally-getopt1.$(OBJEXT) bam_tally-bamtally_main.$(OBJEXT)
 @SAMTOOLS_TRUE@dist_bam_tally_OBJECTS = $(am__objects_4)
@@ -402,7 +408,6 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
@@ -493,26 +498,6 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libgstruct-@LIBGSTRUCT_API_VERSION@.la
-EXON_EXON_JUNCTIONS_FILES = bool.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- fopen.h types.h littleendian.c littleendian.h bigendian.c bigendian.h \
- stopwatch.c stopwatch.h access.c access.h \
- listdef.h list.c list.h \
- uintlist.c uintlist.h \
- interval.c interval.h iitdef.h iit-read.c iit-read.h \
- genomicpos.c genomicpos.h \
- intlistdef.h intlist.c intlist.h md5.c md5.h \
- chrnum.c chrnum.h \
- complement.h sequence.c sequence.h genome.c genome.h \
- table.c table.h \
- datadir.c datadir.h \
- exon-exon-junctions.c
-
-exon_exon_junctions_CC = $(PTHREAD_CC)
-exon_exon_junctions_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" 
-exon_exon_junctions_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-exon_exon_junctions_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
-dist_exon_exon_junctions_SOURCES = $(EXON_EXON_JUNCTIONS_FILES)
 BAM_TALLY_FILES = fopen.h bool.h types.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
@@ -525,7 +510,8 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
- tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
+ tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
@@ -545,7 +531,8 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
- tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
+ tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 
@@ -570,7 +557,8 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
  dynprog.h dynprog_simd.h dynprog_single.h \
- tableuint.h iit-write.h ucharlist.h bamtally.h datadir.h
+ tableuint.h iit-write.h ucharlist.h \
+ matchdef.h matchpool.h mismatchdef.h mismatchpool.h bamtally.h datadir.h
 
 
 # May want nodist_bamtally_libinclude_HEADERS = ../lib/bamtally.h
@@ -578,24 +566,6 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
 #nodist_bamtally_libinclude_HEADERS = bamtally-config.h
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = ../lib/gstruct-$(LIBGSTRUCT_API_VERSION).pc
-BAM_PILEUP_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- littleendian.c littleendian.h bigendian.c bigendian.h \
- interval.c interval.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- uinttable.c uinttable.h table.c table.h \
- chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
- datadir.c datadir.h \
- getopt.c getopt1.c getopt.h bam_pileup.c
-
-@SAMTOOLS_TRUE@bam_pileup_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-@SAMTOOLS_TRUE@bam_pileup_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-@SAMTOOLS_TRUE@bam_pileup_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-@SAMTOOLS_TRUE@dist_bam_pileup_SOURCES = $(BAM_PILEUP_FILES)
 BAM_GET_FILES = fopen.h bool.h types.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
@@ -614,27 +584,6 @@ bam_get_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(
 bam_get_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 bam_get_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
 dist_bam_get_SOURCES = $(BAM_GET_FILES)
-BAM_PRINT_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- littleendian.c littleendian.h bigendian.c bigendian.h \
- interval.c interval.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- uinttable.c uinttable.h table.c table.h \
- chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h \
- tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
- orderstat.c orderstat.h lgamma.c lgamma.h tally.c tally.h \
- tableint.c tableint.h splice.c splice.h maxent_hr.c maxent_hr.h gstruct.c gstruct.h \
- datadir.c datadir.h parserange.c parserange.h \
- getopt.c getopt1.c getopt.h bam_print.c
-
-bam_print_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" -DBAM_INPUT=1
-bam_print_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_print_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_print_SOURCES = $(BAM_PRINT_FILES)
 BAM_FASTQ_FILES = fopen.h bool.h types.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  listdef.h list.c list.h \
@@ -653,105 +602,12 @@ bam_fastq_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"
 bam_fastq_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 bam_fastq_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
 dist_bam_fastq_SOURCES = $(BAM_FASTQ_FILES)
-SPLICECLEAN_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- stopwatch.c stopwatch.h access.c access.h \
- listdef.h list.c list.h \
- genomicpos.c genomicpos.h \
- chrom.c chrom.h \
- uinttable.c uinttable.h table.c table.h \
- orderstat.c orderstat.h lgamma.c lgamma.h tally.c tally.h \
- bigendian.c bigendian.h interval.c interval.h iitdef.h iit-read.c iit-read.h \
- getopt.c getopt1.c getopt.h spliceclean.c
-
-spliceclean_CFLAGS = $(AM_CFLAGS)  $(PTHREAD_CFLAGS)
-spliceclean_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-spliceclean_LDADD = $(PTHREAD_LIBS)
-dist_spliceclean_SOURCES = $(SPLICECLEAN_FILES)
-
-#SPLICEGENE_FILES = fopen.h bool.h types.h \
-# except.c except.h assert.c assert.h mem.c mem.h \
-# intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
-# littleendian.c littleendian.h bigendian.c bigendian.h \
-# interval.c interval.h uintlist.c uintlist.h \
-# stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
-# uinttable.c uinttable.h genomicpos.c genomicpos.h \
-# getopt.c getopt1.c getopt.h splicegene.c
-#
-#splicegene_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-#splicegene_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-#splicegene_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
-#dist_splicegene_SOURCES = $(SPLICEGENE_FILES)
-
-#SAM_GSTRUCT_FILES = fopen.h bool.h types.h \
-# except.c except.h assert.c assert.h mem.c mem.h \
-# intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
-# littleendian.c littleendian.h bigendian.c bigendian.h \
-# interval.c interval.h uintlist.c uintlist.h \
-# stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
-# complement.h chrom.c chrom.h genomicpos.c genomicpos.h \
-# md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
-# table.c table.h uinttable.c uinttable.h \
-# samflags.h samread.c samread.h \
-# orderstat.c orderstat.h lgamma.c lgamma.h tally.c tally.h \
-# iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
-# splice.c splice.h gstruct.c gstruct.h cappaths.c cappaths.h splicegraph.c splicegraph.h \
-# datadir.c datadir.h parserange.c parserange.h \
-# getopt.c getopt1.c getopt.h gstruct_main.c
-#
-#sam_gstruct_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-#sam_gstruct_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS)
-#sam_gstruct_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
-#dist_sam_gstruct_SOURCES = $(SAM_GSTRUCT_FILES)
-BAM_SINGLEMAP_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- littleendian.c littleendian.h bigendian.c bigendian.h \
- interval.c interval.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- table.c table.h uinttable.c uinttable.h \
- chrnum.c chrnum.h \
- samflags.h samread.c samread.h bamread.c bamread.h \
- orderstat.c orderstat.h lgamma.c lgamma.h tally.c tally.h \
- tableint.c tableint.h tableuint.c tableuint.h \
- iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
- datadir.c datadir.h \
- getopt.c getopt1.c getopt.h singlemap.c
-
-bam_singlemap_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" -DBAM_INPUT=1
-bam_singlemap_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_singlemap_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_singlemap_SOURCES = $(BAM_SINGLEMAP_FILES)
-BAM_GSTRUCT_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- littleendian.c littleendian.h bigendian.c bigendian.h \
- interval.c interval.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- table.c table.h uinttable.c uinttable.h \
- chrnum.c chrnum.h \
- samflags.h samread.c samread.h bamread.c bamread.h \
- orderstat.c orderstat.h lgamma.c lgamma.h tally.c tally.h \
- tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h bamtally.c bamtally.h \
- tableint.c tableint.h splice.c splice.h maxent_hr.c maxent_hr.h gstruct.c gstruct.h \
- cappaths.c cappaths.h splicegraph.c splicegraph.h \
- datadir.c datadir.h parserange.c parserange.h \
- getopt.c getopt1.c getopt.h gstruct_main.c
-
-bam_gstruct_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\" -DBAM_INPUT=1
-bam_gstruct_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_gstruct_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_gstruct_SOURCES = $(BAM_GSTRUCT_FILES)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -776,9 +632,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
+$(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
+$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
@@ -789,7 +645,7 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status src/config.h
-$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
+$(srcdir)/config.h.in:  $(am__configure_deps) 
 	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
 	rm -f stamp-h1
 	touch $@
@@ -971,8 +827,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-intlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-littleendian.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-matchpool.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-md5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-mem.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-mismatchpool.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-parserange.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-samread.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-sequence.Po@am__quote@
@@ -1002,8 +860,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-intlist.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-list.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-littleendian.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-md5.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-mem.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-samread.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-sequence.Plo@am__quote@
@@ -1237,6 +1097,20 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo: ucharlist.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ucharlist.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo `test -f 'ucharlist.c' || echo '$(srcdir)/'`ucharlist.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo: matchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo `test -f 'matchpool.c' || echo '$(srcdir)/'`matchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='matchpool.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo `test -f 'matchpool.c' || echo '$(srcdir)/'`matchpool.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo: mismatchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo `test -f 'mismatchpool.c' || echo '$(srcdir)/'`mismatchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mismatchpool.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo `test -f 'mismatchpool.c' || echo '$(srcdir)/'`mismatchpool.c
 
 libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c
@@ -2301,6 +2175,34 @@ bam_tally-ucharlist.obj: ucharlist.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ucharlist.c' object='bam_tally-ucharlist.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-ucharlist.obj `if test -f 'ucharlist.c'; then $(CYGPATH_W) 'ucharlist.c'; else $(CYGPATH_W) '$(srcdir)/ucharlist.c'; fi`
+
+bam_tally-matchpool.o: matchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-matchpool.o -MD -MP -MF $(DEPDIR)/bam_tally-matchpool.Tpo -c -o bam_tally-matchpool.o `test -f 'matchpool.c' || echo '$(srcdir)/'`matchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-matchpool.Tpo $(DEPDIR)/bam_tally-matchpool.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='matchpool.c' object='bam_tally-matchpool.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-matchpool.o `test -f 'matchpool.c' || echo '$(srcdir)/'`matchpool.c
+
+bam_tally-matchpool.obj: matchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-matchpool.obj -MD -MP -MF $(DEPDIR)/bam_tally-matchpool.Tpo -c -o bam_tally-matchpool.obj `if test -f 'matchpool.c'; then $(CYGPATH_W) 'matchpool.c'; else $(CYGPATH_W) '$(srcdir)/matchpool.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-matchpool.Tpo $(DEPDIR)/bam_tally-matchpool.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='matchpool.c' object='bam_tally-matchpool.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-matchpool.obj `if test -f 'matchpool.c'; then $(CYGPATH_W) 'matchpool.c'; else $(CYGPATH_W) '$(srcdir)/matchpool.c'; fi`
+
+bam_tally-mismatchpool.o: mismatchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-mismatchpool.o -MD -MP -MF $(DEPDIR)/bam_tally-mismatchpool.Tpo -c -o bam_tally-mismatchpool.o `test -f 'mismatchpool.c' || echo '$(srcdir)/'`mismatchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-mismatchpool.Tpo $(DEPDIR)/bam_tally-mismatchpool.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mismatchpool.c' object='bam_tally-mismatchpool.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-mismatchpool.o `test -f 'mismatchpool.c' || echo '$(srcdir)/'`mismatchpool.c
+
+bam_tally-mismatchpool.obj: mismatchpool.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-mismatchpool.obj -MD -MP -MF $(DEPDIR)/bam_tally-mismatchpool.Tpo -c -o bam_tally-mismatchpool.obj `if test -f 'mismatchpool.c'; then $(CYGPATH_W) 'mismatchpool.c'; else $(CYGPATH_W) '$(srcdir)/mismatchpool.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-mismatchpool.Tpo $(DEPDIR)/bam_tally-mismatchpool.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mismatchpool.c' object='bam_tally-mismatchpool.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-mismatchpool.obj `if test -f 'mismatchpool.c'; then $(CYGPATH_W) 'mismatchpool.c'; else $(CYGPATH_W) '$(srcdir)/mismatchpool.c'; fi`
 
 bam_tally-bamtally.o: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-bamtally.o -MD -MP -MF $(DEPDIR)/bam_tally-bamtally.Tpo -c -o bam_tally-bamtally.o `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c
