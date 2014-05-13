@@ -9,10 +9,11 @@
 
 setClass("TallyIIT", representation(ptr = "externalptr",
                                     genome = "GmapGenome",
-                                    bam = "BamFile"))
+                                    bam = "BamFile",
+                                    xs = "logical"))
 
-TallyIIT <- function(ptr, genome, bam) {
-  new("TallyIIT", ptr = ptr, genome = genome, bam = bam)
+TallyIIT <- function(ptr, genome, bam, xs) {
+  new("TallyIIT", ptr = ptr, genome = genome, bam = bam, xs = xs)
 }
 
 setMethod("genome", "TallyIIT", function(x) x@genome)
@@ -67,7 +68,7 @@ setMethod("bam_tally", "GmapBamReader",
 
             param_list$genome <- NULL
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome,
-                     as(x, "BamFile"))
+                     as(x, "BamFile"), param_list$count_xs)
           })
 
 variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
@@ -80,12 +81,12 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
                  normArgSingleInteger(high_base_quality),
-                 NULL, read_length)
+                 NULL, read_length, x@xs)
   
   tally_names <- c("seqnames", "pos", "ref", "alt",
                    "n.read.pos", "n.read.pos.ref",
                    "raw.count", "raw.count.ref",
-                   "raw.count.total",
+                    "raw.count.total",
                    "high.quality", "high.quality.ref",
                    "high.quality.total", "mean.quality",
                    "mean.quality.ref",
@@ -93,7 +94,9 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
                    "count.minus", "count.minus.ref",
                    "read.pos.mean", "read.pos.mean.ref",
                    "read.pos.var", "read.pos.var.ref",
-                   "mdfne", "mdfne.ref")
+                   "mdfne", "mdfne.ref",
+                   if (x@xs) c("count.xs.plus", "count.xs.plus.ref",
+                               "count.xs.minus", "count.xs.minus.ref"))
   break_names <- character()
   if (length(read_pos_breaks) > 0L) {
     read_pos_breaks <- as.integer(read_pos_breaks)
@@ -115,7 +118,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
   genome <- genome(x)
   indel <- nchar(tally$ref) == 0L | nchar(tally$alt) == 0L
   metacols <- DataFrame(tally[meta_names])
-  mcols(metacols) <- variantSummaryColumnDescriptions(read_pos_breaks)
+  mcols(metacols) <-
+    variantSummaryColumnDescriptions(read_pos_breaks)[meta_names,,drop=FALSE]
   gr <- with(tally,
              VRanges(seqnames,
                      IRanges(pos,
@@ -196,7 +200,8 @@ normArgTRUEorFALSE <- function(x) {
                          ignore_query_Ns = FALSE,
                          indels = FALSE,
                          blocksize = 1000L, verbosep = FALSE,
-                         include_soft_clips = 0L, noncovered = FALSE)
+                         include_soft_clips = 0L,
+                         count_xs = FALSE, noncovered = FALSE)
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
@@ -235,6 +240,7 @@ normArgTRUEorFALSE <- function(x) {
         normArgSingleInteger(blocksize),
         normArgTRUEorFALSE(verbosep),
         normArgSingleInteger(include_soft_clips),
+        normArgTRUEorFALSE(count_xs),
         normArgTRUEorFALSE(noncovered))
 }
 
@@ -251,16 +257,20 @@ variantSummaryColumnDescriptions <- function(read_pos_breaks) {
     raw.count.total = "Raw total count",
     mean.quality = "Average ALT base quality",
     mean.quality.ref = "Average REF base quality",
-    count.plus = "Raw positive strand ALT count",
-    count.plus.ref = "Raw positive strand REF count",
-    count.minus = "Raw negative strand ALT count",
-    count.minus.ref = "Raw negative strand REF count",
+    count.plus = "Raw plus strand ALT count",
+    count.plus.ref = "Raw plus strand REF count",
+    count.minus = "Raw minus strand ALT count",
+    count.minus.ref = "Raw minus strand REF count",
     read.pos.mean = "Average read position for the ALT",
     read.pos.mean.ref = "Average read position for the ALT",
     read.pos.var = "Variance in read position for the ALT",
     read.pos.var.ref = "Variance in read position for the REF",
     mdfne = "Median distance from nearest end of read for the ALT",
-    mdfne.ref = "Median distance from nearest end of read for the REF")
+    mdfne.ref = "Median distance from nearest end of read for the REF",
+    count.xs.plus = "Raw plus XS ALT count",
+    count.xs.plus.ref = "Raw plus XS REF count",
+    count.xs.minus = "Raw minus XS ALT count",
+    count.xs.minus.ref = "Raw minus XS REF count")
   if (length(read_pos_breaks) > 0L) {
     break_desc <- paste0("Raw ALT count in read position range [",
                          head(read_pos_breaks, -1), ",",

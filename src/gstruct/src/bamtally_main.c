@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 134420 2014-04-25 22:15:40Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 135602 2014-05-08 20:10:28Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -71,6 +71,7 @@ static bool print_indels_p = false;
 static bool print_cycles_p = false;
 static bool print_quality_scores_p = false;
 static bool print_mapq_scores_p = false;
+static bool print_xs_scores_p = false;
 static bool want_genotypes_p = false;
 
 static char *chromosome = NULL;
@@ -135,6 +136,7 @@ static struct option long_options[] = {
   {"cycles", no_argument, 0, 0}, /* print_cycles_p */
   {"quality-scores", no_argument, 0, 'Q'}, /* print_quality_scores_p */
   {"mapq-scores", no_argument, 0, 'M'}, /* print_mapq_scores_p */
+  {"xs-scores", no_argument, 0, 'I'}, /* print_xs_scores_p */
   {"genotypes", no_argument, 0, 'G'}, /* want_genotypes_p */
 
   {"pairmax", required_argument, 0, 'p'}, /* alloclength */
@@ -207,7 +209,7 @@ main (int argc, char *argv[]) {
   int long_option_index = 0;
   const char *long_name;
 
-  while ((opt = getopt_long(argc,argv,"D:d:q:n:C:U:P:A:B:p:X:STGQMb:",
+  while ((opt = getopt_long(argc,argv,"D:d:q:n:C:U:P:A:B:p:X:STGQMIb:",
 			    long_options, &long_option_index)) != -1) {
     switch (opt) {
     case 0:
@@ -305,6 +307,7 @@ main (int argc, char *argv[]) {
     case 'G': want_genotypes_p = true; break;
     case 'Q': print_quality_scores_p = true; break;
     case 'M': print_mapq_scores_p = true; break;
+    case 'I': print_xs_scores_p = true; break;
 
     case 'q': minimum_mapq = atoi(optarg); break;
     case 'n': maximum_nhits = atoi(optarg); break;
@@ -381,7 +384,7 @@ main (int argc, char *argv[]) {
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep,readlevel_p,max_softclip,
-				  print_noncovered_p);
+				  print_xs_scores_p,print_noncovered_p);
     } else {
       for (index = 1; index <= IIT_total_nintervals(chromosome_iit); index++) {
 	chromosome = IIT_label(chromosome_iit,index,&allocp);
@@ -412,7 +415,7 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				     print_mapq_scores_p,print_xs_scores_p,want_genotypes_p,verbosep,readlevel_p,
 				     max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	  Bamread_unlimit_region(bamreader);
 	}
@@ -449,7 +452,7 @@ main (int argc, char *argv[]) {
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep,readlevel_p,
-				  max_softclip,print_noncovered_p);
+				  max_softclip,print_xs_scores_p,print_noncovered_p);
       IIT_free(&chromosome_iit);
 
     } else {
@@ -477,7 +480,7 @@ main (int argc, char *argv[]) {
 				   quality_score_adj,min_depth,variant_strands,
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				   print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				   print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				   print_mapq_scores_p,print_xs_scores_p,want_genotypes_p,verbosep,readlevel_p,
 				   max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	Bamread_unlimit_region(bamreader);
       }
@@ -537,7 +540,7 @@ main (int argc, char *argv[]) {
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_quality_scores_p,
-				     print_mapq_scores_p,want_genotypes_p,verbosep,readlevel_p,
+				     print_mapq_scores_p,print_xs_scores_p,want_genotypes_p,verbosep,readlevel_p,
 				     max_softclip,print_noncovered_p,/*bamfile*/argv[0]);
 	  Bamread_unlimit_region(bamreader);
 	}
@@ -690,6 +693,7 @@ Output options\n\
   --cycles                       Include details about cycles\n\
   -Q, --quality-scores           Include details about quality scores\n\
   -M, --mapq-scores              Include details about mapping quality (MAPQ) scores\n\
+  -I, --xs-scores                Include details about splice strand (XS) scores\n\
   --verbose                      Print information about problematic reads to stderr\n\
 \n\
 ");

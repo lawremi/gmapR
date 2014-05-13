@@ -8,7 +8,8 @@
 # "--disable-maintainer-mode" argument passed in src/Makefile to the
 # respective configure scripts. This was added to avoid regenerating
 # autotools artifacts on user machines (the timestamp protection fails
-# through svn).
+# through svn). ALSO make sure not to remove the maintainer mode macro call
+# in gstruct|gmap/configure.ac (revert the change from the update).
 ##########################################################
 
 updateGMAPSrc <- function() {

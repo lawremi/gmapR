@@ -21,7 +21,8 @@
                 primary_only = FALSE, ignore_duplicates = FALSE,
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
-                indels = FALSE, include_soft_clips = 0L)
+                indels = FALSE, include_soft_clips = 0L,
+                count_xs = FALSE, noncovered = FALSE)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -63,6 +64,13 @@
     output. However, soft clipping can preferentially occur in regions
     of discordance with the reference, and if those clipped regions are
     ignored during counting, the allele fraction is misestimated.
+  }
+  \item{count_xs}{Whether to tabulate the +/- values of the XS tag,
+    often output by RNA-seq aligners to indicate the strand of
+    transcription.
+  }
+  \item{noncovered}{Whether to output rows for positions without any
+    coverage.
   }
 }
 

@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: mismatchpool.c 134973 2014-05-03 01:11:47Z twu $";
+static char rcsid[] = "$Id: mismatchpool.c 135603 2014-05-08 20:10:58Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -164,7 +164,7 @@ Mismatchpool_reset (T this) {
 }
 
 List_T
-Mismatchpool_push (List_T list, T this, char nt, int shift, int mapq, char quality) {
+Mismatchpool_push (List_T list, T this, char nt, int shift, int mapq, char quality, int xs) {
   List_T listcell;
   Mismatch_T new;
   List_T p;
@@ -186,6 +186,7 @@ Mismatchpool_push (List_T list, T this, char nt, int shift, int mapq, char quali
   new->shift = shift;
   new->mapq = mapq;
   new->quality = quality;
+  new->xs = xs;
   new->count = 1;
 
   /* Assigned when mismatch added to unique list */

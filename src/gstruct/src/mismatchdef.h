@@ -10,6 +10,7 @@ struct T {
   int shift;			/* Used to record shifts */
   char mapq;
   char quality;
+  int xs;			/* +1 for +, -1 for -, 0 for others */
   long int count;
 
   long int count_plus;		/* Used by unique elements */
