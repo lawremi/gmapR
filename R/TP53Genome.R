@@ -36,7 +36,12 @@ exonsToGene <- range
 
 getExons <- function(txdb, orgdb, gene) {
   eg <- select(orgdb, gene, "ENTREZID", "SYMBOL")$ENTREZID
-  exons(txdb, vals = list(gene_id=eg))
+  exons(txdb, vals = list(gene_id=eg), columns = "tx_name")
+}
+
+getExonsBy <- function(txdb, orgdb, gene) {
+  exons <- getExons(txdb, orgdb, gene)
+  multisplit(exons, exons$tx_name)
 }
 
 getGeneRoi <- function(txdb, orgdb, gene, extend=1e6) {
@@ -72,6 +77,14 @@ exonsOnTP53Genome <- function(gene) {
   txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
   orgdb <- org.Hs.eg.db::org.Hs.eg.db
   translateToP53Genome(getExons(txdb, orgdb, gene))
+}
+
+transcriptsOnTP53Genome <- function(gene) {
+  checkPackageInstalled("TxDb.Hsapiens.UCSC.hg19.knownGene")
+  checkPackageInstalled("org.Hs.eg.db")    
+  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
+  orgdb <- org.Hs.eg.db::org.Hs.eg.db
+  translateToP53Genome(getExonsBy(txdb, orgdb, gene))
 }
 
 geneOnTP53Genome <- function(gene) {
