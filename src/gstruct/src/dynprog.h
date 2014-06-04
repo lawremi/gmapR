@@ -1,4 +1,4 @@
-/* $Id: dynprog.h 133170 2014-04-14 23:43:26Z twu $ */
+/* $Id: dynprog.h 136514 2014-05-16 17:59:19Z twu $ */
 #ifndef DYNPROG_INCLUDED
 #define DYNPROG_INCLUDED
 
@@ -54,9 +54,11 @@ typedef int Direction32_T;
 #define DIAG 0			/* Pre-dominant case.  Directions_alloc clears to this value. */
 
 #define NEG_INFINITY_8 (-128)
+#define POS_INFINITY_8 (127)
 #define MAX_CHAR (127)
 
 #define NEG_INFINITY_16 (-32768)
+#define POS_INFINITY_16 (32767)
 #define MAX_SHORT (32767)
 
 /* We can allow -128 and -32768 for NEG_INFINITY in SIMD procedures,
@@ -85,6 +87,7 @@ extern Pairdistance_T **pairdistance_array[NMISMATCHTYPES];
 extern Pairdistance_T **pairdistance_array_plus_128[NMISMATCHTYPES];
 #endif
 extern bool **consistent_array;
+extern int *nt_to_int_array;
 
 
 struct Space_single_T {
@@ -170,14 +173,6 @@ extern char *
 Dynprog_tokens_string (List_T tokens);
 extern void
 Dynprog_tokens_free (List_T *tokens);
-
-extern char *
-Dynprog_cigar_std (int *finalc, Direction32_T **directions_nogap, Direction32_T **directions_Egap,
-		   Direction32_T **directions_Fgap,
-		   int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		   char *nindels, int queryoffset, int genomeoffset, bool revp,
-		   Univcoord_T chroffset, Univcoord_T chrhigh);
-
 
 #undef T
 #endif

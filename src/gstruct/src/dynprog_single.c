@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: dynprog_single.c 134424 2014-04-25 22:23:48Z twu $";
+static char rcsid[] = "$Id: dynprog_single.c 136515 2014-05-16 18:00:02Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -24,6 +24,7 @@ static char rcsid[] = "$Id: dynprog_single.c 134424 2014-04-25 22:23:48Z twu $";
 #include "listdef.h"
 #include "complement.h"
 #include "dynprog_simd.h"
+#include "dynprog_cigar.h"
 
 
 /* Tests whether get_genomic_nt == genomicseg in compute_scores procedures */

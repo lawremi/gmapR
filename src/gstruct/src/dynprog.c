@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: dynprog.c 133253 2014-04-15 18:56:11Z twu $";
+static char rcsid[] = "$Id: dynprog.c 136514 2014-05-16 17:59:19Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -75,11 +75,7 @@ static char rcsid[] = "$Id: dynprog.c 133253 2014-04-15 18:56:11Z twu $";
 
 #define FULLMATCH 3
 #define HALFMATCH 1
-#ifdef PMAP
 #define AMBIGUOUS 0
-#else
-#define AMBIGUOUS -1
-#endif
 
 
 /* These values were set to -5, -4, -3, but this led to chopped ends
@@ -764,6 +760,7 @@ Pairdistance_T **pairdistance_array[NMISMATCHTYPES];
 Pairdistance_T **pairdistance_array_plus_128[NMISMATCHTYPES];
 #endif
 bool **consistent_array;
+int *nt_to_int_array;
 
 
 bool
@@ -854,6 +851,16 @@ Dynprog_init (Mode_T mode) {
   int i, j, ptr;
   int c, c1, c2;
 
+  nt_to_int_array = (int *) CALLOC(128,sizeof(int));
+  for (j = 0; j < 128; j++) {
+    nt_to_int_array[j] = 4;
+  }
+  nt_to_int_array['A'] = nt_to_int_array['a'] = 0;
+  nt_to_int_array['C'] = nt_to_int_array['c'] = 1;
+  nt_to_int_array['G'] = nt_to_int_array['g'] = 2;
+  nt_to_int_array['T'] = nt_to_int_array['t'] = 3;
+
+
   consistent_array = (bool **) CALLOC(128,sizeof(bool *));
   consistent_array[0] = (bool *) CALLOC(128*128,sizeof(bool));
   ptr = 0;
@@ -898,6 +905,11 @@ Dynprog_init (Mode_T mode) {
   }
 #endif
 
+  for (c = 'A'; c < 'Z'; c++) {
+    permute_cases(c,c,FULLMATCH);
+  }
+
+  /* Exceptions */
   permute_cases('U','T',FULLMATCH);
 
   permute_cases('R','A',HALFMATCH);
@@ -944,14 +956,14 @@ Dynprog_init (Mode_T mode) {
   permute_cases('X','A',AMBIGUOUS);
   permute_cases('X','G',AMBIGUOUS);
 
+  permute_cases('N','N',AMBIGUOUS); /* Needed to start dynprog procedures with 0 at (0,0) */
+  permute_cases('X','X',AMBIGUOUS); /* Needed to start dynprog procedures with 0 at (0,0) */
+
+
   if (mode == CMET_STRANDED || mode == CMET_NONSTRANDED) {
     /* Query-T can match Genomic-C */
     permute_cases_oneway('T','C',FULLMATCH);
     permute_cases_oneway('A','G',FULLMATCH);
-  }
-
-  for (c = 'A'; c < 'Z'; c++) {
-    permute_cases(c,c,FULLMATCH);
   }
 
 #ifndef HAVE_SSE4_1
@@ -1010,6 +1022,7 @@ Dynprog_term (void) {
   */
   FREE(consistent_array[0]);
   FREE(consistent_array);
+  FREE(nt_to_int_array);
 
   return;
 }
@@ -1678,274 +1691,3 @@ Dynprog_traceback_std (List_T pairs, int *nmatches, int *nmismatches, int *nopen
 #endif
 
 
-char *
-Dynprog_tokens_string (List_T tokens) {
-  char *string, *token, *q;
-  int stringlength = 0;
-  List_T p;
-
-  for (p = tokens; p != NULL; p = List_next(p)) {
-    token = (char *) List_head(p);
-    stringlength += strlen(token);
-  }
-  string = (char *) MALLOC((stringlength+1) * sizeof(char));
-
-  q = string;
-  for (p = tokens; p != NULL; p = List_next(p)) {
-    token = (char *) List_head(p);
-    strcpy(q,token);
-    q += strlen(token);
-  }
-  *q = '\0';
-  return string;
-}
-
-
-void
-Dynprog_tokens_free (List_T *tokens) {
-  List_T p;
-  char *token;
-
-  for (p = *tokens; p != NULL; p = List_next(p)) {
-    token = (char *) List_head(p);
-    FREE(token);
-  }
-  List_free(&(*tokens));
-
-  return;
-}
-
-static List_T
-push_token (bool *startp, List_T tokens, char *token) {
-  char *copy;
-
-  copy = (char *) CALLOC(strlen(token)+1,sizeof(char));
-  strcpy(copy,token);
-
-  *startp = false;
-  return List_push(tokens,(void *) copy);
-}
-
-
-
-char *
-Dynprog_cigar_std (int *finalc, Direction32_T **directions_nogap, Direction32_T **directions_Egap, Direction32_T **directions_Fgap,
-		   int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		   char *nindels, int queryoffset, int genomeoffset, bool revp,
-		   Univcoord_T chroffset, Univcoord_T chrhigh) {
-  char *cigar;
-  List_T tokens = NULL;
-  char token[10];
-  int Mlength = 0, Ilength = 0, Mlength_postins = 0;
-  int insertion_width = 0;
-  bool startp = true;
-
-  int dist;
-  Direction32_T dir;
-
-  debug(printf("Starting Dynprog_cigar_std at r=%d,c=%d (roffset=%d, goffset=%d)\n",r,c,queryoffset,genomeoffset));
-
-#if 0
-  /* Handle initial indel */
-  if ((dir = directions_nogap[c][r]) == DIAG) {
-    /* Not an indel.  Do nothing. */
-
-  } else if (dir == HORIZ) {
-    dist = 1;
-    while (c > 1 && directions_Egap[c][r] != DIAG) {
-      dist++;
-      c--;
-    }
-    c--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dD",dist);
-    tokens = push_token(&startp,tokens,token);
-
-  } else {
-    /* Must be VERT */
-    dist = 1;
-    while (r > 1 && directions_Fgap[c][r] != DIAG) {
-      dist++;
-      r--;
-    }
-    r--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dI",dist);
-    tokens = push_token(&startp,tokens,token);
-  }
-#endif
-
-  *finalc = c;
-  while (c > 0) {  /* dir != STOP */
-    if (r == 0) {
-      /* Ignore gap in row 0 */
-      if (Ilength > 0 && Ilength != insertion_width) {
-	if (Mlength_postins > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	if (Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
-
-      *finalc = c;
-      tokens = List_reverse(tokens);
-      cigar = Dynprog_tokens_string(List_reverse(tokens));
-      Dynprog_tokens_free(&tokens);
-
-      return cigar;
-
-    } else if ((dir = directions_nogap[c][r]) == DIAG) {
-      /* printf("At r %d, c %d (%c), dir is DIAG, nindels %d\n",r,c,gsequence[c],nindels[c-1]); */
-
-      if (nindels[c-1] < 0) {
-	/* Genome modified with a deletion */
-	if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	  /* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	  sprintf(token,"%dS",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	} else {
-	  if (Ilength > 0) {
-	    sprintf(token,"%dM",Mlength_postins);
-	    tokens = push_token(&startp,tokens,token);
-	    sprintf(token,"%dI",Ilength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	  if (1 || Mlength > 0) {
-	    sprintf(token,"%dM",Mlength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	}
-	Mlength = 1;
-
-	sprintf(token,"%dD",-nindels[c-1]);
-	tokens = push_token(&startp,tokens,token);
-
-      } else if (nindels[c-1] > 0) {
-	insertion_width = nindels[c-1];
-	if (Ilength == 0) {
-	  Mlength_postins = Mlength; /* Cannot push M yet, since I could change to S */
-	  Mlength = 0;
-	}
-	Ilength += 1;
-	/* printf("Incrementing Ilength to be %d\n",Ilength); */
-
-      } else {
-	Mlength += 1;
-	/* printf("Incrementing Mlength to be %d\n",Mlength); */
-      }
-      r--; c--;
-
-    } else if (dir == HORIZ) {
-      /* printf("At r %d, c %d, dir is HORIZ\n",r,c); */
-
-      if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	/* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	sprintf(token,"%dM",Mlength);
-	tokens = push_token(&startp,tokens,token);
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
-      Mlength = 0;
-
-      dist = 1;
-      while (c > 1 && directions_Egap[c][r] != DIAG) {
-	dist++;
-	c--;
-      }
-      c--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dD",dist);
-      tokens = push_token(&startp,tokens,token);
-
-    } else {
-      /* Must be VERT */
-      /* printf("At r %d, c %d, dir is VERT\n",r,c); */
-      if (Ilength == 0) {
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	  Mlength = 0;
-	}
-      }
-
-      Ilength += 1;
-      while (r > 1 && directions_Fgap[c][r] != DIAG) {
-	Ilength += 1;
-	r--;
-      }
-      r--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-      Ilength = 0;
-    }
-  }
-
-  if (Ilength > 0 && Ilength != insertion_width) {
-    if (Mlength_postins > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-    }
-    sprintf(token,"%dS",Ilength);
-    tokens = push_token(&startp,tokens,token);
-    if (Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
-    }
-  } else {
-    if (Ilength > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-    }
-    if (1 || Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
-    }
-  }
-
-  *finalc = c;
-  tokens = List_reverse(tokens);
-  cigar = Dynprog_tokens_string(List_reverse(tokens));
-  Dynprog_tokens_free(&tokens);
-
-  return cigar;
-}

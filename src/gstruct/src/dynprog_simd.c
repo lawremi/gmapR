@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: dynprog_simd.c 133254 2014-04-15 18:56:28Z twu $";
+static char rcsid[] = "$Id: dynprog_simd.c 136516 2014-05-16 18:00:16Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -17,6 +17,18 @@ static char rcsid[] = "$Id: dynprog_simd.c 133254 2014-04-15 18:56:28Z twu $";
 #endif
 
 #include "mem.h"
+#include "assert.h"
+
+
+#define LAZY_INDEL 1		/* Don't advance to next coordinate on final indel, since could go over chromosome bounds. */
+
+/* Row 0 and column 0 directions */
+/* Was useful in finding a saturation bug, but can fail because of saturation */
+#ifdef CHECK1
+#define check1(x) x
+#else
+#define check1(x)
+#endif
 
 
 #ifdef DEBUG
@@ -31,11 +43,17 @@ static char rcsid[] = "$Id: dynprog_simd.c 133254 2014-04-15 18:56:28Z twu $";
 #define debug2(x)
 #endif
 
-/* F loop */
+/* Fgap */
 #ifdef DEBUG3
 #define debug3(x) x
 #else
 #define debug3(x)
+#endif
+
+#ifdef DEBUG8
+#define debug8(x) x
+#else
+#define debug8(x)
 #endif
 
 #ifdef DEBUG14
@@ -52,13 +70,13 @@ static char rcsid[] = "$Id: dynprog_simd.c 133254 2014-04-15 18:56:28Z twu $";
 
 
 
-/************************************************************************
- *   Debugging procedures
- ************************************************************************/
-
+#include "complement.h"
 #define NEG_INFINITY_DISPLAY -99
 
 
+/************************************************************************
+ *   Debugging procedures
+ ************************************************************************/
 
 #ifdef DEBUG15
 /* For debugging of SIMD procedures*/
@@ -87,20 +105,27 @@ print_vector_16 (__m128i x, int r, int c, char *label) {
 #endif
 
 
-#if defined(DEBUG2) || defined(DEBUG14)
+#if defined(DEBUG14) || defined(DEBUG2)
 static void
 Matrix8_print (Score8_T **matrix, int rlength, int glength, char *rsequence,
 	       char *gsequence, char *gsequencealt,
-#ifdef DEBUG14
-	       int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
-#endif
 	       bool revp, int lband, int uband) {
   int i, j;
-  char g_alt;
+  char g, g_alt;
 
   _mm_lfence();
 
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d ",j);
+  }
+  printf("\n");
+
+
   if (gsequence) {
+    printf("   ");		/* For i */
     printf("  ");
     for (j = 0; j <= glength; ++j) {
       if (j == 0) {
@@ -112,23 +137,27 @@ Matrix8_print (Score8_T **matrix, int rlength, int glength, char *rsequence,
     printf("\n");
   }
 
-#if 0
-  printf("  ");
-  for (j = 0; j <= glength; ++j) {
-    if (j == 0) {
-      printf("    ");
-    } else {
-      if (revp == false) {
-	printf("  %c ",get_genomic_nt(&g_alt,goffset+j-1,chroffset,chrhigh,watsonp));
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
       } else {
-	printf("  %c ",get_genomic_nt(&g_alt,goffset+1-j,chroffset,chrhigh,watsonp));
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c ",' ');
+	} else {
+	  printf("  %c ",g_alt);
+	}
       }
     }
+    printf("\n");
   }
-  printf("\n");
-#endif
 
   for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
     if (i == 0) {
       printf("  ");
     } else {
@@ -151,20 +180,115 @@ Matrix8_print (Score8_T **matrix, int rlength, int glength, char *rsequence,
 
   return;
 }
+
+static void
+Matrix8_print_ud (Score8_T **matrix, int rlength, int glength, char *rsequence,
+		  char *gsequence, char *gsequencealt,
+		  bool revp, int band, bool upperp) {
+  int i, j;
+  char g, g_alt;
+
+  _mm_lfence();
+
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d ",j);
+  }
+  printf("\n");
+
+  if (gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
+      } else {
+	printf("  %c ",revp ? gsequence[-j+1] : gsequence[j-1]);
+      }
+    }
+    printf("\n");
+  }
+
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
+      } else {
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c ",' ');
+	} else {
+	  printf("  %c ",g_alt);
+	}
+      }
+    }
+    printf("\n");
+  }
+
+  for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
+    if (i == 0) {
+      printf("  ");
+    } else {
+      printf("%c ",revp ? rsequence[-i+1] : rsequence[i-1]);
+    }
+    if (upperp == true) {
+      for (j = 0; j <= glength; ++j) {
+	if (j < i) {
+	  printf("  . ");
+	} else if (j > i + band) {
+	  printf("  . ");
+	} else if (matrix[j][i] < NEG_INFINITY_DISPLAY) {
+	  printf("%3d ",NEG_INFINITY_DISPLAY);
+	} else {
+	  printf("%3d ",matrix[j][i]);
+	}
+      }
+    } else {
+      for (j = 0; j <= glength; ++j) {
+	if (i < j) {
+	  printf("  . ");
+	} else if (i > j + band) {
+	  printf("  . ");
+	} else if (matrix[i][j] < NEG_INFINITY_DISPLAY) {
+	  printf("%3d ",NEG_INFINITY_DISPLAY);
+	} else {
+	  printf("%3d ",matrix[i][j]);
+	}
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+
+  return;
+}
+
 
 static void
 Matrix16_print (Score16_T **matrix, int rlength, int glength, char *rsequence,
 		char *gsequence, char *gsequencealt,
-#ifdef DEBUG14
-		int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
-#endif
 		bool revp, int lband, int uband) {
   int i, j;
-  char g_alt;
+  char g, g_alt;
 
   _mm_lfence();
 
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d ",j);
+  }
+  printf("\n");
+
   if (gsequence) {
+    printf("   ");		/* For i */
     printf("  ");
     for (j = 0; j <= glength; ++j) {
       if (j == 0) {
@@ -176,23 +300,27 @@ Matrix16_print (Score16_T **matrix, int rlength, int glength, char *rsequence,
     printf("\n");
   }
 
-#if 0
-  printf("  ");
-  for (j = 0; j <= glength; ++j) {
-    if (j == 0) {
-      printf("    ");
-    } else {
-      if (revp == false) {
-	printf("  %c ",get_genomic_nt(&g_alt,goffset+j-1,chroffset,chrhigh,watsonp));
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
       } else {
-	printf("  %c ",get_genomic_nt(&g_alt,goffset+1-j,chroffset,chrhigh,watsonp));
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c ",' ');
+	} else {
+	  printf("  %c ",g_alt);
+	}
       }
     }
+    printf("\n");
   }
-  printf("\n");
-#endif
 
   for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
     if (i == 0) {
       printf("  ");
     } else {
@@ -216,22 +344,115 @@ Matrix16_print (Score16_T **matrix, int rlength, int glength, char *rsequence,
   return;
 }
 
-#endif
-
-#if defined(DEBUG2) || defined(DEBUG14)
 static void
-Directions8_print (Direction8_T **directions_nogap, Direction8_T **directions_Egap, Direction8_T **directions_Fgap,
-		   int rlength, int glength, char *rsequence, char *gsequence, char *gsequence_alt,
-#ifdef DEBUG14
-		   int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
-#endif
-		   bool revp, int lband, int uband) {
+Matrix16_print_ud (Score16_T **matrix, int rlength, int glength, char *rsequence,
+		   char *gsequence, char *gsequencealt,
+		   bool revp, int band, bool upperp) {
   int i, j;
-  char g_alt;
+  char g, g_alt;
 
   _mm_lfence();
 
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d ",j);
+  }
+  printf("\n");
+
   if (gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
+      } else {
+	printf("  %c ",revp ? gsequence[-j+1] : gsequence[j-1]);
+      }
+    }
+    printf("\n");
+  }
+
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("    ");
+      } else {
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c ",' ');
+	} else {
+	  printf("  %c ",g_alt);
+	}
+      }
+    }
+    printf("\n");
+  }
+
+  for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
+    if (i == 0) {
+      printf("  ");
+    } else {
+      printf("%c ",revp ? rsequence[-i+1] : rsequence[i-1]);
+    }
+    if (upperp == true) {
+      for (j = 0; j <= glength; ++j) {
+	if (j < i) {
+	  printf("  . ");
+	} else if (j > i + band) {
+	  printf("  . ");
+	} else if (matrix[j][i] < NEG_INFINITY_DISPLAY) {
+	  printf("%3d ",NEG_INFINITY_DISPLAY);
+	} else {
+	  printf("%3d ",matrix[j][i]);
+	}
+      }
+    } else {
+      for (j = 0; j <= glength; ++j) {
+	if (i < j) {
+	  printf("  . ");
+	} else if (i > j + band) {
+	  printf("  . ");
+	} else if (matrix[i][j] < NEG_INFINITY_DISPLAY) {
+	  printf("%3d ",NEG_INFINITY_DISPLAY);
+	} else {
+	  printf("%3d ",matrix[i][j]);
+	}
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+
+  return;
+}
+#endif
+
+#if defined(DEBUG14) || defined(DEBUG2)
+static void
+Directions8_print (Direction8_T **directions_nogap, Direction8_T **directions_Egap, Direction8_T **directions_Fgap,
+		   int rlength, int glength, char *rsequence, char *gsequence, char *gsequencealt,
+		   bool revp, int lband, int uband) {
+  int i, j;
+  char g, g_alt;
+
+  _mm_lfence();
+
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d   ",j);
+  }
+  printf("\n");
+
+  if (gsequence) {
+    printf("   ");		/* For i */
     printf("  ");
     for (j = 0; j <= glength; ++j) {
       if (j == 0) {
@@ -243,23 +464,27 @@ Directions8_print (Direction8_T **directions_nogap, Direction8_T **directions_Eg
     printf("\n");
   }
 
-#if 0
-  printf("  ");
-  for (j = 0; j <= glength; ++j) {
-    if (j == 0) {
-      printf("      ");
-    } else {
-      if (revp == false) {
-	printf("  %c   ",get_genomic_nt(&g_alt,goffset+j-1,chroffset,chrhigh,watsonp));
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
       } else {
-	printf("  %c   ",get_genomic_nt(&g_alt,goffset+1-j,chroffset,chrhigh,watsonp));
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c   ",' ');
+	} else {
+	  printf("  %c   ",g_alt);
+	}
       }
     }
+    printf("\n");
   }
-  printf("\n");
-#endif
 
   for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
     if (i == 0) {
       printf("  ");
     } else {
@@ -301,20 +526,134 @@ Directions8_print (Direction8_T **directions_nogap, Direction8_T **directions_Eg
   printf("\n");
   return;
 }
+
+static void
+Directions8_print_ud (Direction8_T **directions_nogap, Direction8_T **directions_Egap,
+		      int rlength, int glength, char *rsequence, char *gsequence, char *gsequencealt,
+		      bool revp, int band, bool upperp) {
+  int i, j;
+  char g, g_alt;
+
+  _mm_lfence();
+
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d   ",j);
+  }
+  printf("\n");
+
+  if (gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
+      } else {
+	printf("  %c   ",revp ? gsequence[-j+1] : gsequence[j-1]);
+      }
+    }
+    printf("\n");
+  }
+
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
+      } else {
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c   ",' ');
+	} else {
+	  printf("  %c   ",g_alt);
+	}
+      }
+    }
+    printf("\n");
+  }
+
+  for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
+    if (i == 0) {
+      printf("  ");
+    } else {
+      printf("%c ",revp ? rsequence[-i+1] : rsequence[i-1]);
+    }
+    if (upperp == true) {
+      for (j = 0; j <= glength; ++j) {
+	if (j < i) {
+	  printf("   ");
+	} else if (j > i + band) {
+	  printf("   ");
+	} else {
+	  if (directions_Egap[j][i] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	  printf("|");
+	  if (directions_nogap[j][i] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	}
+	printf("  ");		/* For Fgap */
+	printf(" ");
+      }
+    } else {
+      for (j = 0; j <= glength; ++j) {
+	printf("  ");		/* For Fgap */
+	if (i < j) {
+	  printf("   ");
+	} else if (i > j + band) {
+	  printf("   ");
+	} else {
+	  if (directions_nogap[i][j] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	  printf("|");
+	  if (directions_Egap[i][j] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	}
+	printf(" ");
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+  return;
+}
+
 
 static void
 Directions16_print (Direction16_T **directions_nogap, Direction16_T **directions_Egap, Direction16_T **directions_Fgap,
-		    int rlength, int glength, char *rsequence, char *gsequence, char *gsequence_alt,
-#ifdef DEBUG14
-		    int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
-#endif
+		    int rlength, int glength, char *rsequence, char *gsequence, char *gsequencealt,
 		    bool revp, int lband, int uband) {
   int i, j;
-  char g_alt;
+  char g, g_alt;
 
   _mm_lfence();
 
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d   ",j);
+  }
+  printf("\n");
+
   if (gsequence) {
+    printf("   ");		/* For i */
     printf("  ");
     for (j = 0; j <= glength; ++j) {
       if (j == 0) {
@@ -326,23 +665,27 @@ Directions16_print (Direction16_T **directions_nogap, Direction16_T **directions
     printf("\n");
   }
 
-#if 0
-  printf("  ");
-  for (j = 0; j <= glength; ++j) {
-    if (j == 0) {
-      printf("      ");
-    } else {
-      if (revp == false) {
-	printf("  %c   ",get_genomic_nt(&g_alt,goffset+j-1,chroffset,chrhigh,watsonp));
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
       } else {
-	printf("  %c   ",get_genomic_nt(&g_alt,goffset+1-j,chroffset,chrhigh,watsonp));
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c   ",' ');
+	} else {
+	  printf("  %c   ",g_alt);
+	}
       }
     }
+    printf("\n");
   }
-  printf("\n");
-#endif
 
   for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
     if (i == 0) {
       printf("  ");
     } else {
@@ -385,6 +728,112 @@ Directions16_print (Direction16_T **directions_nogap, Direction16_T **directions
   return;
 }
 
+static void
+Directions16_print_ud (Direction16_T **directions_nogap, Direction16_T **directions_Egap,
+		       int rlength, int glength, char *rsequence, char *gsequence, char *gsequencealt,
+		       bool revp, int band, bool upperp) {
+  int i, j;
+  char g, g_alt;
+
+  _mm_lfence();
+
+  /* j */
+  printf("   ");		/* For i */
+  printf("  ");
+  for (j = 0; j <= glength; ++j) {
+    printf(" %2d   ",j);
+  }
+  printf("\n");
+
+  if (gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
+      } else {
+	printf("  %c   ",revp ? gsequence[-j+1] : gsequence[j-1]);
+      }
+    }
+    printf("\n");
+  }
+
+  if (gsequencealt != gsequence) {
+    printf("   ");		/* For i */
+    printf("  ");
+    for (j = 0; j <= glength; ++j) {
+      if (j == 0) {
+	printf("      ");
+      } else {
+	g = revp ? gsequence[-j+1] : gsequence[j-1];
+	g_alt = revp ? gsequencealt[-j+1] : gsequencealt[j-1];
+	if (g == g_alt) {
+	  printf("  %c   ",' ');
+	} else {
+	  printf("  %c   ",g_alt);
+	}
+      }
+    }
+    printf("\n");
+  }
+
+  for (i = 0; i <= rlength; ++i) {
+    printf("%2d ",i);
+    if (i == 0) {
+      printf("  ");
+    } else {
+      printf("%c ",revp ? rsequence[-i+1] : rsequence[i-1]);
+    }
+    if (upperp == true) {
+      for (j = 0; j <= glength; ++j) {
+	if (j < i) {
+	  printf("   ");
+	} else if (j > i + band) {
+	  printf("   ");
+	} else {
+	  if (directions_Egap[j][i] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	  printf("|");
+	  if (directions_nogap[j][i] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	}
+	printf("  ");		/* For Fgap */
+	printf(" ");
+      }
+    } else {
+      for (j = 0; j <= glength; ++j) {
+	printf("  ");		/* For Fgap */
+	if (i < j) {
+	  printf("   ");
+	} else if (i > j + band) {
+	  printf("   ");
+	} else {
+	  if (directions_nogap[i][j] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	  printf("|");
+	  if (directions_Egap[i][j] == DIAG) {
+	    printf("D");
+	  } else {
+	    printf("-");
+	  }
+	}
+	printf(" ");
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+  return;
+}
 #endif
 
 
@@ -413,7 +862,7 @@ banded_matrix8_compare (Score8_T **matrix1, Score32_T **matrix2, int rlength, in
 	printf("At %d,%d, value %d != value %d\n",r,c,matrix1[c][r],matrix2[c][r]);
 
 	Matrix8_print(matrix1,rlength,glength,rsequence,gsequence,gsequence_alt,
-			      goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
+		      revp,lband,uband);
 	Dynprog_Matrix32_print(matrix2,rlength,glength,rsequence,gsequence,gsequence_alt,
 			       goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
 	exit(9);
@@ -748,12 +1197,6 @@ banded_directions16_compare_Fgap (Direction16_T **directions1, Direction32_T **d
  *   End of debugging procedures
  ************************************************************************/
 
-/************************************************************************
- *   Note: These procedures expect SIMD registers to start at
- *   coordinate 1, not 0, and are different from the SIMD procedures
- *   for GMAP/GSNAP.  This is because we want row 0 to be a special
- *   case with no gap penalties.
- ************************************************************************/
 
 
 #if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
@@ -766,13 +1209,13 @@ aligned_score8_alloc (int rlength, int glength, void **ptrs, void *space) {
   matrix = (Score8_T **) ptrs;
 
   ptr = (Score8_T *) space;
-  matrix[0] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+  matrix[0] = ptr;	   /* Want aligned row to be r = 0, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NCHARS;
-    matrix[c] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	   /* Want aligned row to be r = 0, 16, ... */
   }
-#ifdef DEBUG2
-  memset((void *) matrix[0],0,(glength+1)*(rlength+SIMD_NCHARS)*sizeof(Score8_T));
+#if defined(DEBUG2) && defined(DEBUG14)
+  memset((void *) matrix[0],0,(glength+1)*rlength*sizeof(Score8_T));
 #endif
 
   return matrix;
@@ -787,13 +1230,13 @@ aligned_directions8_alloc (int rlength, int glength, void **ptrs, void *space) {
   matrix = (Score8_T **) ptrs;
 
   ptr = (Score8_T *) space;
-  matrix[0] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+  matrix[0] = ptr;	   /* Want aligned row to be r = 0, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NCHARS;
-    matrix[c] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	   /* Want aligned row to be r = 0, 16, ... */
   }
-#ifdef DEBUG2
-  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*(rlength+SIMD_NCHARS)*sizeof(Score8_T));
+#if defined(DEBUG2) && defined(DEBUG14)
+  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*rlength*sizeof(Score8_T));
 #endif
 
   return matrix;
@@ -808,12 +1251,12 @@ aligned_directions8_calloc (int rlength, int glength, void **ptrs, void *space) 
   matrix = (Score8_T **) ptrs;
 
   ptr = (Score8_T *) space;
-  matrix[0] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+  matrix[0] = ptr;	/* Want aligned row to be r = 0, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NCHARS;
-    matrix[c] = &(ptr[SIMD_NCHARS - 1]);	/* Want aligned row to be r = 1, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	/* Want aligned row to be r = 0, 16, ... */
   }
-  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*(rlength+SIMD_NCHARS)*sizeof(Score8_T));
+  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*rlength*sizeof(Score8_T));
 
   return matrix;
 }
@@ -829,14 +1272,15 @@ aligned_score16_alloc (int rlength, int glength, void **ptrs, void *space) {
   matrix = (Score16_T **) ptrs;
 
   ptr = (Score16_T *) space;
-  matrix[0] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+  matrix[0] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NSHORTS;
-    matrix[c] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   }
 #ifdef DEBUG2
-  memset((void *) matrix[0],0,(glength+1)*(rlength+SIMD_NSHORTS)*sizeof(Score16_T));
+  memset((void *) matrix[0],0,(glength+1)*rlength*sizeof(Score16_T));
 #endif
+
   return matrix;
 }
 
@@ -849,13 +1293,13 @@ aligned_directions16_alloc (int rlength, int glength, void **ptrs, void *space) 
   matrix = (Score16_T **) ptrs;
 
   ptr = (Score16_T *) space;
-  matrix[0] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+  matrix[0] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NSHORTS;
-    matrix[c] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   }
 #ifdef DEBUG2
-  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*(rlength+SIMD_NSHORTS)*sizeof(Score16_T));
+  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*rlength*sizeof(Score16_T));
 #endif
 
   return matrix;
@@ -870,18 +1314,16 @@ aligned_directions16_calloc (int rlength, int glength, void **ptrs, void *space)
   matrix = (Score16_T **) ptrs;
 
   ptr = (Score16_T *) space;
-  matrix[0] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+  matrix[0] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   for (c = 1; c <= glength; c++) {
-    ptr += rlength + SIMD_NSHORTS;
-    matrix[c] = &(ptr[SIMD_NSHORTS - 1]);	/* Want aligned row to be r = 1, 9, 17, ... */
+    ptr += rlength;
+    matrix[c] = ptr;	/* Want aligned row to be r = 0, 8, 16, ... */
   }
-  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*(rlength+SIMD_NSHORTS)*sizeof(Score16_T));
+  memset((void *) matrix[0],/*DIAG*/0,(glength+1)*rlength*sizeof(Score16_T));
 
   return matrix;
 }
 #endif
-
-
 
 
 #define T Dynprog_T
@@ -906,13 +1348,13 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   __m128i pairscores_best, all_128;
 #endif
   __m128i H_nogap_r, X_prev_nogap, E_r_gap, T1;
-  __m128i gap_open, gap_extend, all_one_bits;
+  __m128i gap_open, gap_extend, complement_dummy;
   __m128i dir_horiz;
   int rlength_ceil, lband_ceil, r, c;
   int rlo, rhigh, rlo_calc, rhigh_calc;
   int na1, na2, na2_alt;
   Score8_T *pairscores_col0;
-  Score8_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr;
+  Score8_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr, pairscore;
   Pairdistance_T **pairdistance_array_type;
 
 #ifdef DEBUG14
@@ -920,6 +1362,8 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   Direction32_T **directions_nogap_std, **directions_Egap_std, **directions_Fgap_std;
 #endif
 
+
+  debug15(printf("Dynprog_simd_8.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
 
   rlength_ceil = (int) ((rlength + SIMD_NCHARS)/SIMD_NCHARS) * SIMD_NCHARS;
 
@@ -931,7 +1375,7 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   all_128 = _mm_set1_epi8(128);
 #endif
   
-  debug(printf("Dynprog_simd_8: "));
+  debug(printf("compute_scores_simd_8_bycols (upper): "));
   debug(printf("Lengths are %d and %d, so band is %d on right\n",rlength,glength,uband));
   debug(printf("Query length rounded up to %d\n",rlength_ceil));
 
@@ -945,13 +1389,15 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   *directions_Fgap = aligned_directions8_calloc(rlength_ceil,glength,
 						this->aligned.one.directions_ptrs_2,this->aligned.one.directions_space_2);
 
+#if 0
   /* Row 0 initialization */
-  /* penalty = 0; */
+  /* penalty = open; */
   for (c = 1; c <= uband && c <= glength; c++) {
     /* penalty += extend; */
     (*directions_Egap)[c][0] = HORIZ;
     (*directions_nogap)[c][0] = HORIZ;
   }
+#endif
 #if 0
   /* Already initialized to DIAG.  Actually no longer initializing directions_Egap */
   (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
@@ -979,43 +1425,68 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   pairscores_col0 = (Score8_T *) _mm_malloc(lband_ceil * sizeof(Score8_T),16);
 
 
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[1],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[2],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[3],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[4],0,rlength_ceil*sizeof(Score8_T));
+#endif
+
   /* For non-SSE4.1, addition of 128 taken care of by using pairdistance_array_plus_128 above */
 #ifdef HAVE_SSE4_1
-  /* pairscores_col0[0] = (Score8_T) 0; */
+  pairscores_col0[0] = (Score8_T) 0;
   /* Initializion just to lband causes errors in dir_horiz for Egap */
   for (r = 1; r < lband_ceil; r++) {
-    pairscores_col0[r-1] = (Score8_T) NEG_INFINITY_8;
+    pairscores_col0[r] = (Score8_T) NEG_INFINITY_8;
   }
 #else
-  /* pairscores_col0[0] = (Score8_T) 0+128; */
+  pairscores_col0[0] = (Score8_T) 0+128;
   /* Initializion just to lband causes errors in dir_horiz for Egap */
   for (r = 1; r < lband_ceil; r++) {
-    pairscores_col0[r-1] = (Score8_T) NEG_INFINITY_8+128;
+    pairscores_col0[r] = (Score8_T) NEG_INFINITY_8+128;
   }
 #endif
+
+  /* Row 0 */
+  r = 0; na1 = 'N';
+  pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+  pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+  pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+  pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+  pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
 
   if (revp == false) {
     for (r = 1; r <= rlength; r++) {
       na1 = (int) rsequence[r-1];
-      pairscores[0][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
-      pairscores[1][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
-      pairscores[2][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
-      pairscores[3][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
-      pairscores[4][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
+      pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
     }
   } else {
     for (r = 1; r <= rlength; r++) {
       na1 = (int) rsequence[1-r];
-      pairscores[0][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
-      pairscores[1][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
-      pairscores[2][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
-      pairscores[3][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
-      pairscores[4][r-1] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
+      pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
     }
   }
 
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[1][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[2][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[3][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[4][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+#endif
 
-  all_one_bits = _mm_set1_epi8(-1);
+  complement_dummy = _mm_set1_epi8(-1);
 
   FF = (int *) MALLOC((glength + 1) * sizeof(int));
 
@@ -1023,15 +1494,15 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
   gap_extend = _mm_set1_epi8((Score8_T) extend);
 
   if (jump_late_p) {
-    for (rlo = 1; rlo <= rlength; rlo += SIMD_NCHARS) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NCHARS) {
       if ((rhigh = rlo + SIMD_NCHARS - 1) > rlength) {
 	rhigh = rlength;
       }
 
-      /* dir_horiz tests if E >= H .  To fill in first column of each
-	 row block with diags, make E < H. */
+      /* dir_horiz tests if E >= H.  To fill in first column of each
+	 row block with non-diags, make E == H. */
       E_r_gap = _mm_set1_epi8(NEG_INFINITY_8);
-      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8+1);
+      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
 
       if ((c = rlo - lband) < 0) {
 	c = 0;
@@ -1041,34 +1512,26 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
 	if (c == 0) {
 	  pairscores_std_ptr = pairscores_alt_ptr = pairscores_col0;
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi8(0);
+	  } else {
+	    X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  }
 	} else {
-	  na2 = revp ? gsequence[1-c] : gsequence[c-1];
-	  na2_alt = revp ? gsequence_alt[1-c] : gsequence_alt[c-1];
-	  switch (na2) {
-	  case 'A': pairscores_std_ptr = pairscores[0]; break;
-	  case 'C': pairscores_std_ptr = pairscores[1]; break;
-	  case 'G': pairscores_std_ptr = pairscores[2]; break;
-	  case 'T': pairscores_std_ptr = pairscores[3]; break;
-	  default: pairscores_std_ptr = pairscores[4];
-	  }
-	  switch (na2_alt) {
-	  case 'A': pairscores_alt_ptr = pairscores[0]; break;
-	  case 'C': pairscores_alt_ptr = pairscores[1]; break;
-	  case 'G': pairscores_alt_ptr = pairscores[2]; break;
-	  case 'T': pairscores_alt_ptr = pairscores[3]; break;
-	  default: pairscores_alt_ptr = pairscores[4];
-	  }
-	}
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	  pairscores_std_ptr = pairscores[na2];
+	  pairscores_alt_ptr = pairscores[na2_alt];
 
-	if (rlo == 1) {
-	  X_prev_nogap = _mm_set1_epi8(0);
-	} else if (c == 0) {
-	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
-	} else {
-	  /* second or greater block of 8 */
-	  X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  } else {
+	    /* second or greater block of 8 */
+	    X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  }
 	}
 
 	debug15(print_vector_8(E_r_gap,rlo,c,"E_r_gap"));
@@ -1077,8 +1540,10 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	/* EGAP */
 	T1 = _mm_adds_epi8(H_nogap_r, gap_open);
 	dir_horiz = _mm_cmplt_epi8(E_r_gap,T1); /* E < H */
-	dir_horiz = _mm_andnot_si128(dir_horiz,all_one_bits);	/* E >= H, for jump late */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
 	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_8(T1,rlo,c,"T1"));
+	debug15(print_vector_8(dir_horiz,rlo,c,"dir_horiz"));
 
 #ifdef HAVE_SSE4_1
 	E_r_gap = _mm_max_epi8(E_r_gap, T1); /* Compare H + open with vert */
@@ -1097,12 +1562,12 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
 	/* Add pairscores, allowing for alternate genomic nt */
 #ifdef HAVE_SSE4_1
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1]));
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1]));
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
 	H_nogap_r = _mm_adds_epi8(H_nogap_r, _mm_max_epi8(pairscores_std,pairscores_alt));
 #else
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1])); /* Has 128 added already */
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1])); /* Has 128 added already */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo])); /* Has 128 added already */
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo])); /* Has 128 added already */
 	pairscores_best = _mm_sub_epi8(_mm_max_epu8(pairscores_std, pairscores_alt), all_128);
 	H_nogap_r = _mm_adds_epi8(H_nogap_r, pairscores_best);
 #endif
@@ -1110,7 +1575,7 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	debug15(print_vector_8(H_nogap_r,rlo,c,"H"));
 
 	dir_horiz = _mm_cmplt_epi8(E_r_gap,H_nogap_r); /* E < H */
-	dir_horiz = _mm_andnot_si128(dir_horiz,all_one_bits);	/* E >= H, for jump late */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
 	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
 
 #ifdef HAVE_SSE4_1
@@ -1127,13 +1592,33 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	if ((rlo_calc = rlo) < c - uband) {
 	  rlo_calc = c - uband;
 	}
-	if ((rhigh_calc = rhigh) > c + lband) {
+	if ((rhigh_calc = rhigh) >= c + lband) {
 	  rhigh_calc = c + lband;
+	  if (c > 0) {
+	    /* Set bottom values to DIAG (not HORIZ) to prevent going outside of lband */
+	    pairscore = pairscores[na2][rhigh_calc];
+	    if ((score = pairscores[(int) na2_alt][rhigh_calc]) > pairscore) {
+	      pairscore = score;
+	    }
+#ifndef HAVE_SSE4_1
+	    pairscore -= 128;
+#endif
+	    if ((score = matrix[c-1][rhigh_calc-1] + pairscore) < NEG_INFINITY_8) {
+	      score_column[rhigh_calc] = NEG_INFINITY_8; /* Saturation */
+	    } else if (score > POS_INFINITY_8) {
+	      score_column[rhigh_calc] = POS_INFINITY_8; /* Saturation */
+	    } else {
+	      score_column[rhigh_calc] = (Score8_T) score;
+	    }
+	    (*directions_Egap)[c][rhigh_calc] = DIAG;
+	    (*directions_nogap)[c][rhigh_calc] = DIAG;
+	  }
 	}
+
 	debug3(printf("F loop: rlo %d, rhigh %d, c %d, lband %d, uband %d => rlo_calc %d, rhigh_calc %d\n",
 		      rlo,rhigh,rlo_calc,c,lband,uband,rhigh_calc));
 
-	if (rlo == 1) {
+	if (rlo == 0) {
 	  c_gap = NEG_INFINITY_INT;
 	  last_nogap = NEG_INFINITY_INT;
 	} else if (c >= rlo + uband) {
@@ -1145,8 +1630,22 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	  last_nogap = score_column[rlo_calc-1];
 	}
 
+	if ((r = rlo_calc) == c - uband) {
+	  /* Handle top value as a special case to prevent going outside of uband */
+	  /* FGAP */
+	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
+			r,c,c_gap + extend,last_nogap + open + extend));
+	  score = last_nogap + open /* + extend */;
+	  c_gap = score + extend;
+	  /* (*directions_Fgap)[c][r] = DIAG: -- Already initialized to DIAG */
+
+	  /* NOGAP */
+	  last_nogap = score_column[r];
+	  r++;
+	}
+
 	/* score_ptr = &(score_column[rlo_calc]); -- Also possible, but less transparent */
-	for (r = rlo_calc; r <= rhigh_calc; r++) {
+	for ( ; r <= rhigh_calc; r++) {
 	  /* FGAP */
 	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
 			r,c,c_gap + extend,last_nogap + open + extend));
@@ -1176,15 +1675,15 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
   } else {
     /* jump early */
-    for (rlo = 1; rlo <= rlength; rlo += SIMD_NCHARS) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NCHARS) {
       if ((rhigh = rlo + SIMD_NCHARS - 1) > rlength) {
 	rhigh = rlength;
       }
 
       /* dir_horiz tests if E > H.  To fill in first column of each
-	 row block with diags, make E <= H. */
-      E_r_gap = _mm_set1_epi8(NEG_INFINITY_8);
-      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8+0);
+	 row block with non-diags, make E > H. */
+      E_r_gap = _mm_set1_epi8(NEG_INFINITY_8+1);
+      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
 
       if ((c = rlo - lband) < 0) {
 	c = 0;
@@ -1194,34 +1693,26 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
 	if (c == 0) {
 	  pairscores_std_ptr = pairscores_alt_ptr = pairscores_col0;
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi8(0);
+	  } else {
+	    X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  }
 	} else {
-	  na2 = revp ? gsequence[1-c] : gsequence[c-1];
-	  na2_alt = revp ? gsequence_alt[1-c] : gsequence_alt[c-1];
-	  switch (na2) {
-	  case 'A': pairscores_std_ptr = pairscores[0]; break;
-	  case 'C': pairscores_std_ptr = pairscores[1]; break;
-	  case 'G': pairscores_std_ptr = pairscores[2]; break;
-	  case 'T': pairscores_std_ptr = pairscores[3]; break;
-	  default: pairscores_std_ptr = pairscores[4];
-	  }
-	  switch (na2_alt) {
-	  case 'A': pairscores_alt_ptr = pairscores[0]; break;
-	  case 'C': pairscores_alt_ptr = pairscores[1]; break;
-	  case 'G': pairscores_alt_ptr = pairscores[2]; break;
-	  case 'T': pairscores_alt_ptr = pairscores[3]; break;
-	  default: pairscores_alt_ptr = pairscores[4];
-	  }
-	}
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	  pairscores_std_ptr = pairscores[na2];
+	  pairscores_alt_ptr = pairscores[na2_alt];
 
-	if (rlo == 1) {
-	  X_prev_nogap = _mm_set1_epi8(0);
-	} else if (c == 0) {
-	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
-	} else {
-	  /* second or greater block of 8 */
-	  X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  } else {
+	    /* second or greater block of 8 */
+	    X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	  }
 	}
 
 	debug15(print_vector_8(E_r_gap,rlo,c,"E_r_gap"));
@@ -1231,6 +1722,8 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	T1 = _mm_adds_epi8(H_nogap_r, gap_open);
 	dir_horiz = _mm_cmpgt_epi8(E_r_gap,T1); /* E > H, for jump early */
 	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_8(T1,rlo,c,"T1"));
+	debug15(print_vector_8(dir_horiz,rlo,c,"dir_horiz"));
 
 #ifdef HAVE_SSE4_1
 	E_r_gap = _mm_max_epi8(E_r_gap, T1); /* Compare H + open with vert */
@@ -1250,12 +1743,12 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
 	/* Add pairscores, allowing for alternate genomic nt */
 #ifdef HAVE_SSE4_1
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1]));
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1]));
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
 	H_nogap_r = _mm_adds_epi8(H_nogap_r, _mm_max_epi8(pairscores_std,pairscores_alt));
 #else
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1])); /* Has 128 added already */
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1])); /* Has 128 added already */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo])); /* Has 128 added already */
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo])); /* Has 128 added already */
 	pairscores_best = _mm_sub_epi8(_mm_max_epu8(pairscores_std, pairscores_alt), all_128);
 	H_nogap_r = _mm_adds_epi8(H_nogap_r, pairscores_best);
 #endif
@@ -1279,13 +1772,33 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	if ((rlo_calc = rlo) < c - uband) {
 	  rlo_calc = c - uband;
 	}
-	if ((rhigh_calc = rhigh) > c + lband) {
+	if ((rhigh_calc = rhigh) >= c + lband) {
 	  rhigh_calc = c + lband;
+	  if (c > 0) {
+	    /* Set bottom values to DIAG (not HORIZ) to prevent going outside of lband */
+	    pairscore = pairscores[na2][rhigh_calc];
+	    if ((score = pairscores[(int) na2_alt][rhigh_calc]) > pairscore) {
+	      pairscore = score;
+	    }
+#ifndef HAVE_SSE4_1
+	    pairscore -= 128;
+#endif
+	    if ((score = matrix[c-1][rhigh_calc-1] + pairscore) < NEG_INFINITY_8) {
+	      score_column[rhigh_calc] = NEG_INFINITY_8; /* Saturation */
+	    } else if (score > POS_INFINITY_8) {
+	      score_column[rhigh_calc] = POS_INFINITY_8; /* Saturation */
+	    } else {
+	      score_column[rhigh_calc] = (Score8_T) score;
+	    }
+	    (*directions_Egap)[c][rhigh_calc] = DIAG;
+	    (*directions_nogap)[c][rhigh_calc] = DIAG;
+	  }
 	}
+
 	debug3(printf("F loop: rlo %d, rhigh %d, c %d, lband %d, uband %d => rlo_calc %d, rhigh_calc %d\n",
 		      rlo,rhigh,rlo_calc,c,lband,uband,rhigh_calc));
 
-	if (rlo == 1) {
+	if (rlo == 0) {
 	  c_gap = NEG_INFINITY_INT;
 	  last_nogap = NEG_INFINITY_INT;
 	} else if (c >= rlo + uband) {
@@ -1294,10 +1807,25 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	} else {
 	  c_gap = FF[c];
 	  last_nogap = score_column[rlo_calc-1];
+	  debug3(printf("LAST_NOGAP gets score_column[%d-1], or %d\n",rlo_calc,last_nogap));
+	}
+
+	if ((r = rlo_calc) == c - uband) {
+	  /* Handle top value as a special case to prevent going outside of uband */
+	  /* FGAP */
+	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
+			r,c,c_gap + extend,last_nogap + open + extend));
+	  score = last_nogap + open /* + extend */;
+	  c_gap = score + extend;
+	  /* (*directions_Fgap)[c][r] = DIAG: -- Already initialized to DIAG */
+
+	  /* NOGAP */
+	  last_nogap = score_column[r];
+	  r++;
 	}
 
 	/* score_ptr = &(score_column[rlo_calc]); -- Also possible, but less transparent */
-	for (r = rlo_calc; r <= rhigh_calc; r++) {
+	for ( ; r <= rhigh_calc; r++) {
 	  /* FGAP */
 	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
 			r,c,c_gap + extend,last_nogap + open + extend));
@@ -1315,6 +1843,7 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 	  if (c_gap > last_nogap) {  /* Use > for jump early */
 	    last_nogap = c_gap;
 	    score_column[r] = (c_gap < NEG_INFINITY_8) ? NEG_INFINITY_8 : (Score8_T) c_gap; /* Saturation */
+	    debug3(printf("Stored at score_column[%d]: %d\n",r,(Score8_T) score_column[r]));
 	    (*directions_nogap)[c][r] = VERT;
 	  }
 	}
@@ -1326,21 +1855,36 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
     }
   }
 
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = HORIZ;
+  (*directions_Fgap)[0][1] = VERT;
+#endif  
+
 #ifdef DEBUG2
-  printf("SIMD\n");
+  printf("SIMD: Dynprog_simd_8\n");
   Matrix8_print(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
-#ifdef DEBUG14
-		goffset,chroffset,chrhigh,watsonp,
-#endif
 		revp,lband,uband);
   Directions8_print(*directions_nogap,*directions_Egap,*directions_Fgap,
 			    rlength,glength,rsequence,gsequence,gsequence_alt,
-#ifdef DEBUG14
-			    goffset,chroffset,chrhigh,watsonp,
-#endif
 			    revp,lband,uband);
 #endif
   
+#ifdef CHECK1
+  /* Check for row 0 directions */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    assert((*directions_Egap)[c][0] != DIAG);
+    assert((*directions_nogap)[c][0] != DIAG);
+  }
+  /* Check for column 0 directions */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    assert((*directions_Fgap)[0][r] != DIAG);
+    assert((*directions_nogap)[0][r] != DIAG);
+  }
+#endif
+
 #ifdef DEBUG14
   matrix_std = compute_scores_standard(&directions_nogap_std,&directions_Egap_std,&directions_Fgap_std,
 				       this,rsequence,/*gsequence (NULL for debugging)*/NULL,/*gsequence_alt*/NULL,
@@ -1350,10 +1894,10 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 #ifdef DEBUG2
   printf("Banded %s\n",revp ? "rev" : "fwd");
   Dynprog_Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
-			 goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
+			 revp,lband,uband);
   Dynprog_Directions32_print(directions_nogap_std,directions_Egap_std,directions_Fgap_std,
 			     rlength,glength,rsequence,gsequence,gsequence_alt,
-			     goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
+			     revp,lband,uband);
 #endif
   
   banded_matrix8_compare(matrix,matrix_std,rlength,glength,lband,uband,
@@ -1367,6 +1911,829 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 
   FREE(FF);
   _mm_free(pairscores_col0);
+  _mm_free(pairscores[4]);
+  _mm_free(pairscores[3]);
+  _mm_free(pairscores[2]);
+  _mm_free(pairscores[1]);
+  _mm_free(pairscores[0]);
+
+  return matrix;
+}
+#endif
+
+
+
+#ifdef HAVE_SSE2
+/* Designed for computation above the main diagonal, so no F loop or bottom masking needed */
+Score8_T **
+Dynprog_simd_8_upper (Direction8_T ***directions_nogap, Direction8_T ***directions_Egap,
+		      T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		      int rlength, int glength,
+#ifdef DEBUG14
+		      int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
+#endif
+		      Mismatchtype_T mismatchtype, int open, int extend,
+		      int uband, bool jump_late_p, bool revp) {
+  Score8_T **matrix, *score_column;
+  __m128i pairscores_std, pairscores_alt;
+#ifndef HAVE_SSE4_1
+  __m128i pairscores_best, all_128;
+#endif
+  __m128i H_nogap_r, X_prev_nogap, E_r_gap, T1;
+  __m128i gap_open, gap_extend, complement_dummy;
+  __m128i dir_horiz;
+  int rlength_ceil, r, c;
+  int rlo, rhigh;
+  int na1, na2, na2_alt;
+  Score8_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr, pairscore;
+  Pairdistance_T **pairdistance_array_type;
+
+#ifdef DEBUG14
+  Score32_T **matrix_std;
+  Direction32_T **directions_nogap_std, **directions_Egap_std;
+  char na2_single;
+#endif
+
+
+  debug15(printf("Dynprog_simd_8_upper.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
+
+  rlength_ceil = (int) ((rlength + SIMD_NCHARS)/SIMD_NCHARS) * SIMD_NCHARS;
+
+#ifdef HAVE_SSE4_1
+  pairdistance_array_type = pairdistance_array[mismatchtype];
+#else
+  /* Needed to use _mm_max_epu8 and _mm_min_epu8, instead of signed versions */
+  pairdistance_array_type = pairdistance_array_plus_128[mismatchtype];
+  all_128 = _mm_set1_epi8(128);
+#endif
+  
+  debug(printf("compute_scores_simd_8_bycols (upper): "));
+  debug(printf("Lengths are %d and %d, so band is %d on right\n",rlength,glength,uband));
+  debug(printf("Query length rounded up to %d\n",rlength_ceil));
+
+  matrix = aligned_score8_alloc(rlength_ceil,glength,
+				this->aligned.two.upper_matrix_ptrs,this->aligned.two.upper_matrix_space);
+  *directions_nogap = aligned_directions8_alloc(rlength_ceil,glength,
+						this->aligned.two.upper_directions_ptrs_0,this->aligned.two.upper_directions_space_0);
+  *directions_Egap = aligned_directions8_alloc(rlength_ceil,glength,
+					       this->aligned.two.upper_directions_ptrs_1,this->aligned.two.upper_directions_space_1);
+
+#if 0
+  /* Row 0 initialization */
+  /* penalty = open; */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    /* penalty += extend; */
+    (*directions_Egap)[c][0] = HORIZ;
+    (*directions_nogap)[c][0] = HORIZ;
+  }
+#endif
+#if 0
+  /* Already initialized to DIAG.  Actually no longer initializing directions_Egap */
+  (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
+  (*directions_nogap)[0][0] = DIAG; /* previously used STOP */
+#endif
+#if 0
+  /* Column 0 initialization */
+  /* penalty = open; */
+  for (r = 1; r <= SIMD_NCHARS && r <= rlength; r++) {
+    /* penalty += extend; */
+    (*directions_nogap)[0][r] = VERT;
+  }
+#endif
+
+
+  /* Load pairscores.  Store match - mismatch */
+  pairscores[0] = (Score8_T *) _mm_malloc(rlength_ceil * sizeof(Score8_T),16);
+  pairscores[1] = (Score8_T *) _mm_malloc(rlength_ceil * sizeof(Score8_T),16);
+  pairscores[2] = (Score8_T *) _mm_malloc(rlength_ceil * sizeof(Score8_T),16);
+  pairscores[3] = (Score8_T *) _mm_malloc(rlength_ceil * sizeof(Score8_T),16);
+  pairscores[4] = (Score8_T *) _mm_malloc(rlength_ceil * sizeof(Score8_T),16);
+
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[1],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[2],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[3],0,rlength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[4],0,rlength_ceil*sizeof(Score8_T));
+#endif
+
+  /* For non-SSE4.1, addition of 128 taken care of by using pairdistance_array_plus_128 above */
+  r = 0; na1 = 'N';
+  pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+  pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+  pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+  pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+  pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
+
+  if (revp == false) {
+    for (r = 1; r <= rlength; r++) {
+      na1 = (int) rsequence[r-1];
+      pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
+    }
+  } else {
+    for (r = 1; r <= rlength; r++) {
+      na1 = (int) rsequence[1-r];
+      pairscores[0][r] = (Score8_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score8_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score8_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score8_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score8_T) pairdistance_array_type[na1][(int) 'N'];
+    }
+  }
+
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[1][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[2][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[3][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+  memset((void *) &(pairscores[4][r]),0,(rlength_ceil-r)*sizeof(Score8_T));
+#endif
+
+  complement_dummy = _mm_set1_epi8(-1);
+
+  gap_open = _mm_set1_epi8((Score8_T) open);
+  gap_extend = _mm_set1_epi8((Score8_T) extend);
+
+  if (jump_late_p) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NCHARS) {
+      if ((rhigh = rlo + SIMD_NCHARS - 1) > rlength) {
+	rhigh = rlength;
+      }
+
+      /* dir_horiz tests if E >= H .  To fill in first column of each
+	 row block with non-diags, could make E == H.  But irrelevant,
+	 because these are below the diagonal. */
+      E_r_gap = _mm_set1_epi8(NEG_INFINITY_8);
+      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
+
+      for (c = rlo; c <= rhigh + uband && c <= glength; c++) {
+	score_column = matrix[c];
+
+	if (c == 0) {
+	  na2 = na2_alt = 4; /* 'N' */
+	} else {
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	}
+	pairscores_std_ptr = pairscores[na2];
+	pairscores_alt_ptr = pairscores[na2_alt];
+	
+	if (c == 0) {
+	  X_prev_nogap = _mm_set1_epi8(0);
+	} else if (rlo == 0) {
+	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	} else {
+	  /* second or greater block of 8 */
+	  X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	}
+
+	debug15(print_vector_8(E_r_gap,rlo,c,"E_r_gap"));
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H_nogap_r load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi8(H_nogap_r, gap_open);
+	dir_horiz = _mm_cmplt_epi8(E_r_gap,T1); /* E < H */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_8(T1,rlo,c,"T1"));
+	debug15(print_vector_8(dir_horiz,rlo,c,"dir_horiz"));
+
+#ifdef HAVE_SSE4_1
+	E_r_gap = _mm_max_epi8(E_r_gap, T1); /* Compare H + open with vert */
+#else
+	E_r_gap = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(E_r_gap, all_128), _mm_add_epi8(T1, all_128)), all_128);
+#endif
+	E_r_gap = _mm_adds_epi8(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_8(E_r_gap,rlo,c,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_r,LAST_CHAR);
+	H_nogap_r = _mm_slli_si128(H_nogap_r,ONE_CHAR);
+	H_nogap_r = _mm_or_si128(H_nogap_r, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores, allowing for alternate genomic nt */
+#ifdef HAVE_SSE4_1
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
+	debug15(print_vector_8(pairscores_std,rlo,c,"pairscores_std"));
+	H_nogap_r = _mm_adds_epi8(H_nogap_r, _mm_max_epi8(pairscores_std,pairscores_alt));
+#else
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo])); /* Has 128 added already */
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo])); /* Has 128 added already */
+	pairscores_best = _mm_sub_epi8(_mm_max_epu8(pairscores_std, pairscores_alt), all_128);
+	debug15(print_vector_8(pairscores_best,rlo,c,"pairscores_std"));
+	H_nogap_r = _mm_adds_epi8(H_nogap_r, pairscores_best);
+#endif
+	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H"));
+
+	dir_horiz = _mm_cmplt_epi8(E_r_gap,H_nogap_r); /* E < H */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
+
+#ifdef HAVE_SSE4_1
+	H_nogap_r = _mm_max_epi8(H_nogap_r, E_r_gap); /* Compare H + pairscores with horiz + extend */
+#else
+	/* Compare H + pairscores with horiz + extend */
+	H_nogap_r = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(H_nogap_r, all_128), _mm_add_epi8(E_r_gap, all_128)), all_128);
+#endif
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H_nogap_r store"));
+	_mm_store_si128((__m128i *) &(score_column[rlo]), H_nogap_r);
+
+
+	/* Fix Egap along diagonal to prevent going into lower triangle */
+	if (rhigh >= c) {
+	  (*directions_Egap)[c][c] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+
+  } else {
+    /* jump early */
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NCHARS) {
+      if ((rhigh = rlo + SIMD_NCHARS - 1) > rlength) {
+	rhigh = rlength;
+      }
+
+      /* dir_horiz tests if E > H.  To fill in first column of each
+	 row block with non-diags, could make E > H.  But irrelevant,
+	 because these are below the diagonal. */
+      E_r_gap = _mm_set1_epi8(NEG_INFINITY_8);
+      H_nogap_r = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
+
+      for (c = rlo; c <= rhigh + uband && c <= glength; c++) {
+	score_column = matrix[c];
+
+	if (c == 0) {
+	  na2 = na2_alt = 4; /* 'N' */;
+	} else {
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	}
+	pairscores_std_ptr = pairscores[na2];
+	pairscores_alt_ptr = pairscores[na2_alt];
+
+	if (c == 0) {
+	  X_prev_nogap = _mm_set1_epi8(0);
+	} else if (rlo == 0) {
+	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	} else {
+	  /* second or greater block of 8 */
+	  X_prev_nogap = _mm_set1_epi8(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	}
+
+	debug15(print_vector_8(E_r_gap,rlo,c,"E_r_gap"));
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H_nogap_r load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi8(H_nogap_r, gap_open);
+	dir_horiz = _mm_cmpgt_epi8(E_r_gap,T1); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_8(T1,rlo,c,"T1"));
+	debug15(print_vector_8(dir_horiz,rlo,c,"dir_horiz"));
+
+#ifdef HAVE_SSE4_1
+	E_r_gap = _mm_max_epi8(E_r_gap, T1); /* Compare H + open with vert */
+#else
+	/* Compare H + open with vert */
+	E_r_gap = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(E_r_gap, all_128), _mm_add_epi8(T1, all_128)), all_128);
+#endif
+	E_r_gap = _mm_adds_epi8(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_8(E_r_gap,rlo,c,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_r,LAST_CHAR);
+	H_nogap_r = _mm_slli_si128(H_nogap_r,ONE_CHAR);
+	H_nogap_r = _mm_or_si128(H_nogap_r, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores, allowing for alternate genomic nt */
+#ifdef HAVE_SSE4_1
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
+	debug15(print_vector_8(pairscores_std,rlo,c,"pairscores_std"));
+	H_nogap_r = _mm_adds_epi8(H_nogap_r, _mm_max_epi8(pairscores_std,pairscores_alt));
+#else
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo])); /* Has 128 added already */
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo])); /* Has 128 added already */
+	pairscores_best = _mm_sub_epi8(_mm_max_epu8(pairscores_std, pairscores_alt), all_128);
+	debug15(print_vector_8(pairscores_best,rlo,c,"pairscores_std"));
+	H_nogap_r = _mm_adds_epi8(H_nogap_r, pairscores_best);
+#endif
+	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H"));
+
+	dir_horiz = _mm_cmpgt_epi8(E_r_gap,H_nogap_r); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
+
+#ifdef HAVE_SSE4_1
+	H_nogap_r = _mm_max_epi8(H_nogap_r, E_r_gap); /* Compare H + pairscores with horiz + extend */
+#else
+	/* Compare H + pairscores with horiz + extend */
+	H_nogap_r = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(H_nogap_r, all_128), _mm_add_epi8(E_r_gap, all_128)), all_128);
+#endif
+	debug15(print_vector_8(H_nogap_r,rlo,c,"H_nogap_r store"));
+	_mm_store_si128((__m128i *) &(score_column[rlo]), H_nogap_r);
+
+
+	/* Fix Egap along diagonal to prevent going into lower triangle */
+	if (rhigh >= c) {
+	  (*directions_Egap)[c][c] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+  }
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = HORIZ;
+#endif
+
+#ifdef DEBUG2
+  printf("SIMD: Dynprog_simd_8_upper\n");
+  Matrix8_print_ud(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
+		   revp,uband,/*upperp*/true);
+  Directions8_print_ud(*directions_nogap,*directions_Egap,
+		       rlength,glength,rsequence,gsequence,gsequence_alt,
+		       revp,uband,/*upperp*/true);
+#endif
+  
+#ifdef CHECK1
+  /* Check for row 0 directions */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    assert((*directions_Egap)[c][0] != DIAG);
+    assert((*directions_nogap)[c][0] != DIAG);
+  }
+#endif
+
+#ifdef DEBUG14
+  matrix_std = compute_scores_standard(&directions_nogap_std,&directions_Egap_std,&directions_Fgap_std,
+				       this,rsequence,/*gsequence (NULL for debugging)*/NULL,/*gsequence_alt*/NULL,
+				       rlength,glength,goffset,chroffset,chrhigh,watsonp,mismatchtype,
+				       open,extend,lband,uband,jump_late_p,revp);
+
+#ifdef DEBUG2
+  printf("Banded %s\n",revp ? "rev" : "fwd");
+  Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
+		 revp);
+  Directions32_print(directions_nogap_std,directions_Egap_std,directions_Fgap_std,
+		     rlength,glength,rsequence,gsequence,gsequence_alt,
+		     revp);
+#endif
+  
+  banded_matrix8_compare(matrix,matrix_std,rlength,glength,lband,uband,
+			 rsequence,gsequence,gsequence_alt,
+			 goffset,chroffset,chrhigh,watsonp,revp);
+
+  banded_directions8_compare_nogap(matrix,*directions_nogap,directions_nogap_std,rlength,glength,lband,uband);
+
+  banded_directions8_compare_Egap(matrix,*directions_Egap,directions_Egap_std,rlength,glength,lband,uband);
+#endif
+
+  _mm_free(pairscores[4]);
+  _mm_free(pairscores[3]);
+  _mm_free(pairscores[2]);
+  _mm_free(pairscores[1]);
+  _mm_free(pairscores[0]);
+
+  return matrix;
+}
+#endif
+
+
+#ifdef HAVE_SSE2
+/* Designed for computation below the main diagonal, so no F loop or bottom masking needed */
+Score8_T **
+Dynprog_simd_8_lower (Direction8_T ***directions_nogap, Direction8_T ***directions_Egap,
+		      T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		      int rlength, int glength,
+#ifdef DEBUG14
+		      int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
+#endif
+		      Mismatchtype_T mismatchtype, int open, int extend,
+		      int lband, bool jump_late_p, bool revp) {
+  Score8_T **matrix, *score_column;
+  __m128i pairscores_std;
+#ifndef HAVE_SSE4_1
+  __m128i pairscores_best, all_128;
+#endif
+  __m128i H_nogap_c, X_prev_nogap, E_c_gap, T1;
+  __m128i gap_open, gap_extend, complement_dummy;
+  __m128i dir_vert;
+  int glength_ceil, r, c;
+  int clo, chigh;
+  int na1, na2, na2_alt;
+  Score8_T *pairscores[5], *pairscores_ptr, pairscore;
+  Pairdistance_T **pairdistance_array_type, score1, score2;
+
+#ifdef DEBUG14
+  Score32_T **matrix_std;
+  Direction32_T **directions_nogap_std, **directions_Egap_std;
+  char na2_single;
+#endif
+
+
+  debug15(printf("Dynprog_simd_8_lower.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
+
+  glength_ceil = (int) ((glength + SIMD_NCHARS)/SIMD_NCHARS) * SIMD_NCHARS;
+
+#ifdef HAVE_SSE4_1
+  pairdistance_array_type = pairdistance_array[mismatchtype];
+#else
+  /* Needed to use _mm_max_epu8 and _mm_min_epu8, instead of signed versions */
+  pairdistance_array_type = pairdistance_array_plus_128[mismatchtype];
+  all_128 = _mm_set1_epi8(128);
+#endif
+  
+  debug(printf("compute_scores_simd_8_byrows (lower): "));
+  debug(printf("Lengths are %d and %d, so band is %d on left\n",rlength,glength,lband));
+  debug(printf("Genome length rounded up to %d\n",glength_ceil));
+
+  matrix = aligned_score8_alloc(glength_ceil,rlength,
+				this->aligned.two.lower_matrix_ptrs,this->aligned.two.lower_matrix_space);
+  *directions_nogap = aligned_directions8_alloc(glength_ceil,rlength,
+						this->aligned.two.lower_directions_ptrs_0,this->aligned.two.lower_directions_space_0);
+  *directions_Egap = aligned_directions8_alloc(glength_ceil,rlength,
+					       this->aligned.two.lower_directions_ptrs_1,this->aligned.two.lower_directions_space_1);
+
+#if 0
+  /* Column 0 initialization */
+  /* penalty = open; */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    /* penalty += extend; */
+    (*directions_Egap)[r][0] = VERT;
+    (*directions_nogap)[r][0] = VERT;
+  }
+#endif
+#if 0
+  /* Already initialized to DIAG.  Actually no longer initializing directions_Egap */
+  (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
+  (*directions_nogap)[0][0] = DIAG; /* previously used STOP */
+#endif
+#if 0
+  /* Row 0 initialization */
+  /* penalty = open; */
+  for (c = 1; c <= SIMD_NCHARS && c <= glength; c++) {
+    /* penalty += extend; */
+    (*directions_nogap)[0][c] = HORIZ;
+  }
+#endif
+
+
+  /* Load pairscores.  Store match - mismatch */
+  pairscores[0] = (Score8_T *) _mm_malloc(glength_ceil * sizeof(Score8_T),16);
+  pairscores[1] = (Score8_T *) _mm_malloc(glength_ceil * sizeof(Score8_T),16);
+  pairscores[2] = (Score8_T *) _mm_malloc(glength_ceil * sizeof(Score8_T),16);
+  pairscores[3] = (Score8_T *) _mm_malloc(glength_ceil * sizeof(Score8_T),16);
+  pairscores[4] = (Score8_T *) _mm_malloc(glength_ceil * sizeof(Score8_T),16);
+
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,glength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[1],0,glength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[2],0,glength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[3],0,glength_ceil*sizeof(Score8_T));
+  memset((void *) pairscores[4],0,glength_ceil*sizeof(Score8_T));
+#endif
+
+  /* For non-SSE4.1, addition of 128 taken care of by using pairdistance_array_plus_128 above */
+  c = 0; na2 = na2_alt = 4; /* 'N' */
+#ifdef HAVE_SSE4_1
+  pairscores[0][c] = (Score8_T) pairdistance_array_type[(int) 'A'][na2];
+  pairscores[1][c] = (Score8_T) pairdistance_array_type[(int) 'C'][na2];
+  pairscores[2][c] = (Score8_T) pairdistance_array_type[(int) 'G'][na2];
+  pairscores[3][c] = (Score8_T) pairdistance_array_type[(int) 'T'][na2];
+  pairscores[4][c] = (Score8_T) pairdistance_array_type[(int) 'N'][na2];
+#else
+  pairscores[0][c] = (Score8_T) pairdistance_array_type[(int) 'A'][na2] - 128;
+  pairscores[1][c] = (Score8_T) pairdistance_array_type[(int) 'C'][na2] - 128;
+  pairscores[2][c] = (Score8_T) pairdistance_array_type[(int) 'G'][na2] - 128;
+  pairscores[3][c] = (Score8_T) pairdistance_array_type[(int) 'T'][na2] - 128;
+  pairscores[4][c] = (Score8_T) pairdistance_array_type[(int) 'N'][na2] - 128;
+#endif
+
+  if (revp == false) {
+    for (c = 1; c <= glength; c++) {
+      na2 = gsequence[c-1];
+      na2_alt = gsequence_alt[c-1];
+      /* Take max here */
+      score1 = pairdistance_array_type[(int) 'A'][na2];
+      score2 = pairdistance_array_type[(int) 'A'][na2_alt];
+      pairscores[0][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'C'][na2];
+      score2 = pairdistance_array_type[(int) 'C'][na2_alt];
+      pairscores[1][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'G'][na2];
+      score2 = pairdistance_array_type[(int) 'G'][na2_alt];
+      pairscores[2][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'T'][na2];
+      score2 = pairdistance_array_type[(int) 'T'][na2_alt];
+      pairscores[3][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'N'][na2];
+      score2 = pairdistance_array_type[(int) 'N'][na2_alt];
+      pairscores[4][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+    }
+  } else {
+    for (c = 1; c <= glength; c++) {
+      na2 = gsequence[1-c];
+      na2_alt = gsequence_alt[1-c];
+      /* Take max here */
+      score1 = pairdistance_array_type[(int) 'A'][na2];
+      score2 = pairdistance_array_type[(int) 'A'][na2_alt];
+      pairscores[0][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'C'][na2];
+      score2 = pairdistance_array_type[(int) 'C'][na2_alt];
+      pairscores[1][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'G'][na2];
+      score2 = pairdistance_array_type[(int) 'G'][na2_alt];
+      pairscores[2][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'T'][na2];
+      score2 = pairdistance_array_type[(int) 'T'][na2_alt];
+      pairscores[3][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'N'][na2];
+      score2 = pairdistance_array_type[(int) 'N'][na2_alt];
+      pairscores[4][c] = (Score8_T) (score1 > score2) ? score1 : score2;
+    }
+  }
+
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][c]),0,(glength_ceil-c)*sizeof(Score8_T));
+  memset((void *) &(pairscores[1][c]),0,(glength_ceil-c)*sizeof(Score8_T));
+  memset((void *) &(pairscores[2][c]),0,(glength_ceil-c)*sizeof(Score8_T));
+  memset((void *) &(pairscores[3][c]),0,(glength_ceil-c)*sizeof(Score8_T));
+  memset((void *) &(pairscores[4][c]),0,(glength_ceil-c)*sizeof(Score8_T));
+#endif
+
+  complement_dummy = _mm_set1_epi8(-1);
+
+  gap_open = _mm_set1_epi8((Score8_T) open);
+  gap_extend = _mm_set1_epi8((Score8_T) extend);
+
+  if (jump_late_p) {
+    for (clo = 0; clo <= glength; clo += SIMD_NCHARS) {
+      if ((chigh = clo + SIMD_NCHARS - 1) > glength) {
+	chigh = glength;
+      }
+
+      /* dir_vert tests if E >= H.  To fill in first row of each
+	 column block with non-diags, make E == H. */
+      E_c_gap = _mm_set1_epi8(NEG_INFINITY_8);
+      H_nogap_c = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
+
+      for (r = clo; r <= chigh + lband && r <= rlength; r++) {
+	score_column = matrix[r];
+
+	if (r == 0) {
+	  na1 = 4; /* 'N' */
+	} else {
+	  na1 = revp ? nt_to_int_array[rsequence[1-r]] : nt_to_int_array[rsequence[r-1]];
+	}
+	pairscores_ptr = pairscores[na1];
+
+	if (r == 0) {
+	  X_prev_nogap = _mm_set1_epi8(0);
+	} else if (clo == 0) {
+	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8); /* works if we start outside the clo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	} else {
+	  /* second or greater block of 8 */
+	  X_prev_nogap = _mm_set1_epi8(matrix[r-1][clo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	}
+
+	debug15(print_vector_8(E_c_gap,clo,r,"E_c_gap"));
+	debug15(print_vector_8(H_nogap_c,clo,r,"H_nogap_c load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi8(H_nogap_c, gap_open);
+	dir_vert = _mm_cmplt_epi8(E_c_gap,T1); /* E < H */
+	dir_vert = _mm_andnot_si128(dir_vert,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[r][clo]),dir_vert);
+	debug15(print_vector_8(T1,clo,r,"T1"));
+	debug15(print_vector_8(dir_vert,clo,r,"dir_vert"));
+
+#ifdef HAVE_SSE4_1
+	E_c_gap = _mm_max_epi8(E_c_gap, T1); /* Compare H + open with horiz */
+#else
+	E_c_gap = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(E_c_gap, all_128), _mm_add_epi8(T1, all_128)), all_128);
+#endif
+	E_c_gap = _mm_adds_epi8(E_c_gap, gap_extend); /* Compute scores for Egap (horiz + open) */
+	debug15(print_vector_8(E_c_gap,clo,r,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_c,LAST_CHAR);
+	H_nogap_c = _mm_slli_si128(H_nogap_c,ONE_CHAR);
+	H_nogap_c = _mm_or_si128(H_nogap_c, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores.  No alternate chars for query sequence */
+#ifdef HAVE_SSE4_1
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo]));
+	debug15(print_vector_8(pairscores_std,clo,r,"pairscores_std"));
+	H_nogap_c = _mm_adds_epi8(H_nogap_c, pairscores_std);
+#else
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo])); /* Has 128 added already */
+	pairscores_best = _mm_sub_epi8(pairscores_std, all_128);
+	debug15(print_vector_8(pairscores_best,clo,r,"pairscores_std"));
+	H_nogap_c = _mm_adds_epi8(H_nogap_c, pairscores_best);
+#endif
+	_mm_clflush(&H_nogap_c); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_8(H_nogap_c,clo,r,"H"));
+
+	dir_vert = _mm_cmplt_epi8(E_c_gap,H_nogap_c); /* E < H */
+	dir_vert = _mm_andnot_si128(dir_vert,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[r][clo]),dir_vert);
+
+#ifdef HAVE_SSE4_1
+	H_nogap_c = _mm_max_epi8(H_nogap_c, E_c_gap); /* Compare H + pairscores with horiz + extend */
+#else
+	/* Compare H + pairscores with horiz + extend */
+	H_nogap_c = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(H_nogap_c, all_128), _mm_add_epi8(E_c_gap, all_128)), all_128);
+#endif
+	debug15(print_vector_8(H_nogap_c,clo,r,"H_nogap_c store"));
+	_mm_store_si128((__m128i *) &(score_column[clo]), H_nogap_c);
+
+
+	/* Fix Egap along diagonal to prevent going into upper triangle */
+	if (chigh >= r) {
+	  (*directions_Egap)[r][r] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+
+  } else {
+    /* jump early */
+    for (clo = 0; clo <= glength; clo += SIMD_NCHARS) {
+      if ((chigh = clo + SIMD_NCHARS - 1) > glength) {
+	chigh = glength;
+      }
+
+      /* dir_vert tests if E > H.  To fill in first row of each
+	 column block with non-diags, make E > H. */
+      E_c_gap = _mm_set1_epi8(NEG_INFINITY_8+1);
+      H_nogap_c = _mm_set1_epi8(NEG_INFINITY_8-open); /* Compensate for T1 = H + open */
+
+      for (r = clo; r <= chigh + lband && r <= rlength; r++) {
+	score_column = matrix[r];
+
+	if (r == 0) {
+	  na1 = 4; /* 'N' */
+	} else {
+	  na1 = revp ? nt_to_int_array[rsequence[1-r]] : nt_to_int_array[rsequence[r-1]];
+	}
+	pairscores_ptr = pairscores[na1];
+
+	if (r == 0) {
+	  X_prev_nogap = _mm_set1_epi8(0);
+	} else if (clo == 0) {
+	  X_prev_nogap = _mm_set1_epi8(NEG_INFINITY_8); /* works if we start outside the clo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	} else {
+	  /* second or greater block of 8 */
+	  X_prev_nogap = _mm_set1_epi8(matrix[r-1][clo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_CHAR);
+	}
+
+	debug15(print_vector_8(E_c_gap,clo,r,"E_c_gap"));
+	debug15(print_vector_8(H_nogap_c,clo,r,"H_nogap_c load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi8(H_nogap_c, gap_open);
+	dir_vert = _mm_cmpgt_epi8(E_c_gap,T1); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[r][clo]),dir_vert);
+	debug15(print_vector_8(T1,clo,r,"T1"));
+	debug15(print_vector_8(dir_vert,clo,r,"dir_vert"));
+
+#ifdef HAVE_SSE4_1
+	E_c_gap = _mm_max_epi8(E_c_gap, T1); /* Compare H + open with vert */
+#else
+	/* Compare H + open with vert */
+	E_c_gap = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(E_c_gap, all_128), _mm_add_epi8(T1, all_128)), all_128);
+
+#endif
+	E_c_gap = _mm_adds_epi8(E_c_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_8(E_c_gap,clo,r,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_c,LAST_CHAR);
+	H_nogap_c = _mm_slli_si128(H_nogap_c,ONE_CHAR);
+	H_nogap_c = _mm_or_si128(H_nogap_c, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores.  No alternate chars for query sequence */
+#ifdef HAVE_SSE4_1
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo]));
+	debug15(print_vector_8(pairscores_std,clo,r,"pairscores_std"));
+	H_nogap_c = _mm_adds_epi8(H_nogap_c, pairscores_std);
+#else
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo])); /* Has 128 added already */
+	pairscores_best = _mm_sub_epi8(pairscores_std, all_128);
+	debug15(print_vector_8(pairscores_best,clo,r,"pairscores_std"));
+	H_nogap_c = _mm_adds_epi8(H_nogap_c, pairscores_best);
+#endif
+	_mm_clflush(&H_nogap_c); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_8(H_nogap_c,clo,r,"H"));
+
+	dir_vert = _mm_cmpgt_epi8(E_c_gap,H_nogap_c); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[r][clo]),dir_vert);
+
+#ifdef HAVE_SSE4_1
+	H_nogap_c = _mm_max_epi8(H_nogap_c, E_c_gap); /* Compare H + pairscores with horiz + extend */
+#else
+	/* Compare H + pairscores with horiz + extend */
+	H_nogap_c = _mm_sub_epi8(_mm_max_epu8(_mm_add_epi8(H_nogap_c, all_128), _mm_add_epi8(E_c_gap, all_128)), all_128);
+#endif
+	debug15(print_vector_8(H_nogap_c,clo,r,"H_nogap_c store"));
+	_mm_store_si128((__m128i *) &(score_column[clo]), H_nogap_c);
+
+	/* Fix Egap along diagonal to prevent going into upper triangle */
+	if (chigh >= r) {
+	  (*directions_Egap)[r][r] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+  }
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = VERT;
+#endif
+
+#ifdef DEBUG2
+  printf("SIMD: Dynprog_simd_8_lower\n");
+  Matrix8_print_ud(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
+		   revp,lband,/*upperp*/false);
+  Directions8_print_ud(*directions_nogap,*directions_Egap,
+		       rlength,glength,rsequence,gsequence,gsequence_alt,
+		       revp,lband,/*upperp*/false);
+#endif
+  
+#ifdef CHECK1
+  /* Check for column 0 directions */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    assert((*directions_Egap)[r][0] != DIAG);
+    assert((*directions_nogap)[r][0] != DIAG);
+  }
+#endif
+
+#ifdef DEBUG14
+  matrix_std = compute_scores_standard(&directions_nogap_std,&directions_Egap_std,&directions_Fgap_std,
+				       this,rsequence,/*gsequence (NULL for debugging)*/NULL,/*gsequence_alt*/NULL,
+				       rlength,glength,goffset,chroffset,chrhigh,watsonp,mismatchtype,
+				       open,extend,lband,uband,jump_late_p,revp);
+
+#ifdef DEBUG2
+  printf("Banded %s\n",revp ? "rev" : "fwd");
+  Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
+		 revp);
+  Directions32_print(directions_nogap_std,directions_Egap_std,directions_Fgap_std,
+		     rlength,glength,rsequence,gsequence,gsequence_alt,
+		     revp);
+#endif
+  
+  banded_matrix8_compare(matrix,matrix_std,rlength,glength,lband,uband,
+			 rsequence,gsequence,gsequence_alt,
+			 goffset,chroffset,chrhigh,watsonp,revp);
+
+  banded_directions8_compare_nogap(matrix,*directions_nogap,directions_nogap_std,rlength,glength,lband,uband);
+
+  banded_directions8_compare_Egap(matrix,*directions_Egap,directions_Egap_std,rlength,glength,lband,uband);
+#endif
+
   _mm_free(pairscores[4]);
   _mm_free(pairscores[3]);
   _mm_free(pairscores[2]);
@@ -1394,19 +2761,22 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
   Score16_T **matrix, *score_column;
   __m128i pairscores_std, pairscores_alt;
   __m128i H_nogap_r, X_prev_nogap, E_r_gap, T1;
-  __m128i gap_open, gap_extend, all_one_bits;
+  __m128i gap_open, gap_extend, complement_dummy;
   __m128i dir_horiz;
   int rlength_ceil, lband_ceil, r, c;
   int rlo, rhigh, rlo_calc, rhigh_calc;
   int na1, na2, na2_alt;
   Score16_T *pairscores_col0;
-  Score16_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr;
+  Score16_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr, pairscore;
   Pairdistance_T **pairdistance_array_type;
 
 #ifdef DEBUG14
   Score32_T **matrix_std;
   Direction32_T **directions_nogap_std, **directions_Egap_std, **directions_Fgap_std;
 #endif
+
+
+  debug15(printf("Dynprog_simd_16.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
 
   rlength_ceil = (int) ((rlength + SIMD_NSHORTS)/SIMD_NSHORTS) * SIMD_NSHORTS;
   pairdistance_array_type = pairdistance_array[mismatchtype];
@@ -1425,6 +2795,7 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
   *directions_Fgap = aligned_directions16_calloc(rlength_ceil,glength,
 						 this->aligned.one.directions_ptrs_2,this->aligned.one.directions_space_2);
 
+#if 0
   /* Row 0 initialization */
   /* penalty = open; */
   for (c = 1; c <= uband && c <= glength; c++) {
@@ -1432,6 +2803,7 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
     (*directions_Egap)[c][0] = HORIZ;
     (*directions_nogap)[c][0] = HORIZ;
   }
+#endif
 #if 0
   /* Already initialized to DIAG.  Actually, no longer initializing directions_Egap */
   (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
@@ -1457,35 +2829,59 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
   lband_ceil = (int) ((lband + SIMD_NSHORTS)/SIMD_NSHORTS) * SIMD_NSHORTS;
   pairscores_col0 = (Score16_T *) _mm_malloc(lband_ceil * sizeof(Score16_T),16);
 
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[1],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[2],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[3],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[4],0,rlength_ceil*sizeof(Score16_T));
+#endif
 
-  /* pairscores_col0[0] = (Score16_T) 0; */
-  /* Initialization just to lband causes errors in dir_horiz for Egap */
+
+  pairscores_col0[0] = (Score16_T) 0;
+  /* Initializion just to lband causes errors in dir_horiz for Egap */
   for (r = 1; r < lband_ceil; r++) {
-    pairscores_col0[r-1] = (Score16_T) NEG_INFINITY_16;
+    pairscores_col0[r] = (Score16_T) NEG_INFINITY_16;
   }
+
+  r = 0; na1 = 'N';
+  pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+  pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+  pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+  pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+  pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
 
   if (revp == false) {
     for (r = 1; r <= rlength; r++) {
       na1 = (int) rsequence[r-1];
-      pairscores[0][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
-      pairscores[1][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
-      pairscores[2][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
-      pairscores[3][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
-      pairscores[4][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
+      pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
     }
   } else {
     for (r = 1; r <= rlength; r++) {
       na1 = (int) rsequence[1-r];
-      pairscores[0][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
-      pairscores[1][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
-      pairscores[2][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
-      pairscores[3][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
-      pairscores[4][r-1] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
+      pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
     }
   }
 
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[1][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[2][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[3][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[4][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+#endif
 
-  all_one_bits = _mm_set1_epi16(-1);
+  complement_dummy = _mm_set1_epi16(-1);
   
   FF = (int *) MALLOC((glength + 1) * sizeof(int));
 
@@ -1493,15 +2889,15 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
   gap_extend = _mm_set1_epi16((Score16_T) extend);
 
   if (jump_late_p) {
-    for (rlo = 1; rlo <= rlength; rlo += SIMD_NSHORTS) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NSHORTS) {
       if ((rhigh = rlo + SIMD_NSHORTS - 1) > rlength) {
 	rhigh = rlength;
       }
 
-      /* dir_horiz tests if E >= H .  To fill in first column of each
-	 row block with diags, make E < H. */
+      /* dir_horiz tests if E >= H.  To fill in first column of each
+	 row block with non-diags, make E == H. */
       E_r_gap = _mm_set1_epi16(NEG_INFINITY_16);
-      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16+1);
+      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
 
       if ((c = rlo - lband) < 0) {
 	c = 0;
@@ -1511,34 +2907,26 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 
 	if (c == 0) {
 	  pairscores_std_ptr = pairscores_alt_ptr = pairscores_col0;
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi16(0);
+	  } else {
+	    X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  }
 	} else {
-	  na2 = revp ? gsequence[1-c] : gsequence[c-1];
-	  na2_alt = revp ? gsequence_alt[1-c] : gsequence_alt[c-1];
-	  switch (na2) {
-	  case 'A': pairscores_std_ptr = pairscores[0]; break;
-	  case 'C': pairscores_std_ptr = pairscores[1]; break;
-	  case 'G': pairscores_std_ptr = pairscores[2]; break;
-	  case 'T': pairscores_std_ptr = pairscores[3]; break;
-	  default: pairscores_std_ptr = pairscores[4];
-	  }
-	  switch (na2_alt) {
-	  case 'A': pairscores_alt_ptr = pairscores[0]; break;
-	  case 'C': pairscores_alt_ptr = pairscores[1]; break;
-	  case 'G': pairscores_alt_ptr = pairscores[2]; break;
-	  case 'T': pairscores_alt_ptr = pairscores[3]; break;
-	  default: pairscores_alt_ptr = pairscores[4];
-	  }
-	}
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	  pairscores_std_ptr = pairscores[na2];
+	  pairscores_alt_ptr = pairscores[na2_alt];
 
-	if (rlo == 1) {
-	  X_prev_nogap = _mm_set1_epi16(0);
-	} else if (c == 0) {
-	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
-	} else {
-	  /* second or greater block of 16 */
-	  X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  } else {
+	    /* second or greater block of 16 */
+	    X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  }
 	}
 
 	debug15(print_vector_16(E_r_gap,rlo,c,"E_r_gap"));
@@ -1547,8 +2935,10 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	/* EGAP */
 	T1 = _mm_adds_epi16(H_nogap_r, gap_open);
 	dir_horiz = _mm_cmplt_epi16(E_r_gap,T1); /* E < H */
-	dir_horiz = _mm_andnot_si128(dir_horiz,all_one_bits);	/* E >= H, for jump late */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
 	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_16(T1,rlo,c,"T1"));
+	debug15(print_vector_16(dir_horiz,rlo,c,"dir_horiz"));
 
 	E_r_gap = _mm_max_epi16(E_r_gap, T1); /* Compare H + open with vert */
 	E_r_gap = _mm_adds_epi16(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
@@ -1562,14 +2952,14 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	X_prev_nogap = T1;
 
 	/* Add pairscores, allowing for alternate genomic nt */
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1]));
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1]));
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
 	H_nogap_r = _mm_adds_epi16(H_nogap_r, _mm_max_epi16(pairscores_std,pairscores_alt));
 	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
 	debug15(print_vector_16(H_nogap_r,rlo,c,"H"));
 
 	dir_horiz = _mm_cmplt_epi16(E_r_gap,H_nogap_r); /* E < H */
-	dir_horiz = _mm_andnot_si128(dir_horiz,all_one_bits);	/* E >= H, for jump late */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
 	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
 
 	H_nogap_r = _mm_max_epi16(H_nogap_r, E_r_gap); /* Compare H + pairscores with horiz + extend */
@@ -1578,16 +2968,34 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 
 
 	/* F loop */
-	if ((rlo_calc = rlo) < c - uband) {
+	if ((rlo_calc = rlo) <= c - uband) {
 	  rlo_calc = c - uband;
 	}
-	if ((rhigh_calc = rhigh) > c + lband) {
+	if ((rhigh_calc = rhigh) >= c + lband) {
 	  rhigh_calc = c + lband;
+	  if (c > 0) {
+	    /* Set bottom values to DIAG (not HORIZ) to prevent going outside of lband */
+	    pairscore = pairscores[na2][rhigh_calc];
+	    if ((score = pairscores[(int) na2_alt][rhigh_calc]) > pairscore) {
+	      pairscore = score;
+	    }
+	    /* No need to fix for non-SSE4.1: pairscore -= 128; */
+	    if ((score = matrix[c-1][rhigh_calc-1] + pairscore) < NEG_INFINITY_16) {
+	      score_column[rhigh_calc] = NEG_INFINITY_16; /* Saturation */
+	    } else if (score > POS_INFINITY_16) {
+	      score_column[rhigh_calc] = POS_INFINITY_16; /* Saturation */
+	    } else {
+	      score_column[rhigh_calc] = (Score16_T) score;
+	    }
+	    (*directions_Egap)[c][rhigh_calc] = DIAG;
+	    (*directions_nogap)[c][rhigh_calc] = DIAG;
+	  }
 	}
+
 	debug3(printf("F loop: rlo %d, rhigh %d, c %d, lband %d, uband %d => rlo_calc %d, rhigh_calc %d\n",
 		      rlo,rhigh,rlo_calc,c,lband,uband,rhigh_calc));
 
-	if (rlo == 1) {
+	if (rlo == 0) {
 	  c_gap = NEG_INFINITY_INT;
 	  last_nogap = NEG_INFINITY_INT;
 	} else if (c >= rlo + uband) {
@@ -1599,8 +3007,22 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	  last_nogap = score_column[rlo_calc-1];
 	}
 
+	if ((r = rlo_calc) == c - uband) {
+	  /* Handle top value as a special case to prevent going outside of uband */
+	  /* FGAP */
+	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
+			r,c,c_gap + extend,last_nogap + open + extend));
+	  score = last_nogap + open /* + extend */;
+	  c_gap = score + extend;
+	  /* (*directions_Fgap)[c][r] = DIAG: -- Already initialized to DIAG */
+
+	  /* NOGAP */
+	  last_nogap = score_column[r];
+	  r++;
+	}
+
 	/* score_ptr = &(score_column[rlo_calc]); -- Also possible, but less transparent */
-	for (r = rlo_calc; r <= rhigh_calc; r++) {
+	for ( ; r <= rhigh_calc; r++) {
 	  /* FGAP */
 	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
 			r,c,c_gap + extend,last_nogap + open + extend));
@@ -1630,15 +3052,15 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 
   } else {
     /* jump early */
-    for (rlo = 1; rlo <= rlength; rlo += SIMD_NSHORTS) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NSHORTS) {
       if ((rhigh = rlo + SIMD_NSHORTS - 1) > rlength) {
 	rhigh = rlength;
       }
 
       /* dir_horiz tests if E > H.  To fill in first column of each
-	 row block with diags, make E <= H. */
-      E_r_gap = _mm_set1_epi16(NEG_INFINITY_16);
-      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16+0);
+	 row block with non-diags, make E > H. */
+      E_r_gap = _mm_set1_epi16(NEG_INFINITY_16+1);
+      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
 
       if ((c = rlo - lband) < 0) {
 	c = 0;
@@ -1648,34 +3070,26 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 
 	if (c == 0) {
 	  pairscores_std_ptr = pairscores_alt_ptr = pairscores_col0;
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi16(0);
+	  } else {
+	    X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  }
 	} else {
-	  na2 = revp ? gsequence[1-c] : gsequence[c-1];
-	  na2_alt = revp ? gsequence_alt[1-c] : gsequence_alt[c-1];
-	  switch (na2) {
-	  case 'A': pairscores_std_ptr = pairscores[0]; break;
-	  case 'C': pairscores_std_ptr = pairscores[1]; break;
-	  case 'G': pairscores_std_ptr = pairscores[2]; break;
-	  case 'T': pairscores_std_ptr = pairscores[3]; break;
-	  default: pairscores_std_ptr = pairscores[4];
-	  }
-	  switch (na2_alt) {
-	  case 'A': pairscores_alt_ptr = pairscores[0]; break;
-	  case 'C': pairscores_alt_ptr = pairscores[1]; break;
-	  case 'G': pairscores_alt_ptr = pairscores[2]; break;
-	  case 'T': pairscores_alt_ptr = pairscores[3]; break;
-	  default: pairscores_alt_ptr = pairscores[4];
-	  }
-	}
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	  pairscores_std_ptr = pairscores[na2];
+	  pairscores_alt_ptr = pairscores[na2_alt];
 
-	if (rlo == 1) {
-	  X_prev_nogap = _mm_set1_epi16(0);
-	} else if (c == 0) {
-	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
-	} else {
-	  /* second or greater block of 16 */
-	  X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
-	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  if (rlo == 0) {
+	    X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16);
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  } else {
+	    /* second or greater block of 16 */
+	    X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	    X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	  }
 	}
 
 	debug15(print_vector_16(E_r_gap,rlo,c,"E_r_gap"));
@@ -1685,6 +3099,8 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	T1 = _mm_adds_epi16(H_nogap_r, gap_open);
 	dir_horiz = _mm_cmpgt_epi16(E_r_gap,T1); /* E > H, for jump early */
 	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_16(T1,rlo,c,"T1"));
+	debug15(print_vector_16(dir_horiz,rlo,c,"dir_horiz"));
 
 	E_r_gap = _mm_max_epi16(E_r_gap, T1); /* Compare H + open with vert */
 	E_r_gap = _mm_adds_epi16(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
@@ -1698,8 +3114,8 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	X_prev_nogap = T1;
 
 	/* Add pairscores, allowing for alternate genomic nt */
-	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo-1]));
-	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo-1]));
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
 	H_nogap_r = _mm_adds_epi16(H_nogap_r, _mm_max_epi16(pairscores_std,pairscores_alt));
 	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
 	debug15(print_vector_16(H_nogap_r,rlo,c,"H"));
@@ -1716,13 +3132,31 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	if ((rlo_calc = rlo) < c - uband) {
 	  rlo_calc = c - uband;
 	}
-	if ((rhigh_calc = rhigh) > c + lband) {
+	if ((rhigh_calc = rhigh) >= c + lband) {
 	  rhigh_calc = c + lband;
+	  if (c > 0) {
+	    /* Set bottom values to DIAG (not HORIZ) to prevent going outside of lband */
+	    pairscore = pairscores[na2][rhigh_calc];
+	    if ((score = pairscores[(int) na2_alt][rhigh_calc]) > pairscore) {
+	      pairscore = score;
+	    }
+	    /* No need to fix for non-SSE4.1: pairscore -= 128; */
+	    if ((score = matrix[c-1][rhigh_calc-1] + pairscore) < NEG_INFINITY_16) {
+	      score_column[rhigh_calc] = NEG_INFINITY_16; /* Saturation */
+	    } else if (score > POS_INFINITY_16) {
+	      score_column[rhigh_calc] = POS_INFINITY_16; /* Saturation */
+	    } else {
+	      score_column[rhigh_calc] = (Score16_T) score;
+	    }
+	    (*directions_Egap)[c][rhigh_calc] = DIAG;
+	    (*directions_nogap)[c][rhigh_calc] = DIAG;
+	  }
 	}
+
 	debug3(printf("F loop: rlo %d, rhigh %d, c %d, lband %d, uband %d => rlo_calc %d, rhigh_calc %d\n",
 		      rlo,rhigh,rlo_calc,c,lband,uband,rhigh_calc));
 
-	if (rlo == 1) {
+	if (rlo == 0) {
 	  c_gap = NEG_INFINITY_INT;
 	  last_nogap = NEG_INFINITY_INT;
 	} else if (c >= rlo + uband) {
@@ -1733,8 +3167,22 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 	  last_nogap = score_column[rlo_calc-1];
 	}
 
+	if ((r = rlo_calc) == c - uband) {
+	  /* Handle top value as a special case to prevent going outside of uband */
+	  /* FGAP */
+	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
+			r,c,c_gap + extend,last_nogap + open + extend));
+	  score = last_nogap + open /* + extend */;
+	  c_gap = score + extend;
+	  /* (*directions_Fgap)[c][r] = DIAG: -- Already initialized to DIAG */
+	  
+	  /* NOGAP */
+	  last_nogap = score_column[r];
+	  r++;
+	}
+
 	/* score_ptr = &(score_column[rlo_calc]); -- Also possible, but less transparent */
-	for (r = rlo_calc; r <= rhigh_calc; r++) {
+	for ( ; r <= rhigh_calc; r++) {
 	  /* FGAP */
 	  debug3(printf("Fgap at r %d, c %d: c_gap + extend %d vs last_nogap + open + extend %d\n",
 			r,c,c_gap + extend,last_nogap + open + extend));
@@ -1763,19 +3211,35 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
     }
   }
 
-#ifdef DEBUG2
-  printf("SIMD\n");
-  Matrix16_print(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
-#ifdef DEBUG14
-			 goffset,chroffset,chrhigh,watsonp,
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = HORIZ;
+  (*directions_Fgap)[0][1] = VERT;
 #endif
+
+
+#ifdef DEBUG2
+  printf("SIMD: Dynprog_simd_16\n");
+  Matrix16_print(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
 			 revp,lband,uband);
   Directions16_print(*directions_nogap,*directions_Egap,*directions_Fgap,
 			     rlength,glength,rsequence,gsequence,gsequence_alt,
-#ifdef DEBUG14
-			     goffset,chroffset,chrhigh,watsonp,
-#endif
 			     revp,lband,uband);
+#endif
+
+#ifdef CHECK1
+  /* Check for row 0 directions */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    assert((*directions_Egap)[c][0] != DIAG);
+    assert((*directions_nogap)[c][0] != DIAG);
+  }
+  /* Check for column 0 directions */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    assert((*directions_Fgap)[0][r] != DIAG);
+    assert((*directions_nogap)[0][r] != DIAG);
+  }
 #endif
 
 #ifdef DEBUG14
@@ -1787,10 +3251,10 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 #ifdef DEBUG2
   printf("Banded\n");
   Dynprog_Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
-			 goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
+			 revp,lband,uband);
   Dynprog_Directions32_print(directions_nogap_std,directions_Egap_std,directions_Fgap_std,
 			     rlength,glength,rsequence,gsequence,gsequence_alt,
-			     goffset,chroffset,chrhigh,watsonp,revp,lband,uband);
+			     revp,lband,uband);
 #endif
   
   banded_matrix16_compare(matrix,matrix_std,rlength,glength,lband,uband,
@@ -1816,466 +3280,727 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 
 
 
-static List_T
-push_token (bool *startp, List_T tokens, char *token) {
-  char *copy;
+#ifdef HAVE_SSE2
+/* Designed for computation above the diagonal, so no F loop or bottom masking needed */
+/* Operates by columns */
+Score16_T **
+Dynprog_simd_16_upper (Direction16_T ***directions_nogap, Direction16_T ***directions_Egap,
+		       T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		       int rlength, int glength,
+#ifdef DEBUG14
+		       int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
+#endif
+		       Mismatchtype_T mismatchtype, int open, int extend,
+		       int uband, bool jump_late_p, bool revp) {
+  Score16_T **matrix, *score_column;
+  __m128i pairscores_std, pairscores_alt;
+  __m128i H_nogap_r, X_prev_nogap, E_r_gap, T1;
+  __m128i gap_open, gap_extend, complement_dummy;
+  __m128i dir_horiz;
+  int rlength_ceil, r, c;
+  int rlo, rhigh;
+  int na1, na2, na2_alt;
+  Score16_T *pairscores[5], *pairscores_std_ptr, *pairscores_alt_ptr, pairscore;
+  Pairdistance_T **pairdistance_array_type;
 
-  copy = (char *) CALLOC(strlen(token)+1,sizeof(char));
-  strcpy(copy,token);
+#ifdef DEBUG14
+  Score32_T **matrix_std;
+  Direction32_T **directions_nogap_std, **directions_Egap_std;
+  char na2_single;
+#endif
 
-  *startp = false;
-  return List_push(tokens,(void *) copy);
-}
+  debug15(printf("Dynprog_simd_16_upper.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
 
+  rlength_ceil = (int) ((rlength + SIMD_NSHORTS)/SIMD_NSHORTS) * SIMD_NSHORTS;
+  pairdistance_array_type = pairdistance_array[mismatchtype];
+  
+  debug(printf("compute_scores_simd_16_bycols (upper): "));
+  debug(printf("Lengths are %d and %d, so band is %d on right\n",rlength,glength,uband));
+  debug(printf("Query length rounded up to %d\n",rlength_ceil));
 
-
-#if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
-char *
-Dynprog_cigar_8 (int *finalc, Direction8_T **directions_nogap, Direction8_T **directions_Egap, Direction8_T **directions_Fgap,
-		 int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		 char *nindels, int queryoffset, int genomeoffset, bool revp,
-		 Univcoord_T chroffset, Univcoord_T chrhigh) {
-  char *cigar;
-  List_T tokens = NULL;
-  char token[10];
-  int Mlength = 0, Ilength = 0, Mlength_postins = 0;
-  int insertion_width = 0;
-  bool startp = true;
-
-  int dist;
-  Direction8_T dir;
-
-  debug(printf("Starting Dynprog_cigar_8 at r=%d,c=%d (roffset=%d, goffset=%d)\n",r,c,queryoffset,genomeoffset));
+  matrix = aligned_score16_alloc(rlength_ceil,glength,
+				 this->aligned.two.upper_matrix_ptrs,this->aligned.two.upper_matrix_space);
+  *directions_nogap = aligned_directions16_alloc(rlength_ceil,glength,
+						 this->aligned.two.upper_directions_ptrs_0,this->aligned.two.upper_directions_space_0);
+  *directions_Egap = aligned_directions16_alloc(rlength_ceil,glength,
+						this->aligned.two.upper_directions_ptrs_1,this->aligned.two.upper_directions_space_1);
 
 #if 0
-  /* Handle initial indel */
-  if ((dir = directions_nogap[c][r]) == DIAG) {
-    /* Not an indel.  Do nothing. */
-
-  } else if (dir == HORIZ) {
-    dist = 1;
-    while (c > 1 && directions_Egap[c][r] != DIAG) {
-      dist++;
-      c--;
-    }
-    c--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dD",dist);
-    tokens = push_token(&startp,tokens,token);
-
-  } else {
-    /* Must be VERT */
-    dist = 1;
-    while (r > 1 && directions_Fgap[c][r] != DIAG) {
-      dist++;
-      r--;
-    }
-    r--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dI",dist);
-    tokens = push_token(&startp,tokens,token);
+  /* Row 0 initialization */
+  /* penalty = open; */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    /* penalty += extend; */
+    (*directions_Egap)[c][0] = HORIZ;
+    (*directions_nogap)[c][0] = HORIZ;
+  }
+#endif
+#if 0
+  /* Already initialized to DIAG.  Actually, no longer initializing directions_Egap */
+  (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
+  (*directions_nogap)[0][0] = DIAG; /* previously used STOP */
+#endif
+#if 0
+  /* Column 0 initialization */
+  /* penalty = open; */
+  for (r = 1; r <= SIMD_NSHORTS && r <= rlength; r++) {
+    /* penalty += extend; */
+    (*directions_nogap)[0][r] = VERT;
   }
 #endif
 
-  *finalc = c;
-  while (c > 0) {  /* dir != STOP */
-    if (r == 0) {
-      /* Ignore gap in row 0 */
-      if (Ilength > 0 && Ilength != insertion_width) {
-	if (Mlength_postins > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	if (Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
 
-      *finalc = c;
-      tokens = List_reverse(tokens);
-      cigar = Dynprog_tokens_string(List_reverse(tokens));
-      Dynprog_tokens_free(&tokens);
+  /* Load pairscores.  Store match - mismatch */
+  pairscores[0] = (Score16_T *) _mm_malloc(rlength_ceil * sizeof(Score16_T),16);
+  pairscores[1] = (Score16_T *) _mm_malloc(rlength_ceil * sizeof(Score16_T),16);
+  pairscores[2] = (Score16_T *) _mm_malloc(rlength_ceil * sizeof(Score16_T),16);
+  pairscores[3] = (Score16_T *) _mm_malloc(rlength_ceil * sizeof(Score16_T),16);
+  pairscores[4] = (Score16_T *) _mm_malloc(rlength_ceil * sizeof(Score16_T),16);
 
-      return cigar;
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[1],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[2],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[3],0,rlength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[4],0,rlength_ceil*sizeof(Score16_T));
+#endif
 
-    } else if ((dir = directions_nogap[c][r]) == DIAG) {
-      /* printf("At r %d, c %d (%c), dir is DIAG, nindels %d\n",r,c,gsequence[c],nindels[c-1]); */
+  r = 0; na1 = 'N';
+  pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+  pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+  pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+  pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+  pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
 
-      if (nindels[c-1] < 0) {
-	/* Genome modified with a deletion */
-	if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	  /* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	  sprintf(token,"%dS",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	} else {
-	  if (Ilength > 0) {
-	    sprintf(token,"%dM",Mlength_postins);
-	    tokens = push_token(&startp,tokens,token);
-	    sprintf(token,"%dI",Ilength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	  if (1 || Mlength > 0) {
-	    sprintf(token,"%dM",Mlength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	}
-	Mlength = 1;
-
-	sprintf(token,"%dD",-nindels[c-1]);
-	tokens = push_token(&startp,tokens,token);
-
-      } else if (nindels[c-1] > 0) {
-	insertion_width = nindels[c-1];
-	if (Ilength == 0) {
-	  Mlength_postins = Mlength; /* Cannot push M yet, since I could change to S */
-	  Mlength = 0;
-	}
-	Ilength += 1;
-	/* printf("Incrementing Ilength to be %d\n",Ilength); */
-
-      } else {
-	Mlength += 1;
-	/* printf("Incrementing Mlength to be %d\n",Mlength); */
-      }
-      r--; c--;
-
-    } else if (dir == HORIZ) {
-      /* printf("At r %d, c %d, dir is HORIZ\n",r,c); */
-
-      if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	/* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	sprintf(token,"%dM",Mlength);
-	tokens = push_token(&startp,tokens,token);
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
-      Mlength = 0;
-
-      dist = 1;
-      while (c > 1 && directions_Egap[c][r] != DIAG) {
-	dist++;
-	c--;
-      }
-      c--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dD",dist);
-      tokens = push_token(&startp,tokens,token);
-
-    } else {
-      /* Must be VERT */
-      /* printf("At r %d, c %d, dir is VERT\n",r,c); */
-      if (Ilength == 0) {
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	  Mlength = 0;
-	}
-      }
-
-      Ilength += 1;
-      while (r > 1 && directions_Fgap[c][r] != DIAG) {
-	Ilength += 1;
-	r--;
-      }
-      r--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-      Ilength = 0;
-    }
-  }
-
-  if (Ilength > 0 && Ilength != insertion_width) {
-    if (Mlength_postins > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-    }
-    sprintf(token,"%dS",Ilength);
-    tokens = push_token(&startp,tokens,token);
-    if (Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
+  if (revp == false) {
+    for (r = 1; r <= rlength; r++) {
+      na1 = (int) rsequence[r-1];
+      pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
     }
   } else {
-    if (Ilength > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-    }
-    if (1 || Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
+    for (r = 1; r <= rlength; r++) {
+      na1 = (int) rsequence[1-r];
+      pairscores[0][r] = (Score16_T) pairdistance_array_type[na1][(int) 'A'];
+      pairscores[1][r] = (Score16_T) pairdistance_array_type[na1][(int) 'C'];
+      pairscores[2][r] = (Score16_T) pairdistance_array_type[na1][(int) 'G'];
+      pairscores[3][r] = (Score16_T) pairdistance_array_type[na1][(int) 'T'];
+      pairscores[4][r] = (Score16_T) pairdistance_array_type[na1][(int) 'N'];
     }
   }
 
-  *finalc = c;
-  tokens = List_reverse(tokens);
-  cigar = Dynprog_tokens_string(List_reverse(tokens));
-  Dynprog_tokens_free(&tokens);
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[1][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[2][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[3][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+  memset((void *) &(pairscores[4][r]),0,(rlength_ceil-r)*sizeof(Score16_T));
+#endif
 
-  return cigar;
+  complement_dummy = _mm_set1_epi16(-1);
+  
+  gap_open = _mm_set1_epi16((Score16_T) open);
+  gap_extend = _mm_set1_epi16((Score16_T) extend);
+
+  if (jump_late_p) {
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NSHORTS) {
+      if ((rhigh = rlo + SIMD_NSHORTS - 1) > rlength) {
+	rhigh = rlength;
+      }
+
+      /* dir_horiz tests if E >= H.  To fill in first column of each
+	 row block with non-diags, could make E == H.  But irrelevant,
+	 because these are above the diagonal. */
+      E_r_gap = _mm_set1_epi16(NEG_INFINITY_16);
+      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
+
+      for (c = rlo; c <= rhigh + uband && c <= glength; c++) {
+	score_column = matrix[c];
+
+	if (c == 0) {
+	  na2 = na2_alt = 4; /* 'N' */
+	} else {
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	}
+	pairscores_std_ptr = pairscores[na2];
+	pairscores_alt_ptr = pairscores[na2_alt];
+
+	if (c == 0) {
+	  X_prev_nogap = _mm_set1_epi16(0);
+	} else if (rlo == 0) {
+	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	} else {
+	  /* second or greater block of 16 */
+	  X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	}
+
+	debug15(print_vector_16(E_r_gap,rlo,c,"E_r_gap"));
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H_nogap_r load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi16(H_nogap_r, gap_open);
+	dir_horiz = _mm_cmplt_epi16(E_r_gap,T1); /* E < H */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_16(T1,rlo,c,"T1"));
+	debug15(print_vector_16(dir_horiz,rlo,c,"dir_horiz"));
+
+	E_r_gap = _mm_max_epi16(E_r_gap, T1); /* Compare H + open with vert */
+	E_r_gap = _mm_adds_epi16(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_16(E_r_gap,rlo,c,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_r,LAST_SHORT);
+	H_nogap_r = _mm_slli_si128(H_nogap_r,ONE_SHORT);
+	H_nogap_r = _mm_or_si128(H_nogap_r, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores, allowing for alternate genomic nt */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
+	H_nogap_r = _mm_adds_epi16(H_nogap_r, _mm_max_epi16(pairscores_std,pairscores_alt));
+	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H"));
+
+	dir_horiz = _mm_cmplt_epi16(E_r_gap,H_nogap_r); /* E < H */
+	dir_horiz = _mm_andnot_si128(dir_horiz,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
+
+	H_nogap_r = _mm_max_epi16(H_nogap_r, E_r_gap); /* Compare H + pairscores with horiz + extend */
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H_nogap_r store"));
+	_mm_store_si128((__m128i *) &(score_column[rlo]), H_nogap_r);
+
+
+	/* Fix Egap along diagonal to prevent going into lower triangle */
+	if (rhigh >= c) {
+	  (*directions_Egap)[c][c] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+
+  } else {
+    /* jump early */
+    for (rlo = 0; rlo <= rlength; rlo += SIMD_NSHORTS) {
+      if ((rhigh = rlo + SIMD_NSHORTS - 1) > rlength) {
+	rhigh = rlength;
+      }
+
+      /* dir_horiz tests if E > H.  To fill in first column of each
+	 row block with non-diags, could make E > H.  But irrelevant,
+	 because these are above the diagonal. */
+      E_r_gap = _mm_set1_epi16(NEG_INFINITY_16+1);
+      H_nogap_r = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
+
+      for (c = rlo; c <= rhigh + uband && c <= glength; c++) {
+	score_column = matrix[c];
+
+	if (c == 0) {
+	  na2 = na2_alt = 4; /* 'N' */
+	} else {
+	  na2 = revp ? nt_to_int_array[gsequence[1-c]] : nt_to_int_array[gsequence[c-1]];
+	  na2_alt = revp ? nt_to_int_array[gsequence_alt[1-c]] : nt_to_int_array[gsequence_alt[c-1]];
+	}
+	pairscores_std_ptr = pairscores[na2];
+	pairscores_alt_ptr = pairscores[na2_alt];
+
+	if (c == 0) {
+	  X_prev_nogap = _mm_set1_epi16(0);
+	} else if (rlo == 0) {
+	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	} else {
+	  /* second or greater block of 16 */
+	  X_prev_nogap = _mm_set1_epi16(matrix[c-1][rlo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	}
+
+	debug15(print_vector_16(E_r_gap,rlo,c,"E_r_gap"));
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H_nogap_r load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi16(H_nogap_r, gap_open);
+	dir_horiz = _mm_cmpgt_epi16(E_r_gap,T1); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[c][rlo]),dir_horiz);
+	debug15(print_vector_16(T1,rlo,c,"T1"));
+	debug15(print_vector_16(dir_horiz,rlo,c,"dir_horiz"));
+
+	E_r_gap = _mm_max_epi16(E_r_gap, T1); /* Compare H + open with vert */
+	E_r_gap = _mm_adds_epi16(E_r_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_16(E_r_gap,rlo,c,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_r,LAST_SHORT);
+	H_nogap_r = _mm_slli_si128(H_nogap_r,ONE_SHORT);
+	H_nogap_r = _mm_or_si128(H_nogap_r, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores, allowing for alternate genomic nt */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_std_ptr[rlo]));
+	pairscores_alt = _mm_load_si128((__m128i *) &(pairscores_alt_ptr[rlo]));
+	H_nogap_r = _mm_adds_epi16(H_nogap_r, _mm_max_epi16(pairscores_std,pairscores_alt));
+	_mm_clflush(&H_nogap_r); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H"));
+
+	dir_horiz = _mm_cmpgt_epi16(E_r_gap,H_nogap_r); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[c][rlo]),dir_horiz);
+
+	H_nogap_r = _mm_max_epi16(H_nogap_r, E_r_gap); /* Compare H + pairscores with horiz + extend */
+	debug15(print_vector_16(H_nogap_r,rlo,c,"H_nogap_r store"));
+	_mm_store_si128((__m128i *) &(score_column[rlo]), H_nogap_r);
+
+
+	/* Fix Egap along diagonal to prevent going into lower triangle */
+	if (rhigh >= c) {
+	  (*directions_Egap)[c][c] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+  }
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = HORIZ;
+#endif
+
+#ifdef DEBUG2
+  printf("SIMD: Dynprog_simd_16_upper\n");
+  Matrix16_print_ud(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
+		    revp,uband,/*upperp*/true);
+  Directions16_print_ud(*directions_nogap,*directions_Egap,
+			rlength,glength,rsequence,gsequence,gsequence_alt,
+			revp,uband,/*upperp*/true);
+#endif
+
+#ifdef CHECK1
+  /* Check for row 0 directions */
+  for (c = 1; c <= uband && c <= glength; c++) {
+    assert((*directions_Egap)[c][0] != DIAG);
+    assert((*directions_nogap)[c][0] != DIAG);
+  }
+#endif
+
+#ifdef DEBUG14
+  matrix_std = compute_scores_standard(&directions_nogap_std,&directions_Egap_std,
+				       this,rsequence,/*gsequence (NULL for debugging)*/NULL,/*gsequence_alt*/NULL,
+				       rlength,glength,
+				       goffset,chroffset,chrhigh,watsonp,mismatchtype,
+				       open,extend,lband,uband,jump_late_p,revp);
+
+#ifdef DEBUG2
+  printf("Banded\n");
+  Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
+		 revp);
+  Directions32_print(directions_nogap_std,directions_Egap_std,
+		     rlength,glength,rsequence,gsequence,gsequence_alt,
+		     revp);
+#endif
+  
+  banded_matrix16_compare(matrix,matrix_std,rlength,glength,lband,uband,
+			  rsequence,gsequence,gsequence_alt,
+			  goffset,chroffset,chrhigh,watsonp,revp);
+
+  banded_directions16_compare_nogap(*directions_nogap,directions_nogap_std,rlength,glength,lband,uband);
+
+  banded_directions16_compare_Egap(*directions_Egap,directions_Egap_std,rlength,glength,lband,uband);
+#endif
+
+  _mm_free(pairscores[4]);
+  _mm_free(pairscores[3]);
+  _mm_free(pairscores[2]);
+  _mm_free(pairscores[1]);
+  _mm_free(pairscores[0]);
+
+  return matrix;
 }
 #endif
 
 
 
-#if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
-char *
-Dynprog_cigar_16 (int *finalc, Direction16_T **directions_nogap, Direction16_T **directions_Egap, Direction16_T **directions_Fgap,
-		  int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		  char *nindels, int queryoffset, int genomeoffset, bool revp,
-		  Univcoord_T chroffset, Univcoord_T chrhigh) {
-  char *cigar;
-  List_T tokens = NULL;
-  char token[10];
-  int Mlength = 0, Ilength = 0, Mlength_postins = 0;
-  int insertion_width = 0;
-  bool startp = true;
 
-  int dist;
-  Direction16_T dir;
+#ifdef HAVE_SSE2
+/* Designed for computation below the diagonal, so no F loop or bottom masking needed */
+/* Operates by rows */
+Score16_T **
+Dynprog_simd_16_lower (Direction16_T ***directions_nogap, Direction16_T ***directions_Egap,
+		       T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		       int rlength, int glength,
+#ifdef DEBUG14
+		       int goffset, Univcoord_T chroffset, Univcoord_T chrhigh, bool watsonp,
+#endif
+		       Mismatchtype_T mismatchtype, int open, int extend,
+		       int lband, bool jump_late_p, bool revp) {
+  Score16_T **matrix, *score_column;
+  __m128i pairscores_std;
+  __m128i H_nogap_c, X_prev_nogap, E_c_gap, T1;
+  __m128i gap_open, gap_extend, complement_dummy;
+  __m128i dir_vert;
+  int glength_ceil, r, c;
+  int clo, chigh;
+  int na1, na2, na2_alt;
+  Score16_T *pairscores[5], *pairscores_ptr, pairscore;
+  Pairdistance_T **pairdistance_array_type, score1, score2;
 
-  debug(printf("Starting Dynprog_cigar_16 at r=%d,c=%d (roffset=%d, goffset=%d)\n",r,c,queryoffset,genomeoffset));
+#ifdef DEBUG14
+  Score32_T **matrix_std;
+  Direction32_T **directions_nogap_std, **directions_Egap_std;
+  char na2_single;
+#endif
+
+  debug15(printf("Dynprog_simd_16_lower.  jump_late_p %d, open %d, extend %d\n",jump_late_p,open,extend));
+
+  glength_ceil = (int) ((glength + SIMD_NSHORTS)/SIMD_NSHORTS) * SIMD_NSHORTS;
+  pairdistance_array_type = pairdistance_array[mismatchtype];
+  
+  debug(printf("compute_scores_simd_16_byrows (lower): "));
+  debug(printf("Lengths are %d and %d, so band is %d on left\n",rlength,glength,lband));
+  debug(printf("Genome length rounded up to %d\n",glength_ceil));
+
+  matrix = aligned_score16_alloc(glength_ceil,rlength,
+				 this->aligned.two.lower_matrix_ptrs,this->aligned.two.lower_matrix_space);
+  *directions_nogap = aligned_directions16_alloc(glength_ceil,rlength,
+						 this->aligned.two.lower_directions_ptrs_0,this->aligned.two.lower_directions_space_0);
+  *directions_Egap = aligned_directions16_alloc(glength_ceil,rlength,
+						this->aligned.two.lower_directions_ptrs_1,this->aligned.two.lower_directions_space_1);
 
 #if 0
-  /* Handle initial indel */
-  if ((dir = directions_nogap[c][r]) == DIAG) {
-    /* Not an indel.  Do nothing. */
-
-  } else if (dir == HORIZ) {
-    dist = 1;
-    while (c > 1 && directions_Egap[c][r] != DIAG) {
-      dist++;
-      c--;
-    }
-    c--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dD",dist);
-    tokens = push_token(&startp,tokens,token);
-
-  } else {
-    /* Must be VERT */
-    dist = 1;
-    while (r > 1 && directions_Fgap[c][r] != DIAG) {
-      dist++;
-      r--;
-    }
-    r--;
-    /* dir = directions_nogap[c][r]; */
-
-    sprintf(token,"0M");
-    tokens = push_token(&startp,tokens,token);
-    sprintf(token,"%dI",dist);
-    tokens = push_token(&startp,tokens,token);
+  /* Column 0 initialization */
+  /* penalty = open; */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    /* penalty += extend; */
+    (*directions_Egap)[r][0] = VERT;
+    (*directions_nogap)[r][0] = VERT;
+  }
+#endif
+#if 0
+  /* Already initialized to DIAG.  Actually, no longer initializing directions_Egap */
+  (*directions_Egap)[1][0] = DIAG; /* previously used STOP */
+  (*directions_nogap)[0][0] = DIAG; /* previously used STOP */
+#endif
+#if 0
+  /* Row 0 initialization */
+  /* penalty = open; */
+  for (c = 1; c <= SIMD_NSHORTS && c <= glength; c++) {
+    /* penalty += extend; */
+    (*directions_nogap)[0][c] = HORIZ;
   }
 #endif
 
-  *finalc = c;
-  while (c > 0) {  /* dir != STOP */
-    if (r == 0) {
-      /* Ignore gap in row 0 */
-      if (Ilength > 0 && Ilength != insertion_width) {
-	if (Mlength_postins > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	if (Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
 
-      *finalc = c;
-      tokens = List_reverse(tokens);
-      cigar = Dynprog_tokens_string(List_reverse(tokens));
-      Dynprog_tokens_free(&tokens);
+  /* Load pairscores.  Store match - mismatch */
+  pairscores[0] = (Score16_T *) _mm_malloc(glength_ceil * sizeof(Score16_T),16);
+  pairscores[1] = (Score16_T *) _mm_malloc(glength_ceil * sizeof(Score16_T),16);
+  pairscores[2] = (Score16_T *) _mm_malloc(glength_ceil * sizeof(Score16_T),16);
+  pairscores[3] = (Score16_T *) _mm_malloc(glength_ceil * sizeof(Score16_T),16);
+  pairscores[4] = (Score16_T *) _mm_malloc(glength_ceil * sizeof(Score16_T),16);
 
-      return cigar;
+#if 0
+  /* Should not be necessary */
+  memset((void *) pairscores[0],0,glength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[1],0,glength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[2],0,glength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[3],0,glength_ceil*sizeof(Score16_T));
+  memset((void *) pairscores[4],0,glength_ceil*sizeof(Score16_T));
+#endif
 
-    } else if ((dir = directions_nogap[c][r]) == DIAG) {
-      /* printf("At r %d, c %d (%c), dir is DIAG, nindels %d\n",r,c,gsequence[c],nindels[c-1]); */
+  c = 0; na2 = na2_alt = 'N';
+  pairscores[0][c] = (Score16_T) pairdistance_array_type[(int) 'A'][na2];
+  pairscores[1][c] = (Score16_T) pairdistance_array_type[(int) 'C'][na2];
+  pairscores[2][c] = (Score16_T) pairdistance_array_type[(int) 'G'][na2];
+  pairscores[3][c] = (Score16_T) pairdistance_array_type[(int) 'T'][na2];
+  pairscores[4][c] = (Score16_T) pairdistance_array_type[(int) 'N'][na2];
 
-      if (nindels[c-1] < 0) {
-	/* Genome modified with a deletion */
-	if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	  /* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	  sprintf(token,"%dS",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	} else {
-	  if (Ilength > 0) {
-	    sprintf(token,"%dM",Mlength_postins);
-	    tokens = push_token(&startp,tokens,token);
-	    sprintf(token,"%dI",Ilength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	  if (1 || Mlength > 0) {
-	    sprintf(token,"%dM",Mlength);
-	    tokens = push_token(&startp,tokens,token);
-	  }
-	}
-	Mlength = 1;
+  if (revp == false) {
+    for (c = 1; c <= glength; c++) {
+      na2 = gsequence[c-1];
+      na2_alt = gsequence_alt[c-1];
+      /* Take max here */
+      score1 = pairdistance_array_type[(int) 'A'][na2];
+      score2 = pairdistance_array_type[(int) 'A'][na2_alt];
+      pairscores[0][c] = (Score16_T) (score1 > score2) ? score1 : score2;
 
-	sprintf(token,"%dD",-nindels[c-1]);
-	tokens = push_token(&startp,tokens,token);
+      score1 = pairdistance_array_type[(int) 'C'][na2];
+      score2 = pairdistance_array_type[(int) 'C'][na2_alt];
+      pairscores[1][c] = (Score16_T) (score1 > score2) ? score1 : score2;
 
-      } else if (nindels[c-1] > 0) {
-	insertion_width = nindels[c-1];
-	if (Ilength == 0) {
-	  Mlength_postins = Mlength; /* Cannot push M yet, since I could change to S */
-	  Mlength = 0;
-	}
-	Ilength += 1;
-	/* printf("Incrementing Ilength to be %d\n",Ilength); */
+      score1 = pairdistance_array_type[(int) 'G'][na2];
+      score2 = pairdistance_array_type[(int) 'G'][na2_alt];
+      pairscores[2][c] = (Score16_T) (score1 > score2) ? score1 : score2;
 
-      } else {
-	Mlength += 1;
-	/* printf("Incrementing Mlength to be %d\n",Mlength); */
-      }
-      r--; c--;
+      score1 = pairdistance_array_type[(int) 'T'][na2];
+      score2 = pairdistance_array_type[(int) 'T'][na2_alt];
+      pairscores[3][c] = (Score16_T) (score1 > score2) ? score1 : score2;
 
-    } else if (dir == HORIZ) {
-      /* printf("At r %d, c %d, dir is HORIZ\n",r,c); */
-
-      if (startp == true && Ilength > 0 && Ilength != insertion_width) {
-	/* Incomplete insertion at beginning.  Mlength_postins should be 0. */
-	sprintf(token,"%dS",Ilength);
-	tokens = push_token(&startp,tokens,token);
-	sprintf(token,"%dM",Mlength);
-	tokens = push_token(&startp,tokens,token);
-      } else {
-	if (Ilength > 0) {
-	  sprintf(token,"%dM",Mlength_postins);
-	  tokens = push_token(&startp,tokens,token);
-	  sprintf(token,"%dI",Ilength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	}
-      }
-      Mlength = 0;
-
-      dist = 1;
-      while (c > 1 && directions_Egap[c][r] != DIAG) {
-	dist++;
-	c--;
-      }
-      c--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dD",dist);
-      tokens = push_token(&startp,tokens,token);
-
-    } else {
-      /* Must be VERT */
-      /* printf("At r %d, c %d, dir is VERT\n",r,c); */
-      if (Ilength == 0) {
-	if (1 || Mlength > 0) {
-	  sprintf(token,"%dM",Mlength);
-	  tokens = push_token(&startp,tokens,token);
-	  Mlength = 0;
-	}
-      }
-
-      Ilength += 1;
-      while (r > 1 && directions_Fgap[c][r] != DIAG) {
-	Ilength += 1;
-	r--;
-      }
-      r--;
-      /* dir = directions_nogap[c][r]; */
-
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-      Ilength = 0;
-    }
-  }
-
-  if (Ilength > 0 && Ilength != insertion_width) {
-    if (Mlength_postins > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-    }
-    sprintf(token,"%dS",Ilength);
-    tokens = push_token(&startp,tokens,token);
-    if (Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
+      score1 = pairdistance_array_type[(int) 'N'][na2];
+      score2 = pairdistance_array_type[(int) 'N'][na2_alt];
+      pairscores[4][c] = (Score16_T) (score1 > score2) ? score1 : score2;
     }
   } else {
-    if (Ilength > 0) {
-      sprintf(token,"%dM",Mlength_postins);
-      tokens = push_token(&startp,tokens,token);
-      sprintf(token,"%dI",Ilength);
-      tokens = push_token(&startp,tokens,token);
-    }
-    if (1 || Mlength > 0) {
-      sprintf(token,"%dM",Mlength);
-      tokens = push_token(&startp,tokens,token);
+    for (c = 1; c <= glength; c++) {
+      na2 = gsequence[1-c];
+      na2_alt = gsequence_alt[1-c];
+      /* Take max here */
+      score1 = pairdistance_array_type[(int) 'A'][na2];
+      score2 = pairdistance_array_type[(int) 'A'][na2_alt];
+      pairscores[0][c] = (Score16_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'C'][na2];
+      score2 = pairdistance_array_type[(int) 'C'][na2_alt];
+      pairscores[1][c] = (Score16_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'G'][na2];
+      score2 = pairdistance_array_type[(int) 'G'][na2_alt];
+      pairscores[2][c] = (Score16_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'T'][na2];
+      score2 = pairdistance_array_type[(int) 'T'][na2_alt];
+      pairscores[3][c] = (Score16_T) (score1 > score2) ? score1 : score2;
+
+      score1 = pairdistance_array_type[(int) 'N'][na2];
+      score2 = pairdistance_array_type[(int) 'N'][na2_alt];
+      pairscores[4][c] = (Score16_T) (score1 > score2) ? score1 : score2;
     }
   }
 
-  *finalc = c;
-  tokens = List_reverse(tokens);
-  cigar = Dynprog_tokens_string(List_reverse(tokens));
-  Dynprog_tokens_free(&tokens);
+#if 0
+  /* Should not be necessary */
+  memset((void *) &(pairscores[0][c]),0,(glength_ceil-c)*sizeof(Score16_T));
+  memset((void *) &(pairscores[1][c]),0,(glength_ceil-c)*sizeof(Score16_T));
+  memset((void *) &(pairscores[2][c]),0,(glength_ceil-c)*sizeof(Score16_T));
+  memset((void *) &(pairscores[3][c]),0,(glength_ceil-c)*sizeof(Score16_T));
+  memset((void *) &(pairscores[4][c]),0,(glength_ceil-c)*sizeof(Score16_T));
+#endif
 
-  return cigar;
+  complement_dummy = _mm_set1_epi16(-1);
+
+  gap_open = _mm_set1_epi16((Score16_T) open);
+  gap_extend = _mm_set1_epi16((Score16_T) extend);
+
+  if (jump_late_p) {
+    for (clo = 0; clo <= glength; clo += SIMD_NSHORTS) {
+      if ((chigh = clo + SIMD_NSHORTS - 1) > glength) {
+	chigh = glength;
+      }
+
+      /* dir_vert tests if E >= H.  To fill in first row of each
+	 column block with non-diags, make E == H. */
+      E_c_gap = _mm_set1_epi16(NEG_INFINITY_16);
+      H_nogap_c = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
+
+      for (r = clo; r <= chigh + lband && r <= rlength; r++) {
+	score_column = matrix[r];
+
+	if (r == 0) {
+	  na1 = 4; /* 'N' */
+	} else {
+	  na1 = revp ? nt_to_int_array[rsequence[1-r]] : nt_to_int_array[rsequence[r-1]];
+	}
+	pairscores_ptr = pairscores[na1];
+
+	if (r == 0) {
+	  X_prev_nogap = _mm_set1_epi16(0);
+	} else if (clo == 0) {
+	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	} else {
+	  /* second or greater block of 16 */
+	  X_prev_nogap = _mm_set1_epi16(matrix[r-1][clo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	}
+
+	debug15(print_vector_16(E_c_gap,clo,r,"E_c_gap"));
+	debug15(print_vector_16(H_nogap_c,clo,r,"H_nogap_c load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi16(H_nogap_c, gap_open);
+	dir_vert = _mm_cmplt_epi16(E_c_gap,T1); /* E < H */
+	dir_vert = _mm_andnot_si128(dir_vert,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[r][clo]),dir_vert);
+	debug15(print_vector_16(T1,clo,r,"T1"));
+	debug15(print_vector_16(dir_vert,clo,r,"dir_vert"));
+
+	E_c_gap = _mm_max_epi16(E_c_gap, T1); /* Compare H + open with vert */
+	E_c_gap = _mm_adds_epi16(E_c_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_16(E_c_gap,clo,r,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_c,LAST_SHORT);
+	H_nogap_c = _mm_slli_si128(H_nogap_c,ONE_SHORT);
+	H_nogap_c = _mm_or_si128(H_nogap_c, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores.  No alternate chars for query sequence. */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo]));
+	H_nogap_c = _mm_adds_epi16(H_nogap_c, pairscores_std);
+	_mm_clflush(&H_nogap_c); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_16(H_nogap_c,clo,r,"H"));
+
+	dir_vert = _mm_cmplt_epi16(E_c_gap,H_nogap_c); /* E < H */
+	dir_vert = _mm_andnot_si128(dir_vert,complement_dummy);	/* E >= H, for jump late */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[r][clo]),dir_vert);
+
+	H_nogap_c = _mm_max_epi16(H_nogap_c, E_c_gap); /* Compare H + pairscores with horiz + extend */
+	debug15(print_vector_16(H_nogap_c,clo,r,"H_nogap_c store"));
+	_mm_store_si128((__m128i *) &(score_column[clo]), H_nogap_c);
+
+
+	/* Fix Egap along diagonal to prevent going into upper triangle */
+	if (chigh >= r) {
+	  (*directions_Egap)[r][r] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+
+  } else {
+    /* jump early */
+    for (clo = 0; clo <= glength; clo += SIMD_NSHORTS) {
+      if ((chigh = clo + SIMD_NSHORTS - 1) > glength) {
+	chigh = glength;
+      }
+
+      /* dir_vert tests if E > H.  To fill in first row of each
+	 column block with non-diags, make E > H. */
+      E_c_gap = _mm_set1_epi16(NEG_INFINITY_16+1);
+      H_nogap_c = _mm_set1_epi16(NEG_INFINITY_16-open); /* Compensate for T1 = H + open */
+
+      for (r = clo; r <= chigh + lband && r <= rlength; r++) {
+	score_column = matrix[r];
+
+	if (r == 0) {
+	  na1 = 4; /* 'N' */
+	} else {
+	  na1 = revp ? nt_to_int_array[rsequence[1-r]] : nt_to_int_array[rsequence[r-1]];
+	}
+	pairscores_ptr = pairscores[na1];
+
+	if (r == 0) {
+	  X_prev_nogap = _mm_set1_epi16(0);
+	} else if (clo == 0) {
+	  X_prev_nogap = _mm_set1_epi16(NEG_INFINITY_16); /* works if we start outside the rlo bounds */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	} else {
+	  /* second or greater block of 16 */
+	  X_prev_nogap = _mm_set1_epi16(matrix[r-1][clo-1]); /* get H from previous block and previous column */
+	  X_prev_nogap = _mm_srli_si128(X_prev_nogap,LAST_SHORT);
+	}
+
+	debug15(print_vector_16(E_c_gap,clo,r,"E_c_gap"));
+	debug15(print_vector_16(H_nogap_c,clo,r,"H_nogap_c load"));
+
+	/* EGAP */
+	T1 = _mm_adds_epi16(H_nogap_c, gap_open);
+	dir_vert = _mm_cmpgt_epi16(E_c_gap,T1); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_Egap)[r][clo]),dir_vert);
+	debug15(print_vector_16(T1,clo,r,"T1"));
+	debug15(print_vector_16(dir_vert,clo,r,"dir_vert"));
+
+	E_c_gap = _mm_max_epi16(E_c_gap, T1); /* Compare H + open with vert */
+	E_c_gap = _mm_adds_epi16(E_c_gap, gap_extend); /* Compute scores for Egap (vert + open) */
+	debug15(print_vector_16(E_c_gap,clo,r,"E"));
+
+
+	/* NOGAP */
+	T1 = _mm_srli_si128(H_nogap_c,LAST_SHORT);
+	H_nogap_c = _mm_slli_si128(H_nogap_c,ONE_SHORT);
+	H_nogap_c = _mm_or_si128(H_nogap_c, X_prev_nogap);
+	X_prev_nogap = T1;
+
+	/* Add pairscores.  No alternate chars for query sequence */
+	pairscores_std = _mm_load_si128((__m128i *) &(pairscores_ptr[clo]));
+	H_nogap_c = _mm_adds_epi16(H_nogap_c, pairscores_std);
+	_mm_clflush(&H_nogap_c); /* Needed for opencc -O3 on AMD */
+	debug15(print_vector_16(H_nogap_c,clo,r,"H"));
+
+	dir_vert = _mm_cmpgt_epi16(E_c_gap,H_nogap_c); /* E > H, for jump early */
+	_mm_store_si128((__m128i *) &((*directions_nogap)[r][clo]),dir_vert);
+
+	H_nogap_c = _mm_max_epi16(H_nogap_c, E_c_gap); /* Compare H + pairscores with horiz + extend */
+	debug15(print_vector_16(H_nogap_c,clo,r,"H_nogap_c store"));
+	_mm_store_si128((__m128i *) &(score_column[clo]), H_nogap_c);
+
+
+	/* Fix Egap along diagonal to prevent going into upper triangle */
+	if (chigh >= r) {
+	  (*directions_Egap)[r][r] = DIAG;
+	}
+
+	/* No need for F loop here */
+      }
+    }
+  }
+
+
+#ifdef CHECK1
+  /* Row 0 and column 0 directions fail anyway due to saturation */
+  /* Handle (0,1) and (1,0) directions, otherwise DIAG */
+  (*directions_Egap)[1][0] = VERT;
+#endif
+
+#ifdef DEBUG2
+  printf("SIMD: Dynprog_simd_16_lower\n");
+  Matrix16_print_ud(matrix,rlength,glength,rsequence,gsequence,gsequence_alt,
+		    revp,lband,/*upperp*/false);
+  Directions16_print_ud(*directions_nogap,*directions_Egap,
+			rlength,glength,rsequence,gsequence,gsequence_alt,
+			revp,lband,/*upperp*/false);
+#endif
+
+#ifdef CHECK1
+  /* Check for column 0 directions */
+  for (r = 1; r <= lband && r <= rlength; r++) {
+    assert((*directions_Egap)[r][0] != DIAG);
+    assert((*directions_nogap)[r][0] != DIAG);
+  }
+#endif
+
+#ifdef DEBUG14
+  matrix_std = compute_scores_standard(&directions_nogap_std,&directions_Egap_std,
+				       this,rsequence,/*gsequence (NULL for debugging)*/NULL,/*gsequence_alt*/NULL,
+				       rlength,glength,
+				       goffset,chroffset,chrhigh,watsonp,mismatchtype,
+				       open,extend,lband,uband,jump_late_p,revp);
+
+#ifdef DEBUG2
+  printf("Banded\n");
+  Matrix32_print(matrix_std,rlength,glength,rsequence,gsequence,gsequence_alt,
+		 revp);
+  Directions32_print(directions_nogap_std,directions_Egap_std,
+		     rlength,glength,rsequence,gsequence,gsequence_alt,
+		     revp);
+#endif
+  
+  banded_matrix16_compare(matrix,matrix_std,rlength,glength,lband,uband,
+			  rsequence,gsequence,gsequence_alt,
+			  goffset,chroffset,chrhigh,watsonp,revp);
+
+  banded_directions16_compare_nogap(*directions_nogap,directions_nogap_std,rlength,glength,lband,uband);
+
+  banded_directions16_compare_Egap(*directions_Egap,directions_Egap_std,rlength,glength,lband,uband);
+#endif
+
+  _mm_free(pairscores[4]);
+  _mm_free(pairscores[3]);
+  _mm_free(pairscores[2]);
+  _mm_free(pairscores[1]);
+  _mm_free(pairscores[0]);
+
+  return matrix;
 }
 #endif
 

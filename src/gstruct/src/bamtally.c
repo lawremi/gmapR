@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 135743 2014-05-09 16:58:57Z twu $";
+static char rcsid[] = "$Id: bamtally.c 136268 2014-05-14 22:04:03Z michafla $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -5037,7 +5037,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 		   /*quality_score_adj*/0,min_depth,variant_strands,
 		   /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
 		   print_indels_p,/*print_totals_p*/false,/*print_cycles_p*/false,
-		   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,/*print_xs_scores_p*/print_xs_scores_p,
+		   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,print_xs_scores_p,
 		   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip,
 		   print_noncovered_p,/*bamfile*/NULL);
       /* Reverse lists so we can specify presortedp == true */
@@ -5087,7 +5087,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
                    /*genomic_diff_p*/false,/*signed_counts_p*/false,
                    ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
                    /*print_cycles_p*/false,
-                   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,/*print_xs_scores_p*/print_xs_scores_p,
+                   /*print_quality_scores_p*/false,/*print_mapq_scores_p*/false,print_xs_scores_p,
                    /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip,
 		   print_noncovered_p,/*bamfile*/NULL);
     }
