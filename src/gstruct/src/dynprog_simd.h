@@ -30,19 +30,5 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 		 Mismatchtype_T mismatchtype, int open, int extend,
 		 int lband, int uband, bool jump_late_p, bool revp);
 
-extern char *
-Dynprog_cigar_8 (int *finalc, Direction8_T **directions_nogap,
-		 Direction8_T **directions_Egap, Direction8_T **directions_Fgap,
-		 int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		 char *nindels, int queryoffset, int genomeoffset, bool revp,
-		 Univcoord_T chroffset, Univcoord_T chrhigh);
-
-extern char *
-Dynprog_cigar_16 (int *finalc, Direction16_T **directions_nogap,
-		  Direction16_T **directions_Egap, Direction16_T **directions_Fgap,
-		  int r, int c, char *rsequence, char *gsequence, char *gsequence_alt,
-		  char *nindels, int queryoffset, int genomeoffset, bool revp,
-		  Univcoord_T chroffset, Univcoord_T chrhigh);
-
 #undef T
 #endif

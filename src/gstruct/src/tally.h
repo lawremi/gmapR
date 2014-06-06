@@ -1,0 +1,146 @@
+#ifndef TALLY_INCLUDED
+#define TALLY_INCLUDED
+#include "list.h"
+#include "bool.h"
+
+#include "genomicpos.h"
+
+#include "matchdef.h"
+#include "matchpool.h"
+#include "mismatchdef.h"
+#include "mismatchpool.h"
+
+
+#define MAX_QUALITY_SCORE 40	/* Also in bamtally.c */
+#define MAX_MAPQ_SCORE 40	/* Also in bamtally.c */
+
+
+extern Match_T
+Match_new (int shift, int mapq, char quality, int xs);
+extern void
+Match_free (Match_T *old);
+extern Mismatch_T
+Mismatch_new (char nt, int shift, int mapq, char quality, int xs);
+extern void
+Mismatch_free (Mismatch_T *old);
+
+typedef struct Insertion_T *Insertion_T;
+struct Insertion_T {
+  Genomicpos_T chrpos;
+  char *segment;
+  int mlength;
+  int shift;			/* Used to record shifts */
+  int mapq;
+  char quality;
+  long int count;
+
+  long int count_plus;		/* Used by unique elements */
+  long int count_minus;		/* Used by unique elements */
+
+  Insertion_T next;		/* Used for linking similar insertions together */
+};
+
+extern Insertion_T
+Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int mapq, char quality);
+extern void
+Insertion_free (Insertion_T *old);
+extern int
+Insertion_count_cmp (const void *a, const void *b);
+extern Insertion_T
+find_insertion_byshift (List_T insertions, char *segment, int mlength, int shift);
+extern Insertion_T
+find_insertion_seg (List_T insertions, char *segment, int mlength);
+
+
+typedef struct Deletion_T *Deletion_T;
+struct Deletion_T {
+  Genomicpos_T chrpos;
+  char *segment;
+  int mlength;
+  int shift;			/* Used to record shifts */
+  int mapq;
+  long int count;
+
+  long int count_plus;		/* Used by unique elements */
+  long int count_minus;		/* Used by unique elements */
+
+  Deletion_T next;		/* Used for linking similar deletions together */
+};
+
+extern Deletion_T
+Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int mapq);
+extern void
+Deletion_free (Deletion_T *old);
+extern int
+Deletion_count_cmp (const void *a, const void *b);
+extern Deletion_T
+find_deletion_byshift (List_T deletions, char *segment, int mlength, int shift);
+extern Deletion_T
+find_deletion_seg (List_T deletions, char *segment, int mlength);
+
+
+typedef struct Tally_T *Tally_T;
+struct Tally_T {
+  char refnt;
+  int nmatches;
+
+  long int n_fromleft_plus; /* Used for reference count for insertions */
+  long int n_fromleft_minus; /* Used for reference count for insertions */
+
+#ifdef USE_MATCHPOOL
+  Matchpool_T matchpool;
+#endif
+#ifdef USE_MISMATCHPOOL
+  Mismatchpool_T mismatchpool;
+#endif
+
+  bool use_array_p;
+  List_T list_matches_byshift;
+  List_T list_matches_byquality;
+  List_T list_matches_bymapq;
+  List_T list_matches_byxs;
+
+#ifdef REUSE_ARRAYS
+  int avail_matches_byshift_plus;
+  int avail_matches_byshift_minus;
+  int avail_matches_byquality;
+  int avail_matches_bymapq;
+#endif
+
+  int n_matches_byshift_plus;
+  int *matches_byshift_plus;
+  int n_matches_byshift_minus;
+  int *matches_byshift_minus;
+
+  int n_matches_byquality;
+  int *matches_byquality;
+
+  int n_matches_bymapq;
+  int *matches_bymapq;
+
+  int n_matches_byxs;
+  int *matches_byxs;
+
+  List_T mismatches_byshift;
+  List_T mismatches_byquality;
+  List_T mismatches_bymapq;
+  List_T mismatches_byxs;
+
+  List_T insertions_byshift;
+  List_T deletions_byshift;
+};
+
+
+extern Tally_T
+Tally_new ();
+extern void
+Tally_clear (Tally_T this);
+extern void
+Tally_transfer (Tally_T *dest, Tally_T *src);
+extern void
+Tally_free (Tally_T *old);
+
+
+#endif
+
+

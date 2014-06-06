@@ -83,7 +83,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 @MAKE_BINARIES_TRUE@bin_PROGRAMS = $(am__EXEEXT_1)
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__append_1 = bam_tally bam_get bam_fastq
+@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__append_1 = bam_tally
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/config.h.in $(top_srcdir)/config/depcomp \
@@ -157,12 +157,10 @@ am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST =  \
 	genomicpos.c genomicpos.h md5.c md5.h sequence.c sequence.h \
 	genome.c genome.h uinttable.c uinttable.h table.c table.h \
 	chrnum.c chrnum.h bamread.c bamread.h samread.c samread.h \
-	parserange.c parserange.h dynprog.c dynprog.h dynprog_simd.c \
-	dynprog_simd.h dynprog_single.c dynprog_single.h tableuint.c \
-	tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
-	matchdef.h matchpool.c matchpool.h mismatchdef.h \
-	mismatchpool.c mismatchpool.h bamtally.c bamtally.h datadir.c \
-	datadir.h
+	parserange.c parserange.h tableuint.c tableuint.h iit-write.c \
+	iit-write.h ucharlist.c ucharlist.h matchdef.h matchpool.c \
+	matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h \
+	tally.c tally.h bamtally.c bamtally.h datadir.c datadir.h
 am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-assert.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mem.lo \
@@ -186,14 +184,12 @@ am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamread.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-samread.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo \
-	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo \
-	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo \
-	libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-iit-write.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-matchpool.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo
 @SAMTOOLS_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
@@ -209,45 +205,8 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la_LINK = $(LIBTOOL) $(AM_V_lt) \
 	$(CCLD) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) \
 	$(CFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS) \
 	$(LDFLAGS) -o $@
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__EXEEXT_1 = bam_tally$(EXEEXT) \
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@	bam_get$(EXEEXT) \
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@	bam_fastq$(EXEEXT)
+@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__EXEEXT_1 = bam_tally$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS)
-am__objects_2 = bam_fastq-except.$(OBJEXT) bam_fastq-assert.$(OBJEXT) \
-	bam_fastq-mem.$(OBJEXT) bam_fastq-list.$(OBJEXT) \
-	bam_fastq-genomicpos.$(OBJEXT) bam_fastq-intlist.$(OBJEXT) \
-	bam_fastq-uintlist.$(OBJEXT) bam_fastq-stopwatch.$(OBJEXT) \
-	bam_fastq-access.$(OBJEXT) bam_fastq-md5.$(OBJEXT) \
-	bam_fastq-sequence.$(OBJEXT) bam_fastq-genome.$(OBJEXT) \
-	bam_fastq-chrom.$(OBJEXT) bam_fastq-uinttable.$(OBJEXT) \
-	bam_fastq-interval.$(OBJEXT) bam_fastq-iit-read.$(OBJEXT) \
-	bam_fastq-bamread.$(OBJEXT) bam_fastq-samread.$(OBJEXT) \
-	bam_fastq-table.$(OBJEXT) bam_fastq-getopt.$(OBJEXT) \
-	bam_fastq-getopt1.$(OBJEXT) bam_fastq-bam_fastq.$(OBJEXT)
-dist_bam_fastq_OBJECTS = $(am__objects_2)
-bam_fastq_OBJECTS = $(dist_bam_fastq_OBJECTS)
-bam_fastq_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-bam_fastq_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(bam_fastq_CFLAGS) \
-	$(CFLAGS) $(bam_fastq_LDFLAGS) $(LDFLAGS) -o $@
-am__objects_3 = bam_get-except.$(OBJEXT) bam_get-assert.$(OBJEXT) \
-	bam_get-mem.$(OBJEXT) bam_get-intlist.$(OBJEXT) \
-	bam_get-list.$(OBJEXT) bam_get-uintlist.$(OBJEXT) \
-	bam_get-stopwatch.$(OBJEXT) bam_get-access.$(OBJEXT) \
-	bam_get-interval.$(OBJEXT) bam_get-iit-read.$(OBJEXT) \
-	bam_get-chrom.$(OBJEXT) bam_get-genomicpos.$(OBJEXT) \
-	bam_get-md5.$(OBJEXT) bam_get-sequence.$(OBJEXT) \
-	bam_get-genome.$(OBJEXT) bam_get-uinttable.$(OBJEXT) \
-	bam_get-table.$(OBJEXT) bam_get-chrnum.$(OBJEXT) \
-	bam_get-bamread.$(OBJEXT) bam_get-samread.$(OBJEXT) \
-	bam_get-parserange.$(OBJEXT) bam_get-getopt.$(OBJEXT) \
-	bam_get-getopt1.$(OBJEXT) bam_get-bam_get.$(OBJEXT)
-dist_bam_get_OBJECTS = $(am__objects_3)
-bam_get_OBJECTS = $(dist_bam_get_OBJECTS)
-bam_get_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-bam_get_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(bam_get_CFLAGS) \
-	$(CFLAGS) $(bam_get_LDFLAGS) $(LDFLAGS) -o $@
 am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h except.c \
 	except.h assert.c assert.h mem.c mem.h intlistdef.h intlist.c \
 	intlist.h listdef.h list.c list.h littleendian.c \
@@ -257,14 +216,12 @@ am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h except.c \
 	genomicpos.c genomicpos.h md5.c md5.h complement.h sequence.c \
 	sequence.h genome.c genome.h uinttable.c uinttable.h table.c \
 	table.h chrnum.c chrnum.h bamread.c bamread.h samread.c \
-	samread.h parserange.c parserange.h dynprog.c dynprog.h \
-	dynprog_simd.c dynprog_simd.h dynprog_single.c \
-	dynprog_single.h tableuint.c tableuint.h iit-write.c \
-	iit-write.h ucharlist.c ucharlist.h matchdef.h matchpool.c \
-	matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h \
-	bamtally.c bamtally.h datadir.c datadir.h getopt.c getopt1.c \
-	getopt.h bamtally_main.c
-am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
+	samread.h parserange.c parserange.h tableuint.c tableuint.h \
+	iit-write.c iit-write.h ucharlist.c ucharlist.h matchdef.h \
+	matchpool.c matchpool.h mismatchdef.h mismatchpool.c \
+	mismatchpool.h tally.c tally.h bamtally.c bamtally.h datadir.c \
+	datadir.h getopt.c getopt1.c getopt.h bamtally_main.c
+am__objects_2 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-mem.$(OBJEXT) bam_tally-intlist.$(OBJEXT) \
 	bam_tally-list.$(OBJEXT) bam_tally-littleendian.$(OBJEXT) \
 	bam_tally-bigendian.$(OBJEXT) bam_tally-interval.$(OBJEXT) \
@@ -275,15 +232,13 @@ am__objects_4 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-genome.$(OBJEXT) bam_tally-uinttable.$(OBJEXT) \
 	bam_tally-table.$(OBJEXT) bam_tally-chrnum.$(OBJEXT) \
 	bam_tally-bamread.$(OBJEXT) bam_tally-samread.$(OBJEXT) \
-	bam_tally-parserange.$(OBJEXT) bam_tally-dynprog.$(OBJEXT) \
-	bam_tally-dynprog_simd.$(OBJEXT) \
-	bam_tally-dynprog_single.$(OBJEXT) \
-	bam_tally-tableuint.$(OBJEXT) bam_tally-iit-write.$(OBJEXT) \
-	bam_tally-ucharlist.$(OBJEXT) bam_tally-matchpool.$(OBJEXT) \
-	bam_tally-mismatchpool.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
+	bam_tally-parserange.$(OBJEXT) bam_tally-tableuint.$(OBJEXT) \
+	bam_tally-iit-write.$(OBJEXT) bam_tally-ucharlist.$(OBJEXT) \
+	bam_tally-matchpool.$(OBJEXT) bam_tally-mismatchpool.$(OBJEXT) \
+	bam_tally-tally.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
 	bam_tally-datadir.$(OBJEXT) bam_tally-getopt.$(OBJEXT) \
 	bam_tally-getopt1.$(OBJEXT) bam_tally-bamtally_main.$(OBJEXT)
-@SAMTOOLS_TRUE@dist_bam_tally_OBJECTS = $(am__objects_4)
+@SAMTOOLS_TRUE@dist_bam_tally_OBJECTS = $(am__objects_2)
 bam_tally_OBJECTS = $(dist_bam_tally_OBJECTS)
 @SAMTOOLS_TRUE@bam_tally_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 @SAMTOOLS_TRUE@	$(am__DEPENDENCIES_1)
@@ -325,10 +280,8 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES) \
-	$(dist_bam_fastq_SOURCES) $(dist_bam_get_SOURCES) \
 	$(dist_bam_tally_SOURCES)
 DIST_SOURCES = $(am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST) \
-	$(dist_bam_fastq_SOURCES) $(dist_bam_get_SOURCES) \
 	$(am__dist_bam_tally_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -408,7 +361,6 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
@@ -510,9 +462,8 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
- dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
@@ -531,9 +482,8 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
- dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 
@@ -557,7 +507,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  uinttable.h table.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
- dynprog.h dynprog_simd.h dynprog_single.h \
+ dynprog.h dynprog_simd.h dynprog_cigar.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h \
  matchdef.h matchpool.h mismatchdef.h mismatchpool.h bamtally.h datadir.h
 
@@ -567,48 +517,12 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
 #nodist_bamtally_libinclude_HEADERS = bamtally-config.h
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = ../lib/gstruct-$(LIBGSTRUCT_API_VERSION).pc
-BAM_GET_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h \
- interval.c interval.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- uinttable.c uinttable.h table.c table.h \
- chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h \
- parserange.c parserange.h \
- getopt.c getopt1.c getopt.h bam_get.c
-
-bam_get_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DBAM_INPUT=1
-bam_get_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_get_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_get_SOURCES = $(BAM_GET_FILES)
-BAM_FASTQ_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- listdef.h list.c list.h \
- genomicpos.c genomicpos.h complement.h \
- intlistdef.h intlist.c intlist.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h \
- md5.c md5.h sequence.c sequence.h \
- genome.c genome.h chrom.c chrom.h \
- uinttable.c uinttable.h \
- interval.c interval.h iit-read.c iit-read.h \
- bamread.c bamread.h samread.c samread.h \
- table.c table.h \
- getopt.c getopt1.c getopt.h bam_fastq.c
-
-bam_fastq_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-bam_fastq_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_fastq_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_fastq_SOURCES = $(BAM_FASTQ_FILES)
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -633,9 +547,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
+$(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
+$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
@@ -646,7 +560,7 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status src/config.h
-$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
+$(srcdir)/config.h.in:  $(am__configure_deps) 
 	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
 	rm -f stamp-h1
 	touch $@
@@ -741,14 +655,6 @@ clean-binPROGRAMS:
 	echo " rm -f" $$list; \
 	rm -f $$list
 
-bam_fastq$(EXEEXT): $(bam_fastq_OBJECTS) $(bam_fastq_DEPENDENCIES) $(EXTRA_bam_fastq_DEPENDENCIES) 
-	@rm -f bam_fastq$(EXEEXT)
-	$(AM_V_CCLD)$(bam_fastq_LINK) $(bam_fastq_OBJECTS) $(bam_fastq_LDADD) $(LIBS)
-
-bam_get$(EXEEXT): $(bam_get_OBJECTS) $(bam_get_DEPENDENCIES) $(EXTRA_bam_get_DEPENDENCIES) 
-	@rm -f bam_get$(EXEEXT)
-	$(AM_V_CCLD)$(bam_get_LINK) $(bam_get_OBJECTS) $(bam_get_LDADD) $(LIBS)
-
 bam_tally$(EXEEXT): $(bam_tally_OBJECTS) $(bam_tally_DEPENDENCIES) $(EXTRA_bam_tally_DEPENDENCIES) 
 	@rm -f bam_tally$(EXEEXT)
 	$(AM_V_CCLD)$(bam_tally_LINK) $(bam_tally_OBJECTS) $(bam_tally_LDADD) $(LIBS)
@@ -759,52 +665,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-access.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-assert.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-bam_fastq.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-bamread.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-chrom.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-except.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-genome.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-genomicpos.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-getopt.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-getopt1.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-iit-read.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-interval.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-intlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-list.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-md5.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-mem.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-samread.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-sequence.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-stopwatch.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-table.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-uintlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_fastq-uinttable.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-access.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-assert.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-bam_get.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-bamread.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-chrnum.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-chrom.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-except.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-genome.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-genomicpos.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-getopt.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-getopt1.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-iit-read.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-interval.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-intlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-list.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-md5.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-mem.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-parserange.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-samread.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-sequence.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-stopwatch.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-table.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-uintlist.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_get-uinttable.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-access.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-assert.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-bamread.Po@am__quote@
@@ -814,9 +674,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-chrnum.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-chrom.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-datadir.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog_simd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-dynprog_single.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-except.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genome.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genomicpos.Po@am__quote@
@@ -838,6 +695,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-stopwatch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-table.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-tableuint.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-tally.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-ucharlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-uintlist.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-uinttable.Po@am__quote@
@@ -849,9 +707,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-chrnum.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-chrom.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genome.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genomicpos.Plo@am__quote@
@@ -871,6 +726,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-stopwatch.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-table.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-ucharlist.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-uintlist.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-uinttable.Plo@am__quote@
@@ -1057,27 +913,6 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo: parserange.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-parserange.lo `test -f 'parserange.c' || echo '$(srcdir)/'`parserange.c
 
-libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo: dynprog.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog.lo `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
-
-libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo: dynprog_simd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_simd.lo `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
-
-libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo: dynprog_single.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-dynprog_single.lo `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
-
 libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo: tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.lo `test -f 'tableuint.c' || echo '$(srcdir)/'`tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tableuint.Plo
@@ -1113,6 +948,13 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo: mismatchpool.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo `test -f 'mismatchpool.c' || echo '$(srcdir)/'`mismatchpool.c
 
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo: tally.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo `test -f 'tally.c' || echo '$(srcdir)/'`tally.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tally.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo `test -f 'tally.c' || echo '$(srcdir)/'`tally.c
+
 libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.Plo
@@ -1126,650 +968,6 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo: datadir.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='datadir.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo `test -f 'datadir.c' || echo '$(srcdir)/'`datadir.c
-
-bam_fastq-except.o: except.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-except.o -MD -MP -MF $(DEPDIR)/bam_fastq-except.Tpo -c -o bam_fastq-except.o `test -f 'except.c' || echo '$(srcdir)/'`except.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-except.Tpo $(DEPDIR)/bam_fastq-except.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='except.c' object='bam_fastq-except.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-except.o `test -f 'except.c' || echo '$(srcdir)/'`except.c
-
-bam_fastq-except.obj: except.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-except.obj -MD -MP -MF $(DEPDIR)/bam_fastq-except.Tpo -c -o bam_fastq-except.obj `if test -f 'except.c'; then $(CYGPATH_W) 'except.c'; else $(CYGPATH_W) '$(srcdir)/except.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-except.Tpo $(DEPDIR)/bam_fastq-except.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='except.c' object='bam_fastq-except.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-except.obj `if test -f 'except.c'; then $(CYGPATH_W) 'except.c'; else $(CYGPATH_W) '$(srcdir)/except.c'; fi`
-
-bam_fastq-assert.o: assert.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-assert.o -MD -MP -MF $(DEPDIR)/bam_fastq-assert.Tpo -c -o bam_fastq-assert.o `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-assert.Tpo $(DEPDIR)/bam_fastq-assert.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assert.c' object='bam_fastq-assert.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-assert.o `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
-
-bam_fastq-assert.obj: assert.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-assert.obj -MD -MP -MF $(DEPDIR)/bam_fastq-assert.Tpo -c -o bam_fastq-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-assert.Tpo $(DEPDIR)/bam_fastq-assert.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assert.c' object='bam_fastq-assert.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
-
-bam_fastq-mem.o: mem.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-mem.o -MD -MP -MF $(DEPDIR)/bam_fastq-mem.Tpo -c -o bam_fastq-mem.o `test -f 'mem.c' || echo '$(srcdir)/'`mem.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-mem.Tpo $(DEPDIR)/bam_fastq-mem.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mem.c' object='bam_fastq-mem.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-mem.o `test -f 'mem.c' || echo '$(srcdir)/'`mem.c
-
-bam_fastq-mem.obj: mem.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-mem.obj -MD -MP -MF $(DEPDIR)/bam_fastq-mem.Tpo -c -o bam_fastq-mem.obj `if test -f 'mem.c'; then $(CYGPATH_W) 'mem.c'; else $(CYGPATH_W) '$(srcdir)/mem.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-mem.Tpo $(DEPDIR)/bam_fastq-mem.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mem.c' object='bam_fastq-mem.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-mem.obj `if test -f 'mem.c'; then $(CYGPATH_W) 'mem.c'; else $(CYGPATH_W) '$(srcdir)/mem.c'; fi`
-
-bam_fastq-list.o: list.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-list.o -MD -MP -MF $(DEPDIR)/bam_fastq-list.Tpo -c -o bam_fastq-list.o `test -f 'list.c' || echo '$(srcdir)/'`list.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-list.Tpo $(DEPDIR)/bam_fastq-list.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='list.c' object='bam_fastq-list.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-list.o `test -f 'list.c' || echo '$(srcdir)/'`list.c
-
-bam_fastq-list.obj: list.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-list.obj -MD -MP -MF $(DEPDIR)/bam_fastq-list.Tpo -c -o bam_fastq-list.obj `if test -f 'list.c'; then $(CYGPATH_W) 'list.c'; else $(CYGPATH_W) '$(srcdir)/list.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-list.Tpo $(DEPDIR)/bam_fastq-list.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='list.c' object='bam_fastq-list.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-list.obj `if test -f 'list.c'; then $(CYGPATH_W) 'list.c'; else $(CYGPATH_W) '$(srcdir)/list.c'; fi`
-
-bam_fastq-genomicpos.o: genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-genomicpos.o -MD -MP -MF $(DEPDIR)/bam_fastq-genomicpos.Tpo -c -o bam_fastq-genomicpos.o `test -f 'genomicpos.c' || echo '$(srcdir)/'`genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-genomicpos.Tpo $(DEPDIR)/bam_fastq-genomicpos.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genomicpos.c' object='bam_fastq-genomicpos.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-genomicpos.o `test -f 'genomicpos.c' || echo '$(srcdir)/'`genomicpos.c
-
-bam_fastq-genomicpos.obj: genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-genomicpos.obj -MD -MP -MF $(DEPDIR)/bam_fastq-genomicpos.Tpo -c -o bam_fastq-genomicpos.obj `if test -f 'genomicpos.c'; then $(CYGPATH_W) 'genomicpos.c'; else $(CYGPATH_W) '$(srcdir)/genomicpos.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-genomicpos.Tpo $(DEPDIR)/bam_fastq-genomicpos.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genomicpos.c' object='bam_fastq-genomicpos.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-genomicpos.obj `if test -f 'genomicpos.c'; then $(CYGPATH_W) 'genomicpos.c'; else $(CYGPATH_W) '$(srcdir)/genomicpos.c'; fi`
-
-bam_fastq-intlist.o: intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-intlist.o -MD -MP -MF $(DEPDIR)/bam_fastq-intlist.Tpo -c -o bam_fastq-intlist.o `test -f 'intlist.c' || echo '$(srcdir)/'`intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-intlist.Tpo $(DEPDIR)/bam_fastq-intlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='intlist.c' object='bam_fastq-intlist.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-intlist.o `test -f 'intlist.c' || echo '$(srcdir)/'`intlist.c
-
-bam_fastq-intlist.obj: intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-intlist.obj -MD -MP -MF $(DEPDIR)/bam_fastq-intlist.Tpo -c -o bam_fastq-intlist.obj `if test -f 'intlist.c'; then $(CYGPATH_W) 'intlist.c'; else $(CYGPATH_W) '$(srcdir)/intlist.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-intlist.Tpo $(DEPDIR)/bam_fastq-intlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='intlist.c' object='bam_fastq-intlist.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-intlist.obj `if test -f 'intlist.c'; then $(CYGPATH_W) 'intlist.c'; else $(CYGPATH_W) '$(srcdir)/intlist.c'; fi`
-
-bam_fastq-uintlist.o: uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-uintlist.o -MD -MP -MF $(DEPDIR)/bam_fastq-uintlist.Tpo -c -o bam_fastq-uintlist.o `test -f 'uintlist.c' || echo '$(srcdir)/'`uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-uintlist.Tpo $(DEPDIR)/bam_fastq-uintlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uintlist.c' object='bam_fastq-uintlist.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-uintlist.o `test -f 'uintlist.c' || echo '$(srcdir)/'`uintlist.c
-
-bam_fastq-uintlist.obj: uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-uintlist.obj -MD -MP -MF $(DEPDIR)/bam_fastq-uintlist.Tpo -c -o bam_fastq-uintlist.obj `if test -f 'uintlist.c'; then $(CYGPATH_W) 'uintlist.c'; else $(CYGPATH_W) '$(srcdir)/uintlist.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-uintlist.Tpo $(DEPDIR)/bam_fastq-uintlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uintlist.c' object='bam_fastq-uintlist.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-uintlist.obj `if test -f 'uintlist.c'; then $(CYGPATH_W) 'uintlist.c'; else $(CYGPATH_W) '$(srcdir)/uintlist.c'; fi`
-
-bam_fastq-stopwatch.o: stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-stopwatch.o -MD -MP -MF $(DEPDIR)/bam_fastq-stopwatch.Tpo -c -o bam_fastq-stopwatch.o `test -f 'stopwatch.c' || echo '$(srcdir)/'`stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-stopwatch.Tpo $(DEPDIR)/bam_fastq-stopwatch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stopwatch.c' object='bam_fastq-stopwatch.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-stopwatch.o `test -f 'stopwatch.c' || echo '$(srcdir)/'`stopwatch.c
-
-bam_fastq-stopwatch.obj: stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-stopwatch.obj -MD -MP -MF $(DEPDIR)/bam_fastq-stopwatch.Tpo -c -o bam_fastq-stopwatch.obj `if test -f 'stopwatch.c'; then $(CYGPATH_W) 'stopwatch.c'; else $(CYGPATH_W) '$(srcdir)/stopwatch.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-stopwatch.Tpo $(DEPDIR)/bam_fastq-stopwatch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stopwatch.c' object='bam_fastq-stopwatch.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-stopwatch.obj `if test -f 'stopwatch.c'; then $(CYGPATH_W) 'stopwatch.c'; else $(CYGPATH_W) '$(srcdir)/stopwatch.c'; fi`
-
-bam_fastq-access.o: access.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-access.o -MD -MP -MF $(DEPDIR)/bam_fastq-access.Tpo -c -o bam_fastq-access.o `test -f 'access.c' || echo '$(srcdir)/'`access.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-access.Tpo $(DEPDIR)/bam_fastq-access.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='access.c' object='bam_fastq-access.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-access.o `test -f 'access.c' || echo '$(srcdir)/'`access.c
-
-bam_fastq-access.obj: access.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-access.obj -MD -MP -MF $(DEPDIR)/bam_fastq-access.Tpo -c -o bam_fastq-access.obj `if test -f 'access.c'; then $(CYGPATH_W) 'access.c'; else $(CYGPATH_W) '$(srcdir)/access.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-access.Tpo $(DEPDIR)/bam_fastq-access.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='access.c' object='bam_fastq-access.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-access.obj `if test -f 'access.c'; then $(CYGPATH_W) 'access.c'; else $(CYGPATH_W) '$(srcdir)/access.c'; fi`
-
-bam_fastq-md5.o: md5.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-md5.o -MD -MP -MF $(DEPDIR)/bam_fastq-md5.Tpo -c -o bam_fastq-md5.o `test -f 'md5.c' || echo '$(srcdir)/'`md5.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-md5.Tpo $(DEPDIR)/bam_fastq-md5.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='md5.c' object='bam_fastq-md5.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-md5.o `test -f 'md5.c' || echo '$(srcdir)/'`md5.c
-
-bam_fastq-md5.obj: md5.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-md5.obj -MD -MP -MF $(DEPDIR)/bam_fastq-md5.Tpo -c -o bam_fastq-md5.obj `if test -f 'md5.c'; then $(CYGPATH_W) 'md5.c'; else $(CYGPATH_W) '$(srcdir)/md5.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-md5.Tpo $(DEPDIR)/bam_fastq-md5.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='md5.c' object='bam_fastq-md5.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-md5.obj `if test -f 'md5.c'; then $(CYGPATH_W) 'md5.c'; else $(CYGPATH_W) '$(srcdir)/md5.c'; fi`
-
-bam_fastq-sequence.o: sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-sequence.o -MD -MP -MF $(DEPDIR)/bam_fastq-sequence.Tpo -c -o bam_fastq-sequence.o `test -f 'sequence.c' || echo '$(srcdir)/'`sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-sequence.Tpo $(DEPDIR)/bam_fastq-sequence.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sequence.c' object='bam_fastq-sequence.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-sequence.o `test -f 'sequence.c' || echo '$(srcdir)/'`sequence.c
-
-bam_fastq-sequence.obj: sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-sequence.obj -MD -MP -MF $(DEPDIR)/bam_fastq-sequence.Tpo -c -o bam_fastq-sequence.obj `if test -f 'sequence.c'; then $(CYGPATH_W) 'sequence.c'; else $(CYGPATH_W) '$(srcdir)/sequence.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-sequence.Tpo $(DEPDIR)/bam_fastq-sequence.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sequence.c' object='bam_fastq-sequence.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-sequence.obj `if test -f 'sequence.c'; then $(CYGPATH_W) 'sequence.c'; else $(CYGPATH_W) '$(srcdir)/sequence.c'; fi`
-
-bam_fastq-genome.o: genome.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-genome.o -MD -MP -MF $(DEPDIR)/bam_fastq-genome.Tpo -c -o bam_fastq-genome.o `test -f 'genome.c' || echo '$(srcdir)/'`genome.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-genome.Tpo $(DEPDIR)/bam_fastq-genome.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genome.c' object='bam_fastq-genome.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-genome.o `test -f 'genome.c' || echo '$(srcdir)/'`genome.c
-
-bam_fastq-genome.obj: genome.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-genome.obj -MD -MP -MF $(DEPDIR)/bam_fastq-genome.Tpo -c -o bam_fastq-genome.obj `if test -f 'genome.c'; then $(CYGPATH_W) 'genome.c'; else $(CYGPATH_W) '$(srcdir)/genome.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-genome.Tpo $(DEPDIR)/bam_fastq-genome.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genome.c' object='bam_fastq-genome.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-genome.obj `if test -f 'genome.c'; then $(CYGPATH_W) 'genome.c'; else $(CYGPATH_W) '$(srcdir)/genome.c'; fi`
-
-bam_fastq-chrom.o: chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-chrom.o -MD -MP -MF $(DEPDIR)/bam_fastq-chrom.Tpo -c -o bam_fastq-chrom.o `test -f 'chrom.c' || echo '$(srcdir)/'`chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-chrom.Tpo $(DEPDIR)/bam_fastq-chrom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrom.c' object='bam_fastq-chrom.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-chrom.o `test -f 'chrom.c' || echo '$(srcdir)/'`chrom.c
-
-bam_fastq-chrom.obj: chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-chrom.obj -MD -MP -MF $(DEPDIR)/bam_fastq-chrom.Tpo -c -o bam_fastq-chrom.obj `if test -f 'chrom.c'; then $(CYGPATH_W) 'chrom.c'; else $(CYGPATH_W) '$(srcdir)/chrom.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-chrom.Tpo $(DEPDIR)/bam_fastq-chrom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrom.c' object='bam_fastq-chrom.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-chrom.obj `if test -f 'chrom.c'; then $(CYGPATH_W) 'chrom.c'; else $(CYGPATH_W) '$(srcdir)/chrom.c'; fi`
-
-bam_fastq-uinttable.o: uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-uinttable.o -MD -MP -MF $(DEPDIR)/bam_fastq-uinttable.Tpo -c -o bam_fastq-uinttable.o `test -f 'uinttable.c' || echo '$(srcdir)/'`uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-uinttable.Tpo $(DEPDIR)/bam_fastq-uinttable.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uinttable.c' object='bam_fastq-uinttable.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-uinttable.o `test -f 'uinttable.c' || echo '$(srcdir)/'`uinttable.c
-
-bam_fastq-uinttable.obj: uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-uinttable.obj -MD -MP -MF $(DEPDIR)/bam_fastq-uinttable.Tpo -c -o bam_fastq-uinttable.obj `if test -f 'uinttable.c'; then $(CYGPATH_W) 'uinttable.c'; else $(CYGPATH_W) '$(srcdir)/uinttable.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-uinttable.Tpo $(DEPDIR)/bam_fastq-uinttable.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uinttable.c' object='bam_fastq-uinttable.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-uinttable.obj `if test -f 'uinttable.c'; then $(CYGPATH_W) 'uinttable.c'; else $(CYGPATH_W) '$(srcdir)/uinttable.c'; fi`
-
-bam_fastq-interval.o: interval.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-interval.o -MD -MP -MF $(DEPDIR)/bam_fastq-interval.Tpo -c -o bam_fastq-interval.o `test -f 'interval.c' || echo '$(srcdir)/'`interval.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-interval.Tpo $(DEPDIR)/bam_fastq-interval.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='interval.c' object='bam_fastq-interval.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-interval.o `test -f 'interval.c' || echo '$(srcdir)/'`interval.c
-
-bam_fastq-interval.obj: interval.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-interval.obj -MD -MP -MF $(DEPDIR)/bam_fastq-interval.Tpo -c -o bam_fastq-interval.obj `if test -f 'interval.c'; then $(CYGPATH_W) 'interval.c'; else $(CYGPATH_W) '$(srcdir)/interval.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-interval.Tpo $(DEPDIR)/bam_fastq-interval.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='interval.c' object='bam_fastq-interval.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-interval.obj `if test -f 'interval.c'; then $(CYGPATH_W) 'interval.c'; else $(CYGPATH_W) '$(srcdir)/interval.c'; fi`
-
-bam_fastq-iit-read.o: iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-iit-read.o -MD -MP -MF $(DEPDIR)/bam_fastq-iit-read.Tpo -c -o bam_fastq-iit-read.o `test -f 'iit-read.c' || echo '$(srcdir)/'`iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-iit-read.Tpo $(DEPDIR)/bam_fastq-iit-read.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='iit-read.c' object='bam_fastq-iit-read.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-iit-read.o `test -f 'iit-read.c' || echo '$(srcdir)/'`iit-read.c
-
-bam_fastq-iit-read.obj: iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-iit-read.obj -MD -MP -MF $(DEPDIR)/bam_fastq-iit-read.Tpo -c -o bam_fastq-iit-read.obj `if test -f 'iit-read.c'; then $(CYGPATH_W) 'iit-read.c'; else $(CYGPATH_W) '$(srcdir)/iit-read.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-iit-read.Tpo $(DEPDIR)/bam_fastq-iit-read.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='iit-read.c' object='bam_fastq-iit-read.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-iit-read.obj `if test -f 'iit-read.c'; then $(CYGPATH_W) 'iit-read.c'; else $(CYGPATH_W) '$(srcdir)/iit-read.c'; fi`
-
-bam_fastq-bamread.o: bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-bamread.o -MD -MP -MF $(DEPDIR)/bam_fastq-bamread.Tpo -c -o bam_fastq-bamread.o `test -f 'bamread.c' || echo '$(srcdir)/'`bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-bamread.Tpo $(DEPDIR)/bam_fastq-bamread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bamread.c' object='bam_fastq-bamread.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-bamread.o `test -f 'bamread.c' || echo '$(srcdir)/'`bamread.c
-
-bam_fastq-bamread.obj: bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-bamread.obj -MD -MP -MF $(DEPDIR)/bam_fastq-bamread.Tpo -c -o bam_fastq-bamread.obj `if test -f 'bamread.c'; then $(CYGPATH_W) 'bamread.c'; else $(CYGPATH_W) '$(srcdir)/bamread.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-bamread.Tpo $(DEPDIR)/bam_fastq-bamread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bamread.c' object='bam_fastq-bamread.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-bamread.obj `if test -f 'bamread.c'; then $(CYGPATH_W) 'bamread.c'; else $(CYGPATH_W) '$(srcdir)/bamread.c'; fi`
-
-bam_fastq-samread.o: samread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-samread.o -MD -MP -MF $(DEPDIR)/bam_fastq-samread.Tpo -c -o bam_fastq-samread.o `test -f 'samread.c' || echo '$(srcdir)/'`samread.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-samread.Tpo $(DEPDIR)/bam_fastq-samread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='samread.c' object='bam_fastq-samread.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-samread.o `test -f 'samread.c' || echo '$(srcdir)/'`samread.c
-
-bam_fastq-samread.obj: samread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-samread.obj -MD -MP -MF $(DEPDIR)/bam_fastq-samread.Tpo -c -o bam_fastq-samread.obj `if test -f 'samread.c'; then $(CYGPATH_W) 'samread.c'; else $(CYGPATH_W) '$(srcdir)/samread.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-samread.Tpo $(DEPDIR)/bam_fastq-samread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='samread.c' object='bam_fastq-samread.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-samread.obj `if test -f 'samread.c'; then $(CYGPATH_W) 'samread.c'; else $(CYGPATH_W) '$(srcdir)/samread.c'; fi`
-
-bam_fastq-table.o: table.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-table.o -MD -MP -MF $(DEPDIR)/bam_fastq-table.Tpo -c -o bam_fastq-table.o `test -f 'table.c' || echo '$(srcdir)/'`table.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-table.Tpo $(DEPDIR)/bam_fastq-table.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='table.c' object='bam_fastq-table.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-table.o `test -f 'table.c' || echo '$(srcdir)/'`table.c
-
-bam_fastq-table.obj: table.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-table.obj -MD -MP -MF $(DEPDIR)/bam_fastq-table.Tpo -c -o bam_fastq-table.obj `if test -f 'table.c'; then $(CYGPATH_W) 'table.c'; else $(CYGPATH_W) '$(srcdir)/table.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-table.Tpo $(DEPDIR)/bam_fastq-table.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='table.c' object='bam_fastq-table.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-table.obj `if test -f 'table.c'; then $(CYGPATH_W) 'table.c'; else $(CYGPATH_W) '$(srcdir)/table.c'; fi`
-
-bam_fastq-getopt.o: getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-getopt.o -MD -MP -MF $(DEPDIR)/bam_fastq-getopt.Tpo -c -o bam_fastq-getopt.o `test -f 'getopt.c' || echo '$(srcdir)/'`getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-getopt.Tpo $(DEPDIR)/bam_fastq-getopt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt.c' object='bam_fastq-getopt.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-getopt.o `test -f 'getopt.c' || echo '$(srcdir)/'`getopt.c
-
-bam_fastq-getopt.obj: getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-getopt.obj -MD -MP -MF $(DEPDIR)/bam_fastq-getopt.Tpo -c -o bam_fastq-getopt.obj `if test -f 'getopt.c'; then $(CYGPATH_W) 'getopt.c'; else $(CYGPATH_W) '$(srcdir)/getopt.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-getopt.Tpo $(DEPDIR)/bam_fastq-getopt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt.c' object='bam_fastq-getopt.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-getopt.obj `if test -f 'getopt.c'; then $(CYGPATH_W) 'getopt.c'; else $(CYGPATH_W) '$(srcdir)/getopt.c'; fi`
-
-bam_fastq-getopt1.o: getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-getopt1.o -MD -MP -MF $(DEPDIR)/bam_fastq-getopt1.Tpo -c -o bam_fastq-getopt1.o `test -f 'getopt1.c' || echo '$(srcdir)/'`getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-getopt1.Tpo $(DEPDIR)/bam_fastq-getopt1.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt1.c' object='bam_fastq-getopt1.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-getopt1.o `test -f 'getopt1.c' || echo '$(srcdir)/'`getopt1.c
-
-bam_fastq-getopt1.obj: getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-getopt1.obj -MD -MP -MF $(DEPDIR)/bam_fastq-getopt1.Tpo -c -o bam_fastq-getopt1.obj `if test -f 'getopt1.c'; then $(CYGPATH_W) 'getopt1.c'; else $(CYGPATH_W) '$(srcdir)/getopt1.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-getopt1.Tpo $(DEPDIR)/bam_fastq-getopt1.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt1.c' object='bam_fastq-getopt1.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-getopt1.obj `if test -f 'getopt1.c'; then $(CYGPATH_W) 'getopt1.c'; else $(CYGPATH_W) '$(srcdir)/getopt1.c'; fi`
-
-bam_fastq-bam_fastq.o: bam_fastq.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-bam_fastq.o -MD -MP -MF $(DEPDIR)/bam_fastq-bam_fastq.Tpo -c -o bam_fastq-bam_fastq.o `test -f 'bam_fastq.c' || echo '$(srcdir)/'`bam_fastq.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-bam_fastq.Tpo $(DEPDIR)/bam_fastq-bam_fastq.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bam_fastq.c' object='bam_fastq-bam_fastq.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-bam_fastq.o `test -f 'bam_fastq.c' || echo '$(srcdir)/'`bam_fastq.c
-
-bam_fastq-bam_fastq.obj: bam_fastq.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -MT bam_fastq-bam_fastq.obj -MD -MP -MF $(DEPDIR)/bam_fastq-bam_fastq.Tpo -c -o bam_fastq-bam_fastq.obj `if test -f 'bam_fastq.c'; then $(CYGPATH_W) 'bam_fastq.c'; else $(CYGPATH_W) '$(srcdir)/bam_fastq.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_fastq-bam_fastq.Tpo $(DEPDIR)/bam_fastq-bam_fastq.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bam_fastq.c' object='bam_fastq-bam_fastq.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_fastq_CFLAGS) $(CFLAGS) -c -o bam_fastq-bam_fastq.obj `if test -f 'bam_fastq.c'; then $(CYGPATH_W) 'bam_fastq.c'; else $(CYGPATH_W) '$(srcdir)/bam_fastq.c'; fi`
-
-bam_get-except.o: except.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-except.o -MD -MP -MF $(DEPDIR)/bam_get-except.Tpo -c -o bam_get-except.o `test -f 'except.c' || echo '$(srcdir)/'`except.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-except.Tpo $(DEPDIR)/bam_get-except.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='except.c' object='bam_get-except.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-except.o `test -f 'except.c' || echo '$(srcdir)/'`except.c
-
-bam_get-except.obj: except.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-except.obj -MD -MP -MF $(DEPDIR)/bam_get-except.Tpo -c -o bam_get-except.obj `if test -f 'except.c'; then $(CYGPATH_W) 'except.c'; else $(CYGPATH_W) '$(srcdir)/except.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-except.Tpo $(DEPDIR)/bam_get-except.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='except.c' object='bam_get-except.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-except.obj `if test -f 'except.c'; then $(CYGPATH_W) 'except.c'; else $(CYGPATH_W) '$(srcdir)/except.c'; fi`
-
-bam_get-assert.o: assert.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-assert.o -MD -MP -MF $(DEPDIR)/bam_get-assert.Tpo -c -o bam_get-assert.o `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-assert.Tpo $(DEPDIR)/bam_get-assert.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assert.c' object='bam_get-assert.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-assert.o `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
-
-bam_get-assert.obj: assert.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-assert.obj -MD -MP -MF $(DEPDIR)/bam_get-assert.Tpo -c -o bam_get-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-assert.Tpo $(DEPDIR)/bam_get-assert.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='assert.c' object='bam_get-assert.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
-
-bam_get-mem.o: mem.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-mem.o -MD -MP -MF $(DEPDIR)/bam_get-mem.Tpo -c -o bam_get-mem.o `test -f 'mem.c' || echo '$(srcdir)/'`mem.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-mem.Tpo $(DEPDIR)/bam_get-mem.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mem.c' object='bam_get-mem.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-mem.o `test -f 'mem.c' || echo '$(srcdir)/'`mem.c
-
-bam_get-mem.obj: mem.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-mem.obj -MD -MP -MF $(DEPDIR)/bam_get-mem.Tpo -c -o bam_get-mem.obj `if test -f 'mem.c'; then $(CYGPATH_W) 'mem.c'; else $(CYGPATH_W) '$(srcdir)/mem.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-mem.Tpo $(DEPDIR)/bam_get-mem.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mem.c' object='bam_get-mem.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-mem.obj `if test -f 'mem.c'; then $(CYGPATH_W) 'mem.c'; else $(CYGPATH_W) '$(srcdir)/mem.c'; fi`
-
-bam_get-intlist.o: intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-intlist.o -MD -MP -MF $(DEPDIR)/bam_get-intlist.Tpo -c -o bam_get-intlist.o `test -f 'intlist.c' || echo '$(srcdir)/'`intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-intlist.Tpo $(DEPDIR)/bam_get-intlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='intlist.c' object='bam_get-intlist.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-intlist.o `test -f 'intlist.c' || echo '$(srcdir)/'`intlist.c
-
-bam_get-intlist.obj: intlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-intlist.obj -MD -MP -MF $(DEPDIR)/bam_get-intlist.Tpo -c -o bam_get-intlist.obj `if test -f 'intlist.c'; then $(CYGPATH_W) 'intlist.c'; else $(CYGPATH_W) '$(srcdir)/intlist.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-intlist.Tpo $(DEPDIR)/bam_get-intlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='intlist.c' object='bam_get-intlist.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-intlist.obj `if test -f 'intlist.c'; then $(CYGPATH_W) 'intlist.c'; else $(CYGPATH_W) '$(srcdir)/intlist.c'; fi`
-
-bam_get-list.o: list.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-list.o -MD -MP -MF $(DEPDIR)/bam_get-list.Tpo -c -o bam_get-list.o `test -f 'list.c' || echo '$(srcdir)/'`list.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-list.Tpo $(DEPDIR)/bam_get-list.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='list.c' object='bam_get-list.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-list.o `test -f 'list.c' || echo '$(srcdir)/'`list.c
-
-bam_get-list.obj: list.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-list.obj -MD -MP -MF $(DEPDIR)/bam_get-list.Tpo -c -o bam_get-list.obj `if test -f 'list.c'; then $(CYGPATH_W) 'list.c'; else $(CYGPATH_W) '$(srcdir)/list.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-list.Tpo $(DEPDIR)/bam_get-list.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='list.c' object='bam_get-list.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-list.obj `if test -f 'list.c'; then $(CYGPATH_W) 'list.c'; else $(CYGPATH_W) '$(srcdir)/list.c'; fi`
-
-bam_get-uintlist.o: uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-uintlist.o -MD -MP -MF $(DEPDIR)/bam_get-uintlist.Tpo -c -o bam_get-uintlist.o `test -f 'uintlist.c' || echo '$(srcdir)/'`uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-uintlist.Tpo $(DEPDIR)/bam_get-uintlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uintlist.c' object='bam_get-uintlist.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-uintlist.o `test -f 'uintlist.c' || echo '$(srcdir)/'`uintlist.c
-
-bam_get-uintlist.obj: uintlist.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-uintlist.obj -MD -MP -MF $(DEPDIR)/bam_get-uintlist.Tpo -c -o bam_get-uintlist.obj `if test -f 'uintlist.c'; then $(CYGPATH_W) 'uintlist.c'; else $(CYGPATH_W) '$(srcdir)/uintlist.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-uintlist.Tpo $(DEPDIR)/bam_get-uintlist.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uintlist.c' object='bam_get-uintlist.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-uintlist.obj `if test -f 'uintlist.c'; then $(CYGPATH_W) 'uintlist.c'; else $(CYGPATH_W) '$(srcdir)/uintlist.c'; fi`
-
-bam_get-stopwatch.o: stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-stopwatch.o -MD -MP -MF $(DEPDIR)/bam_get-stopwatch.Tpo -c -o bam_get-stopwatch.o `test -f 'stopwatch.c' || echo '$(srcdir)/'`stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-stopwatch.Tpo $(DEPDIR)/bam_get-stopwatch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stopwatch.c' object='bam_get-stopwatch.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-stopwatch.o `test -f 'stopwatch.c' || echo '$(srcdir)/'`stopwatch.c
-
-bam_get-stopwatch.obj: stopwatch.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-stopwatch.obj -MD -MP -MF $(DEPDIR)/bam_get-stopwatch.Tpo -c -o bam_get-stopwatch.obj `if test -f 'stopwatch.c'; then $(CYGPATH_W) 'stopwatch.c'; else $(CYGPATH_W) '$(srcdir)/stopwatch.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-stopwatch.Tpo $(DEPDIR)/bam_get-stopwatch.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='stopwatch.c' object='bam_get-stopwatch.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-stopwatch.obj `if test -f 'stopwatch.c'; then $(CYGPATH_W) 'stopwatch.c'; else $(CYGPATH_W) '$(srcdir)/stopwatch.c'; fi`
-
-bam_get-access.o: access.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-access.o -MD -MP -MF $(DEPDIR)/bam_get-access.Tpo -c -o bam_get-access.o `test -f 'access.c' || echo '$(srcdir)/'`access.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-access.Tpo $(DEPDIR)/bam_get-access.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='access.c' object='bam_get-access.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-access.o `test -f 'access.c' || echo '$(srcdir)/'`access.c
-
-bam_get-access.obj: access.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-access.obj -MD -MP -MF $(DEPDIR)/bam_get-access.Tpo -c -o bam_get-access.obj `if test -f 'access.c'; then $(CYGPATH_W) 'access.c'; else $(CYGPATH_W) '$(srcdir)/access.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-access.Tpo $(DEPDIR)/bam_get-access.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='access.c' object='bam_get-access.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-access.obj `if test -f 'access.c'; then $(CYGPATH_W) 'access.c'; else $(CYGPATH_W) '$(srcdir)/access.c'; fi`
-
-bam_get-interval.o: interval.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-interval.o -MD -MP -MF $(DEPDIR)/bam_get-interval.Tpo -c -o bam_get-interval.o `test -f 'interval.c' || echo '$(srcdir)/'`interval.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-interval.Tpo $(DEPDIR)/bam_get-interval.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='interval.c' object='bam_get-interval.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-interval.o `test -f 'interval.c' || echo '$(srcdir)/'`interval.c
-
-bam_get-interval.obj: interval.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-interval.obj -MD -MP -MF $(DEPDIR)/bam_get-interval.Tpo -c -o bam_get-interval.obj `if test -f 'interval.c'; then $(CYGPATH_W) 'interval.c'; else $(CYGPATH_W) '$(srcdir)/interval.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-interval.Tpo $(DEPDIR)/bam_get-interval.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='interval.c' object='bam_get-interval.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-interval.obj `if test -f 'interval.c'; then $(CYGPATH_W) 'interval.c'; else $(CYGPATH_W) '$(srcdir)/interval.c'; fi`
-
-bam_get-iit-read.o: iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-iit-read.o -MD -MP -MF $(DEPDIR)/bam_get-iit-read.Tpo -c -o bam_get-iit-read.o `test -f 'iit-read.c' || echo '$(srcdir)/'`iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-iit-read.Tpo $(DEPDIR)/bam_get-iit-read.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='iit-read.c' object='bam_get-iit-read.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-iit-read.o `test -f 'iit-read.c' || echo '$(srcdir)/'`iit-read.c
-
-bam_get-iit-read.obj: iit-read.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-iit-read.obj -MD -MP -MF $(DEPDIR)/bam_get-iit-read.Tpo -c -o bam_get-iit-read.obj `if test -f 'iit-read.c'; then $(CYGPATH_W) 'iit-read.c'; else $(CYGPATH_W) '$(srcdir)/iit-read.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-iit-read.Tpo $(DEPDIR)/bam_get-iit-read.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='iit-read.c' object='bam_get-iit-read.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-iit-read.obj `if test -f 'iit-read.c'; then $(CYGPATH_W) 'iit-read.c'; else $(CYGPATH_W) '$(srcdir)/iit-read.c'; fi`
-
-bam_get-chrom.o: chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-chrom.o -MD -MP -MF $(DEPDIR)/bam_get-chrom.Tpo -c -o bam_get-chrom.o `test -f 'chrom.c' || echo '$(srcdir)/'`chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-chrom.Tpo $(DEPDIR)/bam_get-chrom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrom.c' object='bam_get-chrom.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-chrom.o `test -f 'chrom.c' || echo '$(srcdir)/'`chrom.c
-
-bam_get-chrom.obj: chrom.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-chrom.obj -MD -MP -MF $(DEPDIR)/bam_get-chrom.Tpo -c -o bam_get-chrom.obj `if test -f 'chrom.c'; then $(CYGPATH_W) 'chrom.c'; else $(CYGPATH_W) '$(srcdir)/chrom.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-chrom.Tpo $(DEPDIR)/bam_get-chrom.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrom.c' object='bam_get-chrom.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-chrom.obj `if test -f 'chrom.c'; then $(CYGPATH_W) 'chrom.c'; else $(CYGPATH_W) '$(srcdir)/chrom.c'; fi`
-
-bam_get-genomicpos.o: genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-genomicpos.o -MD -MP -MF $(DEPDIR)/bam_get-genomicpos.Tpo -c -o bam_get-genomicpos.o `test -f 'genomicpos.c' || echo '$(srcdir)/'`genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-genomicpos.Tpo $(DEPDIR)/bam_get-genomicpos.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genomicpos.c' object='bam_get-genomicpos.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-genomicpos.o `test -f 'genomicpos.c' || echo '$(srcdir)/'`genomicpos.c
-
-bam_get-genomicpos.obj: genomicpos.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-genomicpos.obj -MD -MP -MF $(DEPDIR)/bam_get-genomicpos.Tpo -c -o bam_get-genomicpos.obj `if test -f 'genomicpos.c'; then $(CYGPATH_W) 'genomicpos.c'; else $(CYGPATH_W) '$(srcdir)/genomicpos.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-genomicpos.Tpo $(DEPDIR)/bam_get-genomicpos.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genomicpos.c' object='bam_get-genomicpos.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-genomicpos.obj `if test -f 'genomicpos.c'; then $(CYGPATH_W) 'genomicpos.c'; else $(CYGPATH_W) '$(srcdir)/genomicpos.c'; fi`
-
-bam_get-md5.o: md5.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-md5.o -MD -MP -MF $(DEPDIR)/bam_get-md5.Tpo -c -o bam_get-md5.o `test -f 'md5.c' || echo '$(srcdir)/'`md5.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-md5.Tpo $(DEPDIR)/bam_get-md5.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='md5.c' object='bam_get-md5.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-md5.o `test -f 'md5.c' || echo '$(srcdir)/'`md5.c
-
-bam_get-md5.obj: md5.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-md5.obj -MD -MP -MF $(DEPDIR)/bam_get-md5.Tpo -c -o bam_get-md5.obj `if test -f 'md5.c'; then $(CYGPATH_W) 'md5.c'; else $(CYGPATH_W) '$(srcdir)/md5.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-md5.Tpo $(DEPDIR)/bam_get-md5.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='md5.c' object='bam_get-md5.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-md5.obj `if test -f 'md5.c'; then $(CYGPATH_W) 'md5.c'; else $(CYGPATH_W) '$(srcdir)/md5.c'; fi`
-
-bam_get-sequence.o: sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-sequence.o -MD -MP -MF $(DEPDIR)/bam_get-sequence.Tpo -c -o bam_get-sequence.o `test -f 'sequence.c' || echo '$(srcdir)/'`sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-sequence.Tpo $(DEPDIR)/bam_get-sequence.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sequence.c' object='bam_get-sequence.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-sequence.o `test -f 'sequence.c' || echo '$(srcdir)/'`sequence.c
-
-bam_get-sequence.obj: sequence.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-sequence.obj -MD -MP -MF $(DEPDIR)/bam_get-sequence.Tpo -c -o bam_get-sequence.obj `if test -f 'sequence.c'; then $(CYGPATH_W) 'sequence.c'; else $(CYGPATH_W) '$(srcdir)/sequence.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-sequence.Tpo $(DEPDIR)/bam_get-sequence.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sequence.c' object='bam_get-sequence.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-sequence.obj `if test -f 'sequence.c'; then $(CYGPATH_W) 'sequence.c'; else $(CYGPATH_W) '$(srcdir)/sequence.c'; fi`
-
-bam_get-genome.o: genome.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-genome.o -MD -MP -MF $(DEPDIR)/bam_get-genome.Tpo -c -o bam_get-genome.o `test -f 'genome.c' || echo '$(srcdir)/'`genome.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-genome.Tpo $(DEPDIR)/bam_get-genome.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genome.c' object='bam_get-genome.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-genome.o `test -f 'genome.c' || echo '$(srcdir)/'`genome.c
-
-bam_get-genome.obj: genome.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-genome.obj -MD -MP -MF $(DEPDIR)/bam_get-genome.Tpo -c -o bam_get-genome.obj `if test -f 'genome.c'; then $(CYGPATH_W) 'genome.c'; else $(CYGPATH_W) '$(srcdir)/genome.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-genome.Tpo $(DEPDIR)/bam_get-genome.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='genome.c' object='bam_get-genome.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-genome.obj `if test -f 'genome.c'; then $(CYGPATH_W) 'genome.c'; else $(CYGPATH_W) '$(srcdir)/genome.c'; fi`
-
-bam_get-uinttable.o: uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-uinttable.o -MD -MP -MF $(DEPDIR)/bam_get-uinttable.Tpo -c -o bam_get-uinttable.o `test -f 'uinttable.c' || echo '$(srcdir)/'`uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-uinttable.Tpo $(DEPDIR)/bam_get-uinttable.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uinttable.c' object='bam_get-uinttable.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-uinttable.o `test -f 'uinttable.c' || echo '$(srcdir)/'`uinttable.c
-
-bam_get-uinttable.obj: uinttable.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-uinttable.obj -MD -MP -MF $(DEPDIR)/bam_get-uinttable.Tpo -c -o bam_get-uinttable.obj `if test -f 'uinttable.c'; then $(CYGPATH_W) 'uinttable.c'; else $(CYGPATH_W) '$(srcdir)/uinttable.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-uinttable.Tpo $(DEPDIR)/bam_get-uinttable.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='uinttable.c' object='bam_get-uinttable.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-uinttable.obj `if test -f 'uinttable.c'; then $(CYGPATH_W) 'uinttable.c'; else $(CYGPATH_W) '$(srcdir)/uinttable.c'; fi`
-
-bam_get-table.o: table.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-table.o -MD -MP -MF $(DEPDIR)/bam_get-table.Tpo -c -o bam_get-table.o `test -f 'table.c' || echo '$(srcdir)/'`table.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-table.Tpo $(DEPDIR)/bam_get-table.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='table.c' object='bam_get-table.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-table.o `test -f 'table.c' || echo '$(srcdir)/'`table.c
-
-bam_get-table.obj: table.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-table.obj -MD -MP -MF $(DEPDIR)/bam_get-table.Tpo -c -o bam_get-table.obj `if test -f 'table.c'; then $(CYGPATH_W) 'table.c'; else $(CYGPATH_W) '$(srcdir)/table.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-table.Tpo $(DEPDIR)/bam_get-table.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='table.c' object='bam_get-table.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-table.obj `if test -f 'table.c'; then $(CYGPATH_W) 'table.c'; else $(CYGPATH_W) '$(srcdir)/table.c'; fi`
-
-bam_get-chrnum.o: chrnum.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-chrnum.o -MD -MP -MF $(DEPDIR)/bam_get-chrnum.Tpo -c -o bam_get-chrnum.o `test -f 'chrnum.c' || echo '$(srcdir)/'`chrnum.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-chrnum.Tpo $(DEPDIR)/bam_get-chrnum.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrnum.c' object='bam_get-chrnum.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-chrnum.o `test -f 'chrnum.c' || echo '$(srcdir)/'`chrnum.c
-
-bam_get-chrnum.obj: chrnum.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-chrnum.obj -MD -MP -MF $(DEPDIR)/bam_get-chrnum.Tpo -c -o bam_get-chrnum.obj `if test -f 'chrnum.c'; then $(CYGPATH_W) 'chrnum.c'; else $(CYGPATH_W) '$(srcdir)/chrnum.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-chrnum.Tpo $(DEPDIR)/bam_get-chrnum.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='chrnum.c' object='bam_get-chrnum.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-chrnum.obj `if test -f 'chrnum.c'; then $(CYGPATH_W) 'chrnum.c'; else $(CYGPATH_W) '$(srcdir)/chrnum.c'; fi`
-
-bam_get-bamread.o: bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-bamread.o -MD -MP -MF $(DEPDIR)/bam_get-bamread.Tpo -c -o bam_get-bamread.o `test -f 'bamread.c' || echo '$(srcdir)/'`bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-bamread.Tpo $(DEPDIR)/bam_get-bamread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bamread.c' object='bam_get-bamread.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-bamread.o `test -f 'bamread.c' || echo '$(srcdir)/'`bamread.c
-
-bam_get-bamread.obj: bamread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-bamread.obj -MD -MP -MF $(DEPDIR)/bam_get-bamread.Tpo -c -o bam_get-bamread.obj `if test -f 'bamread.c'; then $(CYGPATH_W) 'bamread.c'; else $(CYGPATH_W) '$(srcdir)/bamread.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-bamread.Tpo $(DEPDIR)/bam_get-bamread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bamread.c' object='bam_get-bamread.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-bamread.obj `if test -f 'bamread.c'; then $(CYGPATH_W) 'bamread.c'; else $(CYGPATH_W) '$(srcdir)/bamread.c'; fi`
-
-bam_get-samread.o: samread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-samread.o -MD -MP -MF $(DEPDIR)/bam_get-samread.Tpo -c -o bam_get-samread.o `test -f 'samread.c' || echo '$(srcdir)/'`samread.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-samread.Tpo $(DEPDIR)/bam_get-samread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='samread.c' object='bam_get-samread.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-samread.o `test -f 'samread.c' || echo '$(srcdir)/'`samread.c
-
-bam_get-samread.obj: samread.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-samread.obj -MD -MP -MF $(DEPDIR)/bam_get-samread.Tpo -c -o bam_get-samread.obj `if test -f 'samread.c'; then $(CYGPATH_W) 'samread.c'; else $(CYGPATH_W) '$(srcdir)/samread.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-samread.Tpo $(DEPDIR)/bam_get-samread.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='samread.c' object='bam_get-samread.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-samread.obj `if test -f 'samread.c'; then $(CYGPATH_W) 'samread.c'; else $(CYGPATH_W) '$(srcdir)/samread.c'; fi`
-
-bam_get-parserange.o: parserange.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-parserange.o -MD -MP -MF $(DEPDIR)/bam_get-parserange.Tpo -c -o bam_get-parserange.o `test -f 'parserange.c' || echo '$(srcdir)/'`parserange.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-parserange.Tpo $(DEPDIR)/bam_get-parserange.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parserange.c' object='bam_get-parserange.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-parserange.o `test -f 'parserange.c' || echo '$(srcdir)/'`parserange.c
-
-bam_get-parserange.obj: parserange.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-parserange.obj -MD -MP -MF $(DEPDIR)/bam_get-parserange.Tpo -c -o bam_get-parserange.obj `if test -f 'parserange.c'; then $(CYGPATH_W) 'parserange.c'; else $(CYGPATH_W) '$(srcdir)/parserange.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-parserange.Tpo $(DEPDIR)/bam_get-parserange.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parserange.c' object='bam_get-parserange.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-parserange.obj `if test -f 'parserange.c'; then $(CYGPATH_W) 'parserange.c'; else $(CYGPATH_W) '$(srcdir)/parserange.c'; fi`
-
-bam_get-getopt.o: getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-getopt.o -MD -MP -MF $(DEPDIR)/bam_get-getopt.Tpo -c -o bam_get-getopt.o `test -f 'getopt.c' || echo '$(srcdir)/'`getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-getopt.Tpo $(DEPDIR)/bam_get-getopt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt.c' object='bam_get-getopt.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-getopt.o `test -f 'getopt.c' || echo '$(srcdir)/'`getopt.c
-
-bam_get-getopt.obj: getopt.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-getopt.obj -MD -MP -MF $(DEPDIR)/bam_get-getopt.Tpo -c -o bam_get-getopt.obj `if test -f 'getopt.c'; then $(CYGPATH_W) 'getopt.c'; else $(CYGPATH_W) '$(srcdir)/getopt.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-getopt.Tpo $(DEPDIR)/bam_get-getopt.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt.c' object='bam_get-getopt.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-getopt.obj `if test -f 'getopt.c'; then $(CYGPATH_W) 'getopt.c'; else $(CYGPATH_W) '$(srcdir)/getopt.c'; fi`
-
-bam_get-getopt1.o: getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-getopt1.o -MD -MP -MF $(DEPDIR)/bam_get-getopt1.Tpo -c -o bam_get-getopt1.o `test -f 'getopt1.c' || echo '$(srcdir)/'`getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-getopt1.Tpo $(DEPDIR)/bam_get-getopt1.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt1.c' object='bam_get-getopt1.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-getopt1.o `test -f 'getopt1.c' || echo '$(srcdir)/'`getopt1.c
-
-bam_get-getopt1.obj: getopt1.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-getopt1.obj -MD -MP -MF $(DEPDIR)/bam_get-getopt1.Tpo -c -o bam_get-getopt1.obj `if test -f 'getopt1.c'; then $(CYGPATH_W) 'getopt1.c'; else $(CYGPATH_W) '$(srcdir)/getopt1.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-getopt1.Tpo $(DEPDIR)/bam_get-getopt1.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getopt1.c' object='bam_get-getopt1.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-getopt1.obj `if test -f 'getopt1.c'; then $(CYGPATH_W) 'getopt1.c'; else $(CYGPATH_W) '$(srcdir)/getopt1.c'; fi`
-
-bam_get-bam_get.o: bam_get.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-bam_get.o -MD -MP -MF $(DEPDIR)/bam_get-bam_get.Tpo -c -o bam_get-bam_get.o `test -f 'bam_get.c' || echo '$(srcdir)/'`bam_get.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-bam_get.Tpo $(DEPDIR)/bam_get-bam_get.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bam_get.c' object='bam_get-bam_get.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-bam_get.o `test -f 'bam_get.c' || echo '$(srcdir)/'`bam_get.c
-
-bam_get-bam_get.obj: bam_get.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -MT bam_get-bam_get.obj -MD -MP -MF $(DEPDIR)/bam_get-bam_get.Tpo -c -o bam_get-bam_get.obj `if test -f 'bam_get.c'; then $(CYGPATH_W) 'bam_get.c'; else $(CYGPATH_W) '$(srcdir)/bam_get.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_get-bam_get.Tpo $(DEPDIR)/bam_get-bam_get.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='bam_get.c' object='bam_get-bam_get.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_get_CFLAGS) $(CFLAGS) -c -o bam_get-bam_get.obj `if test -f 'bam_get.c'; then $(CYGPATH_W) 'bam_get.c'; else $(CYGPATH_W) '$(srcdir)/bam_get.c'; fi`
 
 bam_tally-except.o: except.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-except.o -MD -MP -MF $(DEPDIR)/bam_tally-except.Tpo -c -o bam_tally-except.o `test -f 'except.c' || echo '$(srcdir)/'`except.c
@@ -2093,48 +1291,6 @@ bam_tally-parserange.obj: parserange.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-parserange.obj `if test -f 'parserange.c'; then $(CYGPATH_W) 'parserange.c'; else $(CYGPATH_W) '$(srcdir)/parserange.c'; fi`
 
-bam_tally-dynprog.o: dynprog.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog.Tpo -c -o bam_tally-dynprog.o `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog.Tpo $(DEPDIR)/bam_tally-dynprog.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='bam_tally-dynprog.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog.o `test -f 'dynprog.c' || echo '$(srcdir)/'`dynprog.c
-
-bam_tally-dynprog.obj: dynprog.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog.Tpo -c -o bam_tally-dynprog.obj `if test -f 'dynprog.c'; then $(CYGPATH_W) 'dynprog.c'; else $(CYGPATH_W) '$(srcdir)/dynprog.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog.Tpo $(DEPDIR)/bam_tally-dynprog.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog.c' object='bam_tally-dynprog.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog.obj `if test -f 'dynprog.c'; then $(CYGPATH_W) 'dynprog.c'; else $(CYGPATH_W) '$(srcdir)/dynprog.c'; fi`
-
-bam_tally-dynprog_simd.o: dynprog_simd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_simd.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_simd.Tpo -c -o bam_tally-dynprog_simd.o `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_simd.Tpo $(DEPDIR)/bam_tally-dynprog_simd.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='bam_tally-dynprog_simd.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_simd.o `test -f 'dynprog_simd.c' || echo '$(srcdir)/'`dynprog_simd.c
-
-bam_tally-dynprog_simd.obj: dynprog_simd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_simd.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_simd.Tpo -c -o bam_tally-dynprog_simd.obj `if test -f 'dynprog_simd.c'; then $(CYGPATH_W) 'dynprog_simd.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_simd.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_simd.Tpo $(DEPDIR)/bam_tally-dynprog_simd.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_simd.c' object='bam_tally-dynprog_simd.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_simd.obj `if test -f 'dynprog_simd.c'; then $(CYGPATH_W) 'dynprog_simd.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_simd.c'; fi`
-
-bam_tally-dynprog_single.o: dynprog_single.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_single.o -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_single.Tpo -c -o bam_tally-dynprog_single.o `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_single.Tpo $(DEPDIR)/bam_tally-dynprog_single.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='bam_tally-dynprog_single.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_single.o `test -f 'dynprog_single.c' || echo '$(srcdir)/'`dynprog_single.c
-
-bam_tally-dynprog_single.obj: dynprog_single.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-dynprog_single.obj -MD -MP -MF $(DEPDIR)/bam_tally-dynprog_single.Tpo -c -o bam_tally-dynprog_single.obj `if test -f 'dynprog_single.c'; then $(CYGPATH_W) 'dynprog_single.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_single.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-dynprog_single.Tpo $(DEPDIR)/bam_tally-dynprog_single.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='dynprog_single.c' object='bam_tally-dynprog_single.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-dynprog_single.obj `if test -f 'dynprog_single.c'; then $(CYGPATH_W) 'dynprog_single.c'; else $(CYGPATH_W) '$(srcdir)/dynprog_single.c'; fi`
-
 bam_tally-tableuint.o: tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-tableuint.o -MD -MP -MF $(DEPDIR)/bam_tally-tableuint.Tpo -c -o bam_tally-tableuint.o `test -f 'tableuint.c' || echo '$(srcdir)/'`tableuint.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-tableuint.Tpo $(DEPDIR)/bam_tally-tableuint.Po
@@ -2204,6 +1360,20 @@ bam_tally-mismatchpool.obj: mismatchpool.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mismatchpool.c' object='bam_tally-mismatchpool.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-mismatchpool.obj `if test -f 'mismatchpool.c'; then $(CYGPATH_W) 'mismatchpool.c'; else $(CYGPATH_W) '$(srcdir)/mismatchpool.c'; fi`
+
+bam_tally-tally.o: tally.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-tally.o -MD -MP -MF $(DEPDIR)/bam_tally-tally.Tpo -c -o bam_tally-tally.o `test -f 'tally.c' || echo '$(srcdir)/'`tally.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-tally.Tpo $(DEPDIR)/bam_tally-tally.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tally.c' object='bam_tally-tally.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-tally.o `test -f 'tally.c' || echo '$(srcdir)/'`tally.c
+
+bam_tally-tally.obj: tally.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-tally.obj -MD -MP -MF $(DEPDIR)/bam_tally-tally.Tpo -c -o bam_tally-tally.obj `if test -f 'tally.c'; then $(CYGPATH_W) 'tally.c'; else $(CYGPATH_W) '$(srcdir)/tally.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-tally.Tpo $(DEPDIR)/bam_tally-tally.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='tally.c' object='bam_tally-tally.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-tally.obj `if test -f 'tally.c'; then $(CYGPATH_W) 'tally.c'; else $(CYGPATH_W) '$(srcdir)/tally.c'; fi`
 
 bam_tally-bamtally.o: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-bamtally.o -MD -MP -MF $(DEPDIR)/bam_tally-bamtally.Tpo -c -o bam_tally-bamtally.o `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c

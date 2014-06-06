@@ -1,6 +1,7 @@
-/* $Id: list.h 46991 2011-09-12 17:36:30Z twu $ */
+/* $Id: list.h 137605 2014-05-30 00:33:41Z twu $ */
 #ifndef LIST_INCLUDED
 #define LIST_INCLUDED
+#include "bool.h"
 
 #define T List_T
 typedef struct T *T;
@@ -15,8 +16,8 @@ extern void List_free (T *list);
 extern void List_free_keep (T *list);
 extern T List_reverse (T list);
 extern int List_length (T list);
-extern T
-List_truncate (T list, int n);
+extern bool List_equal_strings (T list1, T list2);
+extern T List_truncate (T list, int n);
 extern void **List_to_array (T list, void *end);
 extern void **List_to_array_out (T list, void *end);
 extern void **List_to_array_n (int *n, T list);

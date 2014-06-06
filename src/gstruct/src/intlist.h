@@ -1,4 +1,4 @@
-/* $Id: intlist.h 46991 2011-09-12 17:36:30Z twu $ */
+/* $Id: intlist.h 137605 2014-05-30 00:33:41Z twu $ */
 #ifndef INTLIST_INCLUDED
 #define INTLIST_INCLUDED
 #include "bool.h"
@@ -26,6 +26,8 @@ extern T
 Intlist_reverse (T list);
 extern int 
 Intlist_length (T list);
+extern bool
+Intlist_equal (T list1, T list2);
 extern int
 Intlist_max (T list);
 extern bool

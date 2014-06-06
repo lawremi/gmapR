@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: samread.c 95577 2013-05-10 19:52:37Z twu $";
+static char rcsid[] = "$Id: samread.c 138419 2014-06-06 21:12:49Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -12,6 +12,7 @@ static char rcsid[] = "$Id: samread.c 95577 2013-05-10 19:52:37Z twu $";
 #include "samread.h"
 #include "except.h"
 #include "mem.h"
+#include "assert.h"
 #include "bool.h"
 
 
@@ -113,7 +114,7 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     fprintf(stderr,"Unable to find mapq in %s\n",p);
     abort();
   } else {
-    debug(printf("  chrpos = %u\n",*chrpos));
+    debug(printf("  mapq = %d\n",*mapq));
   }
 
   /* Skip past mapping quality */
@@ -205,6 +206,102 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   if (*q == '\t') q++;
 
   return q;
+}
+
+
+char *
+Samread_chrinfo (Genomicpos_T *chrpos, char **cigar, char *line) {
+  char *chr;
+  unsigned int flag;
+  int mapq;
+
+  char *p, *q;
+  int length;
+
+  debug(printf("Entering Samread_chrinfo with %s\n",line));
+
+  p = line;
+  while (!isspace(*p)) p++;
+  length = (p - line)/sizeof(char);
+#if 0
+  *acc = (char *) CALLOC(length+1,sizeof(char));
+  strncpy(*acc,line,length);
+#endif
+
+  if (*p != '\0') {		/* Skip over tab */
+    p++;
+  }
+
+  if (sscanf(p,"%u",&flag) != 1) {
+    fprintf(stderr,"Unable to find flag in %s\n",p);
+    abort();
+  } else {
+    debug(printf("  flag = %u\n",*flag));
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over flag */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse chr part of %s\n",line);
+    abort();
+  } else {
+    p++;			/* Skip over tab */
+  }
+  q = p;
+  while (!isspace(*q)) q++;
+  length = (q - p)/sizeof(char);
+  chr = (char *) CALLOC(length+1,sizeof(char));
+  strncpy(chr,p,length);
+  debug(printf("  chr = %s\n",chr));
+  if (*q != '\0') {
+    q++;
+  }
+
+
+  p = q;
+  if (sscanf(p,"%u",&(*chrpos)) != 1) {
+    fprintf(stderr,"Unable to find chrpos in %s\n",p);
+    abort();
+  } else {
+    debug(printf("  chrpos = %u\n",*chrpos));
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over chrpos */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse chrpos part of %s\n",line);
+    abort();
+  } else {
+    p++;			/* Skip over tab */
+  }
+
+  /* Read mapping quality */
+  if (sscanf(p,"%d",&mapq) != 1) {
+    fprintf(stderr,"Unable to find mapq in %s\n",p);
+    abort();
+  } else {
+    debug(printf("  mapq = %d\n",mapq));
+  }
+
+  /* Skip past mapping quality */
+  while (!isspace(*p)) p++;
+
+
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse cigar part of %s\n",line);
+    abort();
+  } else {
+    p++;			/* Skip over tab */
+  }
+  q = p;
+  while (!isspace(*q)) q++;
+  length = (q - p)/sizeof(char);
+  *cigar = (char *) CALLOC(length+1,sizeof(char));
+  strncpy(*cigar,p,length);
+  debug(printf("  cigar = %s\n",*cigar));
+
+
+
+
+  return chr;
 }
 
 
@@ -366,6 +463,145 @@ Samread_print_altered_paired (FILE *fp, unsigned int newflag, int mapq, char *ma
   while (!isspace(*p)) p++;	/* Skip over insert_length */
   if (*p == '\0') {
     fprintf(stderr,"Can't parse chr part of %s\n",line);
+    abort();
+  } else {
+    putc(*p,fp);		/* Print tab */
+    p++;			/* Skip over tab */
+  }
+
+  /* print rest of line */
+  fprintf(fp,"%s",p);
+
+  return;
+}
+
+
+void
+Samread_print_altered_mate (FILE *fp, char *chr, Genomicpos_T chrpos, char *mate_chr, Genomicpos_T mate_chrpos,
+			    int insert_length, char *line) {
+  char *p, *q;
+  int length, i;
+  unsigned int flag;
+  int mapq;
+
+  p = line;
+
+  /* Print acc */
+  while (!isspace(*p)) {
+    putc(*p,fp);
+    p++;
+  }
+
+  if (*p != '\0') {		/* Skip over tab */
+    putc(*p,fp);
+    p++;
+  }
+
+  /* Flag */
+  if (sscanf(p,"%u",&flag) != 1) {
+    fprintf(stderr,"Unable to find flag in %s\n",p);
+    abort();
+  } else {
+    fprintf(fp,"%u",flag);
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over flag */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse flag part of %s\n",line);
+    abort();
+  } else {
+    putc(*p,fp);
+    p++;			/* Skip over tab */
+  }
+
+
+  /* Print chr, chrpos (could also use chr and chrpos given as parameters) */
+  for (i = 0; i < 2; i++) {
+    while (!isspace(*p)) {
+      putc(*p,fp);			/* Print field */
+      p++;
+    }
+    if (*p != '\0') {
+      putc(*p,fp);
+      p++;
+    }
+  }
+
+  /* MAPQ */
+  if (sscanf(p,"%d",&mapq) != 1) {
+    fprintf(stderr,"Unable to find mapq in %s\n",p);
+    abort();
+  } else {
+    fprintf(fp,"%d",mapq);
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over mapq */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse chr part of %s\n",line);
+    abort();
+  } else {
+    putc(*p,fp);
+    p++;			/* Skip over tab */
+  }
+
+
+  /* Print cigar */
+  while (!isspace(*p)) {
+    putc(*p,fp);			/* Print field */
+    p++;
+  }
+  if (*p != '\0') {
+    putc(*p,fp);
+    p++;
+  }
+
+
+  /* New mate chr */
+  if (mate_chr == NULL) {
+    fprintf(fp,"*");
+  } else if (!strcmp(mate_chr,chr)) {
+    fprintf(fp,"=");
+  } else {
+    fprintf(fp,"%s",mate_chr);
+  }
+
+
+  while (!isspace(*p)) p++;	/* Skip over mate_chr */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse mate_chr part of %s\n",line);
+    abort();
+  } else {
+    putc(*p,fp);		/* Print tab */
+    p++;			/* Skip over tab */
+  }
+
+  /* New mate chrpos */
+  if (mate_chr == NULL) {
+    fprintf(fp,"0");
+  } else {
+    fprintf(fp,"%u",mate_chrpos);
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over mate_chrpos */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse mate_chrpos part of %s\n",line);
+    abort();
+  } else {
+    putc(*p,fp);		/* Print tab */
+    p++;			/* Skip over tab */
+  }
+
+  /* New insert length */
+  assert(insert_length >= 0);
+  if (chrpos < mate_chrpos) {
+    fprintf(fp,"%d",insert_length);
+  } else {
+    fprintf(fp,"%d",-insert_length);
+  }
+
+  while (!isspace(*p)) p++;	/* Skip over insert_length */
+  if (*p == '\0') {
+    fprintf(stderr,"Can't parse insert length part of %s\n",line);
     abort();
   } else {
     putc(*p,fp);		/* Print tab */
@@ -811,10 +1047,10 @@ get_substrings (int *querylength, int **query_starts, Genomicpos_T **genomic_sta
 
     if (type == 'S') {
       querypos += npos;
-      genomicpos += npos;
 
     } else if (type == 'M') {
       querypos += npos;
+      genomicpos += npos;
 
     } else if (type == 'I') {
       querypos += npos;
@@ -864,10 +1100,10 @@ get_substrings (int *querylength, int **query_starts, Genomicpos_T **genomic_sta
 
 
 int
-Samread_compute_insert_length (char *cigar5, Genomicpos_T chrpos_low_5, char *cigar3, Genomicpos_T chrpos_low_3) {
+Samread_compute_insert_length (int *querylength5, int *querylength3,
+			       char *cigar5, Genomicpos_T chrpos_low_5, char *cigar3, Genomicpos_T chrpos_low_3) {
   int insert_length;
   int nsubstrings5, nsubstrings3, i, j;
-  int querylength5, querylength3;
   int *query_starts_5, *query_starts_3;
   Genomicpos_T *genomic_starts_5, *genomic_ends_5, *genomic_starts_3, *genomic_ends_3;
   Genomicpos_T pos5, pos3;
@@ -876,8 +1112,8 @@ Samread_compute_insert_length (char *cigar5, Genomicpos_T chrpos_low_5, char *ci
     return 0;
   }
 
-  nsubstrings5 = get_substrings(&querylength5,&query_starts_5,&genomic_starts_5,&genomic_ends_5,cigar5,chrpos_low_5);
-  nsubstrings3 = get_substrings(&querylength3,&query_starts_3,&genomic_starts_3,&genomic_ends_3,cigar3,chrpos_low_3);
+  nsubstrings5 = get_substrings(&(*querylength5),&query_starts_5,&genomic_starts_5,&genomic_ends_5,cigar5,chrpos_low_5);
+  nsubstrings3 = get_substrings(&(*querylength3),&query_starts_3,&genomic_starts_3,&genomic_ends_3,cigar3,chrpos_low_3);
 
   for (i = 0; i < nsubstrings5; i++) {
     for (j = 0; j < nsubstrings3; j++) {
@@ -906,9 +1142,9 @@ Samread_compute_insert_length (char *cigar5, Genomicpos_T chrpos_low_5, char *ci
   }
 
   if (genomic_ends_5[nsubstrings5-1] < genomic_starts_3[0]) {
-    insert_length = genomic_starts_3[0] - genomic_ends_5[nsubstrings5-1] + querylength5 + querylength3;
+    insert_length = genomic_starts_3[0] - genomic_ends_5[nsubstrings5-1] + (*querylength5) + (*querylength3);
   } else if (genomic_ends_3[nsubstrings3-1] < genomic_starts_5[0]) {
-    insert_length = genomic_starts_5[0] - genomic_ends_3[nsubstrings3-1] + querylength5 + querylength3;
+    insert_length = genomic_starts_5[0] - genomic_ends_3[nsubstrings3-1] + (*querylength5) + (*querylength3);
   } else {
     insert_length = 0;
   }

@@ -3,7 +3,7 @@ if MAKE_BINARIES
 bin_PROGRAMS = 
 
 if SAMTOOLS
-bin_PROGRAMS += bam_tally bam_get bam_fastq
+bin_PROGRAMS += bam_tally
 endif
 
 endif
@@ -24,9 +24,8 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
- dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
@@ -49,9 +48,8 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
- dynprog.c dynprog.h dynprog_simd.c dynprog_simd.h dynprog_single.c dynprog_single.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 # Do not add SAMTOOLS LIBS here
@@ -78,7 +76,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  uinttable.h table.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
- dynprog.h dynprog_simd.h dynprog_single.h \
+ dynprog.h dynprog_simd.h dynprog_cigar.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h \
  matchdef.h matchpool.h mismatchdef.h mismatchpool.h bamtally.h datadir.h
 
@@ -88,47 +86,6 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = ../lib/gstruct-$(LIBGSTRUCT_API_VERSION).pc
-
-
-
-BAM_GET_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
- uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h \
- interval.c interval.h iitdef.h iit-read.c iit-read.h \
- chrom.c chrom.h genomicpos.c genomicpos.h \
- md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
- uinttable.c uinttable.h table.c table.h \
- chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h \
- parserange.c parserange.h \
- getopt.c getopt1.c getopt.h bam_get.c
-
-bam_get_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DBAM_INPUT=1
-bam_get_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_get_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_get_SOURCES = $(BAM_GET_FILES)
-
-
-BAM_FASTQ_FILES = fopen.h bool.h types.h \
- except.c except.h assert.c assert.h mem.c mem.h \
- listdef.h list.c list.h \
- genomicpos.c genomicpos.h complement.h \
- intlistdef.h intlist.c intlist.h uintlist.c uintlist.h \
- stopwatch.c stopwatch.h access.c access.h \
- md5.c md5.h sequence.c sequence.h \
- genome.c genome.h chrom.c chrom.h \
- uinttable.c uinttable.h \
- interval.c interval.h iit-read.c iit-read.h \
- bamread.c bamread.h samread.c samread.h \
- table.c table.h \
- getopt.c getopt1.c getopt.h bam_fastq.c
-
-bam_fastq_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-bam_fastq_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-bam_fastq_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-dist_bam_fastq_SOURCES = $(BAM_FASTQ_FILES)
 
 
 

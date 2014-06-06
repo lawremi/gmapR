@@ -1,4 +1,4 @@
-/* $Id: uintlist.h 49873 2011-10-16 17:06:51Z twu $ */
+/* $Id: uintlist.h 137605 2014-05-30 00:33:41Z twu $ */
 #ifndef UINTLIST_INCLUDED
 #define UINTLIST_INCLUDED
 #include "bool.h"
@@ -22,6 +22,8 @@ extern T
 Uintlist_reverse (T list);
 extern int 
 Uintlist_length (T list);
+extern bool
+Uintlist_equal (T list1, T list2);
 extern unsigned int *
 Uintlist_to_array (int *n, T list);
 extern T 

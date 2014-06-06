@@ -1,4 +1,4 @@
-/* $Id: bamtally.h 135602 2014-05-08 20:10:28Z twu $ */
+/* $Id: bamtally.h 138415 2014-06-06 21:10:25Z twu $ */
 #ifndef BAMTALLY_INCLUDED
 #define BAMTALLY_INCLUDED
 #include "bamread.h"
@@ -9,8 +9,7 @@
 #include "tableuint.h"
 
 
-typedef enum {OUTPUT_BLOCKS, OUTPUT_RUNLENGTHS, OUTPUT_TALLY, OUTPUT_IIT, OUTPUT_TOTAL,
-	      PROCESS_INDELS} Tally_outputtype_T;
+typedef enum {OUTPUT_BLOCKS, OUTPUT_RUNLENGTHS, OUTPUT_TALLY, OUTPUT_IIT, OUTPUT_TOTAL} Tally_outputtype_T;
 #define DEFAULT_QUALITY 40  /* quality_score_adj + 40 */
 
 extern long int
@@ -22,7 +21,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      Tableuint_T resolve_low_table, Tableuint_T resolve_high_table,
 	      char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-	      bool ignore_lowend_p, bool ignore_highend_p,
+	      bool ignore_lowend_p, bool ignore_highend_p, IIT_T map_iit,
 	      Tally_outputtype_T output_type, bool blockp, int blocksize,
 	      int quality_score_adj, int min_depth, int variant_strands,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
@@ -37,7 +36,8 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 long int **tally_matches_high, long int **tally_mismatches_high,
 		 int *quality_counts_match, int *quality_counts_mismatch,
 		 Bamreader_T bamreader, Genome_T genome, char *printchr,
-		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, int alloclength,
+		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend,
+		 IIT_T map_iit, int alloclength,
 		 char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,

@@ -1,4 +1,4 @@
-/* $Id: dynprog.h 136514 2014-05-16 17:59:19Z twu $ */
+/* $Id: dynprog.h 137605 2014-05-30 00:33:41Z twu $ */
 #ifndef DYNPROG_INCLUDED
 #define DYNPROG_INCLUDED
 
@@ -29,6 +29,15 @@ typedef enum {HIGHQ, MEDQ, LOWQ, ENDQ} Mismatchtype_T;
    and low sequence quality, respectively */
 #define DEFECT_HIGHQ 0.003
 #define DEFECT_MEDQ 0.014
+
+#define SINGLE_OPEN_HIGHQ -8
+#define SINGLE_OPEN_MEDQ -6
+#define SINGLE_OPEN_LOWQ -4
+
+#define SINGLE_EXTEND_HIGHQ -3
+#define SINGLE_EXTEND_MEDQ -2
+#define SINGLE_EXTEND_LOWQ -1
+
 
 #define UNKNOWNJUMP -1000000
 

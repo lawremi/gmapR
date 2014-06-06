@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uintlist.c 49873 2011-10-16 17:06:51Z twu $";
+static char rcsid[] = "$Id: uintlist.c 137605 2014-05-30 00:33:41Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -89,6 +89,27 @@ Uintlist_length (T list) {
   }
   return n;
 }
+
+bool
+Uintlist_equal (T list1, T list2) {
+  while (list1 && list2) {
+    if (list1->first != list2->first) {
+      return false;
+    } else {
+      list1 = list1->rest;
+      list2 = list2->rest;
+    }
+  }
+
+  if (list1) {
+    return false;
+  } else if (list2) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 
 unsigned int *
 Uintlist_to_array (int *n, T list) {

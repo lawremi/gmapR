@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: intlist.c 46991 2011-09-12 17:36:30Z twu $";
+static char rcsid[] = "$Id: intlist.c 137605 2014-05-30 00:33:41Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -103,6 +103,26 @@ Intlist_length (T list) {
     n++;
   }
   return n;
+}
+
+bool
+Intlist_equal (T list1, T list2) {
+  while (list1 && list2) {
+    if (list1->first != list2->first) {
+      return false;
+    } else {
+      list1 = list1->rest;
+      list2 = list2->rest;
+    }
+  }
+
+  if (list1) {
+    return false;
+  } else if (list2) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 int

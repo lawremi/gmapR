@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 134418 2014-04-25 22:14:34Z twu $";
+static char rcsid[] = "$Id: bamread.c 137859 2014-06-02 22:00:43Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -677,6 +677,61 @@ Bamline_cigar_npositions (Bamline_T this) {
   return this->cigar_npositions;
 }
 
+Intlist_T
+Bamline_diffcigar (Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this) {
+  Intlist_T types = NULL;
+  int type;
+  Genomicpos_T chrpos;
+  Intlist_T p;
+  Uintlist_T q;
+
+  *npositions = (Uintlist_T) NULL;
+  *chrpositions = (Uintlist_T) NULL;
+
+  chrpos = this->chrpos_low;
+  for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
+    if ((type = Intlist_head(p)) == 'S') {
+      /* Ignore */
+
+    } else if (type == 'H') {
+      /* Ignore */
+
+    } else if (type == 'M') {
+      chrpos += Uintlist_head(q);
+
+    } else if (type == 'N') {
+      types = Intlist_push(types,type);
+      *npositions = Uintlist_push(*npositions,Uintlist_head(q));
+      *chrpositions = Uintlist_push(*chrpositions,chrpos);
+      chrpos += Uintlist_head(q);
+
+    } else if (type == 'P') {
+      /* Do nothing */
+
+    } else if (type == 'I') {
+      types = Intlist_push(types,type);
+      *npositions = Uintlist_push(*npositions,Uintlist_head(q));
+      *chrpositions = Uintlist_push(*chrpositions,chrpos);
+
+    } else if (type == 'D') {
+      types = Intlist_push(types,type);
+      *npositions = Uintlist_push(*npositions,Uintlist_head(q));
+      *chrpositions = Uintlist_push(*chrpositions,chrpos);
+      chrpos += Uintlist_head(q);
+
+    } else {
+      fprintf(stderr,"Cannot parse type %c\n",type);
+      exit(9);
+    }
+    debug(printf("  type = %c, chrpos = %u\n",type,chrpos));
+  }
+
+  *npositions = Uintlist_reverse(*npositions);
+  *chrpositions = Uintlist_reverse(*chrpositions);
+  return Intlist_reverse(types);
+}
+
+
 void
 Bamread_print_cigar (FILE *fp, Bamline_T this) {
   Intlist_T p;
@@ -939,6 +994,51 @@ Bamline_print_new_cigar (FILE *fp, Bamline_T this, Genomicpos_T chrpos_low, char
   if (orig_md_string != NULL) {
     fprintf(fp,"\tXZ:Z:%s",orig_md_string);
   }
+
+  fprintf(fp,"\n");
+  return;
+}
+
+
+void
+Bamline_print_new_mate (FILE *fp, Bamline_T this, char *mate_chr, Genomicpos_T mate_chrpos_low,
+			int insert_length) {
+  Intlist_T p;
+  Uintlist_T q;
+
+  fprintf(fp,"%s\t",this->acc);
+  fprintf(fp,"%u\t",this->flag);
+  if (this->chr == NULL) {
+    fprintf(fp,"*\t0\t");
+  } else {
+    fprintf(fp,"%s\t%u\t",this->chr,this->chrpos_low);
+  }
+  fprintf(fp,"%d\t",this->mapq);
+  for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
+    fprintf(fp,"%u%c",Uintlist_head(q),Intlist_head(p));
+  }
+  fprintf(fp,"\t");
+  if (mate_chr == NULL) {
+    fprintf(fp,"*\t0\t");
+  } else if (this->chr != NULL && strcmp(mate_chr,this->chr) == 0) {
+    fprintf(fp,"=\t%u\t",mate_chrpos_low);
+  } else {
+    fprintf(fp,"%s\t%u\t",mate_chr,mate_chrpos_low);
+  }
+  assert(insert_length >= 0);
+  if (this->chrpos_low < mate_chrpos_low) {
+    fprintf(fp,"%d\t",insert_length);
+  } else {
+    fprintf(fp,"%d\t",-insert_length);
+  }
+  fprintf(fp,"%s\t",this->read);
+  if (this->quality_string == NULL) {
+    fprintf(fp,"*");
+  } else {
+    fprintf(fp,"%s",this->quality_string);
+  }
+
+  aux_print(fp,this->aux_start,this->aux_end);
 
   fprintf(fp,"\n");
   return;
