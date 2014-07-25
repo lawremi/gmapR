@@ -261,7 +261,7 @@ variantSummaryColumnDescriptions <- function(read_pos_breaks) {
     count.minus = "Raw minus strand ALT count",
     count.minus.ref = "Raw minus strand REF count",
     read.pos.mean = "Average read position for the ALT",
-    read.pos.mean.ref = "Average read position for the ALT",
+    read.pos.mean.ref = "Average read position for the REF",
     read.pos.var = "Variance in read position for the ALT",
     read.pos.var.ref = "Variance in read position for the REF",
     mdfne = "Median distance from nearest end of read for the ALT",
