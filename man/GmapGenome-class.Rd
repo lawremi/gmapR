@@ -9,7 +9,7 @@
 \alias{GmapGenome}
 \alias{snps<-,GmapGenome,ANY,ANY-method}
 \alias{spliceSites<-,GmapGenome,GRangesList-method}
-\alias{spliceSites<-,GmapGenome,TranscriptDb-method}
+\alias{spliceSites<-,GmapGenome,TxDb-method}
 \alias{coerce,GmapGenome,DNAStringSet-method}
 \alias{snps<-}
 \alias{spliceSites<-}
