@@ -5,7 +5,6 @@ test_GmapGenomeDirectory <- function() {
   on.exit(unlink(genomeDir, recursive=TRUE))
   
   ##test constructor
-  genomeDir <- tools::file_path_as_absolute(genomeDir)
   ggd <- GmapGenomeDirectory(path=genomeDir, create=TRUE)
   checkTrue(is(ggd, "GmapGenomeDirectory"))
   

@@ -22,7 +22,7 @@
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
                 indels = FALSE, include_soft_clips = 0L,
-                count_xs = FALSE, noncovered = FALSE)
+                cds_iit = NULL, IIT_BPPARAM = NULL)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -65,15 +65,16 @@
     of discordance with the reference, and if those clipped regions are
     ignored during counting, the allele fraction is misestimated.
   }
-  \item{count_xs}{Whether to tabulate the +/- values of the XS tag,
-    often output by RNA-seq aligners to indicate the strand of
-    transcription.
-  }
-  \item{noncovered}{Whether to output rows for positions without any
-    coverage.
+  \item{exon_iit}{An object which indicates the exons to be used for
+    tallying codons (a character value indicating an existing .iit file, a
+    \code{GRangesList} of exons by gene or a \code{TxDb} object from which
+    to make such a \code{GRangesList}) or \code{NULL} indicating no
+    codon-level tallying should be done.}
+  \item{IIT_BPPARAM}{A \code{BiocParallelParam} object to use when
+    generating the iit file from an R object. Ignored if \code{exon_iit}
+    is a character vector or \code{NULL}
   }
 }
-
 \seealso{
   \code{\link{bam_tally}}
 }

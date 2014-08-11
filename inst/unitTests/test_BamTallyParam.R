@@ -10,8 +10,7 @@ test_BamTallyParam <- function() {
                primary_only = FALSE, ignore_duplicates = FALSE,
                min_depth = 0L, variant_strand = 0L,
                ignore_query_Ns = FALSE,
-               indels = FALSE, include_soft_clips = 0L,
-               count_xs = FALSE, noncovered = FALSE)
+               indels = FALSE, include_soft_clips = 0L)
   which <- TP53Which()
   wicked.which <- renameSeqlevels(which, c(TP53 = "chr1"))
   

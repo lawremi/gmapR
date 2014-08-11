@@ -308,7 +308,7 @@ param <- BamTallyParam(genome,
                        primary_only = FALSE,
                        min_depth = 0L, variant_strand = 1L,
                        ignore_query_Ns = TRUE,
-                       indels = FALSE, include_soft_clips = 1L, count_xs = TRUE)
+                       indels = FALSE, include_soft_clips = 1L)
 tallies <-bam_tally(bam_file,
                     param)
 variantSummary(tallies, high_base_quality = 23L)

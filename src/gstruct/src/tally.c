@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 137450 2014-05-28 23:56:20Z twu $";
+static char rcsid[] = "$Id: tally.c 141506 2014-07-15 02:07:28Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -219,6 +219,183 @@ find_deletion_seg (List_T deletions, char *segment, int mlength) {
 
 
 /************************************************************************
+ *   Readevid_T
+ ************************************************************************/
+
+struct Readevid_T {
+  unsigned int linei;
+  char nt;
+  char nti;
+
+  int shift;
+  int mapq;
+  char quality;
+  int xs;
+};
+
+
+Readevid_T
+Readevid_new (unsigned int linei, char nt, int shift, int mapq, char quality, int xs) {
+  Readevid_T new = (Readevid_T) MALLOC(sizeof(*new));
+
+  new->linei = linei;
+  new->nt = nt;
+  switch (nt) {
+  case 'A': new->nti = 0; break;
+  case 'C': new->nti = 1; break;
+  case 'G': new->nti = 2; break;
+  case 'T': new->nti = 3; break;
+  default: new->nti = -1;
+  }
+
+  new->shift = shift;
+  new->mapq = mapq;
+  new->quality = quality;
+  new->xs = xs;
+
+  return new;
+}
+
+
+static void
+Readevid_free (Readevid_T *old) {
+  FREE(*old);
+  return;
+}
+
+unsigned int
+Readevid_linei (Readevid_T this) {
+  return this->linei;
+}
+
+char
+Readevid_nt (Readevid_T this) {
+  return this->nt;
+}
+
+
+char
+Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
+		      Readevid_T frame0, Readevid_T frame1, Readevid_T frame2) {
+  if (frame0->nti < 0) {
+    return -1;
+  } else if (frame1->nti < 0) {
+    return -1;
+  } else if (frame2->nti < 0) {
+    return -1;
+
+  } else {
+    *shift = frame0->shift;
+    if (frame1->shift < *shift) {
+      *shift = frame1->shift;
+    }
+    if (frame2->shift < *shift) {
+      *shift = frame2->shift;
+    }
+
+    *quality = frame0->quality;
+    if (frame1->quality < *quality) {
+      *quality = frame1->quality;
+    }
+    if (frame2->quality < *quality) {
+      *quality = frame2->quality;
+    }
+
+    *mapq = frame0->mapq;
+#if 0
+    /* MAPQ should be a read-level quantity */
+    if (frame1->mapq < *mapq) {
+      *mapq = frame1->mapq;
+    }
+    if (frame2->mapq < *mapq) {
+      *mapq = frame2->mapq;
+    }
+#endif
+
+    *xs = frame0->xs;
+#if 0
+    /* XS should be a read-level quantity */
+    if (frame1->xs != *xs) {
+      *xs = 0;
+    } else if (frame2->xs != *xs) {
+      *xs = 0;
+    }
+#endif
+
+    return 16*frame0->nti + 4*frame1->nti + frame2->nti;
+  }
+}
+
+char
+Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
+		       Readevid_T frame0, Readevid_T frame1, Readevid_T frame2) {
+  if (frame0->nti < 0) {
+    return -1;
+  } else if (frame1->nti < 0) {
+    return -1;
+  } else if (frame2->nti < 0) {
+    return -1;
+  } else {
+    *shift = frame0->shift;
+    if (frame1->shift < *shift) {
+      *shift = frame1->shift;
+    }
+    if (frame2->shift < *shift) {
+      *shift = frame2->shift;
+    }
+
+    *quality = frame0->quality;
+    if (frame1->quality < *quality) {
+      *quality = frame1->quality;
+    }
+    if (frame2->quality < *quality) {
+      *quality = frame2->quality;
+    }
+
+    *mapq = frame0->mapq;
+#if 0
+    /* MAPQ should be a read-level quantity */
+    if (frame1->mapq < *mapq) {
+      *mapq = frame1->mapq;
+    }
+    if (frame2->mapq < *mapq) {
+      *mapq = frame2->mapq;
+    }
+#endif
+
+    *xs = frame0->xs;
+#if 0
+    /* XS should be a read-level quantity */
+    if (frame1->xs != *xs) {
+      *xs = 0;
+    } else if (frame2->xs != *xs) {
+      *xs = 0;
+    }
+#endif
+
+    return 16*(3-frame2->nti) + 4*(3-frame1->nti) + (3-frame0->nti);
+  }
+}
+
+
+int
+Readevid_cmp (const void *a, const void *b) {
+  Readevid_T x = * (Readevid_T *) a;
+  Readevid_T y = * (Readevid_T *) b;
+
+  if (x->linei < y->linei) {
+    return -1;
+  } else if (y->linei < x->linei) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
+
+
+
+/************************************************************************
  *   Tally_T
  ************************************************************************/
 
@@ -267,6 +444,8 @@ Tally_new () {
   new->insertions_byshift = (List_T) NULL;
   new->deletions_byshift = (List_T) NULL;
 
+  new->readevidence = (List_T) NULL;
+
   return new;
 }
 
@@ -278,6 +457,8 @@ Tally_clear (T this) {
   Mismatch_T mismatch;
   Insertion_T ins;
   Deletion_T del;
+  Readevid_T readevid;
+
 
   this->refnt = ' ';
   this->nmatches = 0;
@@ -376,6 +557,15 @@ Tally_clear (T this) {
   List_free(&(this->deletions_byshift));
   this->deletions_byshift = (List_T) NULL;
 
+
+  for (ptr = this->readevidence; ptr != NULL; ptr = List_next(ptr)) {
+    readevid = (Readevid_T) List_head(ptr);
+    Readevid_free(&readevid);
+  }
+  List_free(&(this->readevidence));
+  this->readevidence = (List_T) NULL;
+
+
   return;
 }
 
@@ -383,6 +573,7 @@ Tally_clear (T this) {
 void
 Tally_transfer (T *dest, T *src) {
   T temp;
+
 
   temp = *dest;
   *dest = *src;
@@ -413,6 +604,8 @@ Tally_transfer (T *dest, T *src) {
   temp->insertions_byshift = (List_T) NULL;
   temp->deletions_byshift = (List_T) NULL;
 
+  temp->readevidence = (List_T) NULL;
+
   *src = temp;
 
   return;
@@ -427,6 +620,8 @@ Tally_free (T *old) {
   Mismatch_T mismatch;
   Insertion_T ins;
   Deletion_T del;
+  Readevid_T readevid;
+
 
 #if 0
   (*old)->refnt = ' ';
@@ -511,14 +706,23 @@ Tally_free (T *old) {
     Insertion_free(&ins);
   }
   List_free(&((*old)->insertions_byshift));
-  (*old)->insertions_byshift = (List_T) NULL;
+  /* (*old)->insertions_byshift = (List_T) NULL; */
 
   for (ptr = (*old)->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     del = (Deletion_T) List_head(ptr);
     Deletion_free(&del);
   }
   List_free(&((*old)->deletions_byshift));
-  (*old)->deletions_byshift = (List_T) NULL;
+  /* (*old)->deletions_byshift = (List_T) NULL; */
+
+
+  for (ptr = (*old)->readevidence; ptr != NULL; ptr = List_next(ptr)) {
+    readevid = (Readevid_T) List_head(ptr);
+    Readevid_free(&readevid);
+  }
+  List_free(&((*old)->readevidence));
+  /* (*old)->readevidence = (List_T) NULL; */
+
 
   FREE(*old);
   *old = (T) NULL;
@@ -527,4 +731,118 @@ Tally_free (T *old) {
 }
 
 
+char
+Tally_codoni_plus (Tally_T tally0, Tally_T tally1, Tally_T tally2,
+		   Genomicpos_T chrpos0, Genomicpos_T chrpos1, Genomicpos_T chrpos2,
+		   Genome_T genome, Genomicpos_T chroffset) {
+  char nti0, nti1, nti2;
+  char refnt;
 
+  switch (tally0->refnt) {
+  case 'A': nti0 = 0; break;
+  case 'C': nti0 = 1; break;
+  case 'G': nti0 = 2; break;
+  case 'T': nti0 = 3; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos0-1U);
+    switch (refnt) {
+    case 'A': nti0 = 0; break;
+    case 'C': nti0 = 1; break;
+    case 'G': nti0 = 2; break;
+    case 'T': nti0 = 3; break;
+    default: return -1;
+    }
+  }
+
+  switch (tally1->refnt) {
+  case 'A': nti1 = 0; break;
+  case 'C': nti1 = 1; break;
+  case 'G': nti1 = 2; break;
+  case 'T': nti1 = 3; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos1-1U);
+    switch (refnt) {
+    case 'A': nti1 = 0; break;
+    case 'C': nti1 = 1; break;
+    case 'G': nti1 = 2; break;
+    case 'T': nti1 = 3; break;
+    default: return -1;
+    }
+  }
+
+  switch (tally2->refnt) {
+  case 'A': nti2 = 0; break;
+  case 'C': nti2 = 1; break;
+  case 'G': nti2 = 2; break;
+  case 'T': nti2 = 3; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos2-1U);
+    switch (refnt) {
+    case 'A': nti2 = 0; break;
+    case 'C': nti2 = 1; break;
+    case 'G': nti2 = 2; break;
+    case 'T': nti2 = 3; break;
+    default: return -1;
+    }
+  }
+
+  return 16*nti0 + 4*nti1 + nti2;
+}
+
+char
+Tally_codoni_minus (Tally_T tally0, Tally_T tally1, Tally_T tally2,
+		    Genomicpos_T chrpos0, Genomicpos_T chrpos1, Genomicpos_T chrpos2,
+		    Genome_T genome, Genomicpos_T chroffset) {
+  char nti0, nti1, nti2;
+  char refnt;
+
+  switch (tally0->refnt) {
+  case 'A': nti0 = 3; break;
+  case 'C': nti0 = 2; break;
+  case 'G': nti0 = 1; break;
+  case 'T': nti0 = 0; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos0-1U);
+    switch (refnt) {
+    case 'A': nti0 = 3; break;
+    case 'C': nti0 = 2; break;
+    case 'G': nti0 = 1; break;
+    case 'T': nti0 = 0; break;
+    default: return -1;
+    }
+  }
+
+  switch (tally1->refnt) {
+  case 'A': nti1 = 3; break;
+  case 'C': nti1 = 2; break;
+  case 'G': nti1 = 1; break;
+  case 'T': nti1 = 0; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos1-1U);
+    switch (refnt) {
+    case 'A': nti1 = 3; break;
+    case 'C': nti1 = 2; break;
+    case 'G': nti1 = 1; break;
+    case 'T': nti1 = 0; break;
+    default: return -1;
+    }
+  }
+
+  switch (tally2->refnt) {
+  case 'A': nti2 = 3; break;
+  case 'C': nti2 = 2; break;
+  case 'G': nti2 = 1; break;
+  case 'T': nti2 = 0; break;
+  default:
+    refnt = Genome_get_char(genome,chroffset+chrpos2-1U);
+    switch (refnt) {
+    case 'A': nti2 = 3; break;
+    case 'C': nti2 = 2; break;
+    case 'G': nti2 = 1; break;
+    case 'T': nti2 = 0; break;
+    default: return -1;
+    }
+  }
+
+  return 16*nti2 + 4*nti1 + nti0;
+}

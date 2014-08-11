@@ -13,8 +13,8 @@ GSTRUCT_INCLUDE_DIR = $(INCLUDE_DIR)/gstruct
 
 SAMTOOLS_LIB = samtools/libbam.a
 
-PKG_CPPFLAGS += -I$(INCLUDE_DIR)
-PKG_CFLAGS += -g
+PKG_CPPFLAGS += -I$(INCLUDE_DIR) -g -O0
+PKG_CFLAGS += -g -O0
 PKG_LIBS += $(GSTRUCT_LIB) $(SAMTOOLS_LIB) -lz
 
 SHLIB = gmapR.so
@@ -49,14 +49,16 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools=${R_SRC_DIR}/samtools \
-                    --disable-binaries --disable-maintainer-mode #\
+                    --disable-binaries  --disable-maintainer-mode \
+		     #\ added by gabe 5/14/14
 ## does not appear to be a true dependency yet
 ##	            --with-gmap=${PREFIX}/bin
 
 gmap/Makefile: gmap/configure
 	cd $(dir $@); \
-	./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
-	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode
+	 ./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
+	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode \
+		    CFLAGS=-g0 #added by gabe 5/14/14
 
 clean:
 	for dir in $(SUBDIRS); do \

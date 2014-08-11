@@ -25,7 +25,8 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
+ translation.c translation.h bamtally.c bamtally.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
@@ -49,7 +50,8 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  chrnum.c chrnum.h \
  bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
- matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h bamtally.c bamtally.h \
+ matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
+ translation.c translation.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 # Do not add SAMTOOLS LIBS here
@@ -78,7 +80,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  bamread.h samread.h parserange.h \
  dynprog.h dynprog_simd.h dynprog_cigar.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h \
- matchdef.h matchpool.h mismatchdef.h mismatchpool.h bamtally.h datadir.h
+ matchdef.h matchpool.h mismatchdef.h mismatchpool.h tally.h translation.h bamtally.h datadir.h
 
 # May want nodist_bamtally_libinclude_HEADERS = ../lib/bamtally.h
 #bamtally_libincludedir = $(libdir)/bamtally-$(LIBGSTRUCT_API_VERSION)/include

@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 138415 2014-06-06 21:10:25Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 141509 2014-07-15 02:46:36Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -43,7 +43,7 @@ static char *dbroot = NULL;
 static char *dbversion = NULL;
 
 static char *user_mapdir = NULL;
-static char *map_iitfile = NULL;
+static char *map_iitfile = NULL; /* For coding regions */
 
 /* Filters */
 static bool print_noncovered_p = false;
@@ -396,6 +396,7 @@ main (int argc, char *argv[]) {
       }
       FREE(iitfile);
     }
+    FREE(map_iitfile);
   }
 
 
@@ -411,7 +412,7 @@ main (int argc, char *argv[]) {
     if (via_iit_p == true) {
       bamtally_iit = Bamtally_iit(bamreader,/*chr*/NULL,/*bam_lacks_chr*/NULL,
 				  /*chrstart*/0,/*chrend*/0,
-				  genome,chromosome_iit,alloclength,
+				  genome,chromosome_iit,map_iit,alloclength,
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
@@ -438,11 +439,11 @@ main (int argc, char *argv[]) {
 	  grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
 				     &intervallist,&labellist,&datalist,
 				     quality_counts_match,quality_counts_mismatch,
-				     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-				     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				     bamreader,genome,chromosome,chroffset,chrstart,chrend,map_iit,
+				     alloclength,/*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
 				     desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,map_iit,
+				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				     output_type,blockp,blocksize,
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
@@ -479,7 +480,7 @@ main (int argc, char *argv[]) {
       FREE(iitfile);
 
       bamtally_iit = Bamtally_iit(bamreader,/*chr*/chromosome,/*bam_lacks_chr*/NULL,
-				  chrstart,chrend,genome,chromosome_iit,alloclength,
+				  chrstart,chrend,genome,chromosome_iit,map_iit,alloclength,
 				  desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				  min_depth,variant_strands,ignore_query_Ns_p,
@@ -503,11 +504,11 @@ main (int argc, char *argv[]) {
 	grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
 				   &intervallist,&labellist,&datalist,
 				   quality_counts_match,quality_counts_mismatch,
-				   bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-				   /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				   bamreader,genome,chromosome,chroffset,chrstart,chrend,map_iit,
+				   alloclength,/*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
 				   desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-				   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,map_iit,
+				   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				   output_type,blockp,blocksize,
 				   quality_score_adj,min_depth,variant_strands,
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
@@ -563,11 +564,11 @@ main (int argc, char *argv[]) {
 	  grand_total = Bamtally_run(&tally_matches,&tally_mismatches,
 				     &intervallist,&labellist,&datalist,
 				     quality_counts_match,quality_counts_mismatch,
-				     bamreader,genome,chromosome,chroffset,chrstart,chrend,alloclength,
-				     /*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
+				     bamreader,genome,chromosome,chroffset,chrstart,chrend,map_iit,
+				     alloclength,/*resolve_low_table*/NULL,/*resolve_high_table*/NULL,
 				     desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,map_iit,
+				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				     output_type,blockp,blocksize,
 				     quality_score_adj,min_depth,variant_strands,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,

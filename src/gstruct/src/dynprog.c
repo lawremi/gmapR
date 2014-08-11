@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: dynprog.c 136514 2014-05-16 17:59:19Z twu $";
+static char rcsid[] = "$Id: dynprog.c 138620 2014-06-10 19:45:19Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -91,15 +91,6 @@ static char rcsid[] = "$Id: dynprog.c 136514 2014-05-16 17:59:19Z twu $";
    appear to defeat purpose of trimming, so increase mismatch at end
    from -3 to -4. */
 #define MISMATCH_ENDQ -5
-
-
-#define SINGLE_OPEN_HIGHQ -12	/* was -10 */
-#define SINGLE_OPEN_MEDQ -8
-#define SINGLE_OPEN_LOWQ -4
-
-#define SINGLE_EXTEND_HIGHQ -3	/* was -3 */
-#define SINGLE_EXTEND_MEDQ -2
-#define SINGLE_EXTEND_LOWQ -1
 
 
 #define T Dynprog_T
@@ -586,6 +577,7 @@ Directions32_print (Direction32_T **directions_nogap, Direction32_T **directions
 #define GENOMIC_MAXLENGTH 2000
 
 
+#if 0
 static void
 compute_maxlengths (int *max_rlength, int *max_glength,
 		    int maxlookback, int extraquerygap, int maxpeelback,
@@ -608,6 +600,7 @@ compute_maxlengths (int *max_rlength, int *max_glength,
 
   return;
 }
+#endif
 
 
 T

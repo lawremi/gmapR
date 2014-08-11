@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: dynprog_single.c 136515 2014-05-16 18:00:02Z twu $";
+static char rcsid[] = "$Id: dynprog_single.c 141012 2014-07-09 16:34:44Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -54,16 +54,6 @@ static char rcsid[] = "$Id: dynprog_single.c 136515 2014-05-16 18:00:02Z twu $";
 
 #define ENDSEQUENCE_PVALUE 0.001 /* Have stricter threshold for making end exons */
 
-#define SINGLE_OPEN_HIGHQ -12	/* was -10 */
-#define SINGLE_OPEN_MEDQ -8
-#define SINGLE_OPEN_LOWQ -4
-
-#define SINGLE_EXTEND_HIGHQ -3	/* was -3 */
-#define SINGLE_EXTEND_MEDQ -2
-#define SINGLE_EXTEND_LOWQ -1
-
-
-
 #define T Dynprog_T
 
 
@@ -117,6 +107,37 @@ find_best_endpoint_to_queryend_indels_8 (int *bestr, int *bestc, Score8_T **matr
 #endif
 
 
+#if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
+static int
+find_best_endpoint_to_queryend_nogap_8 (int *bestr, int *bestc, Score8_T **matrix,
+					int rlength, int glength, int lband, int uband) {
+  Score8_T bestscore = NEG_INFINITY_8;
+  int r, c;
+  int clo, chigh;
+  /* No need for loffset or cmid because they apply only for cdnaend
+     == FIVE, which doesn't require searching */
+
+  *bestr = r = rlength;
+  *bestc = 0;
+
+  if ((clo = r - lband) < 1) {
+    clo = 1;
+  }
+  if ((chigh = r + uband) > glength) {
+    chigh = glength;
+  }
+  for (c = clo; c <= chigh; c++) {
+    if (matrix[c][r] > bestscore) {
+      *bestc = c;
+      bestscore = matrix[c][r];
+    }
+  }
+
+  return (int) bestscore;
+}
+#endif
+
+
 static int
 find_best_endpoint_to_queryend_indels_16 (int *bestr, int *bestc, Score16_T **matrix,
 					  int rlength, int glength, int lband, int uband,
@@ -158,6 +179,35 @@ find_best_endpoint_to_queryend_indels_16 (int *bestr, int *bestc, Score16_T **ma
 	*bestc = c;
 	bestscore = matrix[c][r];
       }
+    }
+  }
+
+  return (int) bestscore;
+}
+
+
+static int
+find_best_endpoint_to_queryend_nogap_16 (int *bestr, int *bestc, Score16_T **matrix,
+					 int rlength, int glength, int lband, int uband) {
+  Score16_T bestscore = NEG_INFINITY_16;
+  int r, c;
+  int clo, chigh;
+  /* No need for loffset or cmid because they apply only for cdnaend
+     == FIVE, which doesn't require searching */
+
+  *bestr = r = rlength;
+  *bestc = 0;
+
+  if ((clo = r - lband) < 1) {
+    clo = 1;
+  }
+  if ((chigh = r + uband) > glength) {
+    chigh = glength;
+  }
+  for (c = clo; c <= chigh; c++) {
+    if (matrix[c][r] > bestscore) {
+      *bestc = c;
+      bestscore = matrix[c][r];
     }
   }
 
@@ -297,10 +347,11 @@ single_gap_simple (int *finalscore, int *nmatches, int *nmismatches,
 char *
 Dynprog_single_gap (int *finalscore, int *finalc, char **md_string, T dynprog,
 		    char *rsequence, char *gsequence, char *gsequence_alt,
-		    char *nindels, char *deletion_string, int rlength, int glength,
-		    bool jump_late_p, int extraband_single) {
+		    int *nindels, char **delstrings, int rlength, int glength,
+		    int extraband_single) {
   char *cigar;
   int bestr, bestc;
+  bool jump_late_p = false;
 
   Mismatchtype_T mismatchtype;
   int lband, uband;
@@ -352,8 +403,8 @@ Dynprog_single_gap (int *finalscore, int *finalc, char **md_string, T dynprog,
     *finalscore = find_best_endpoint_to_queryend_indels_8(&bestr,&bestc,matrix8,rlength,glength,
 							  lband,uband,jump_late_p);
 
-    cigar = Dynprog_cigar_8(&(*finalc),directions8_nogap,directions8_Egap,directions8_Fgap,
-			    bestr,bestc,rsequence,gsequence,gsequence,nindels,
+    cigar = Dynprog_cigar_8(&(*md_string),&(*finalc),directions8_nogap,directions8_Egap,directions8_Fgap,
+			    bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
 			    /*queryoffset*/0,/*genomeoffset*/0,
 			    /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
     
@@ -368,8 +419,8 @@ Dynprog_single_gap (int *finalscore, int *finalc, char **md_string, T dynprog,
     *finalscore = find_best_endpoint_to_queryend_indels_16(&bestr,&bestc,matrix16,rlength,glength,
 							   lband,uband,jump_late_p);
 
-    cigar = Dynprog_cigar_16(&(*finalc),directions16_nogap,directions16_Egap,directions16_Fgap,
-			     bestr,bestc,rsequence,gsequence,gsequence,nindels,
+    cigar = Dynprog_cigar_16(&(*md_string),&(*finalc),directions16_nogap,directions16_Egap,directions16_Fgap,
+			     bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
 			     /*queryoffset*/0,/*genomeoffset*/0,
 			     /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
   }
@@ -383,8 +434,98 @@ Dynprog_single_gap (int *finalscore, int *finalc, char **md_string, T dynprog,
   *finalscore = find_best_endpoint_to_queryend_indels_std(&bestr,&bestc,matrix8,rlength,glength,
 							  lband,uband,jump_late_p);
 
-  cigar = Dynprog_cigar_std(&(*finalc),directions_nogap,directions_Egap,directions_Fgap,
-			    bestr,bestc,rsequence,gsequence,gsequence,nindels,
+  cigar = Dynprog_cigar_std(&(*md_string),&(*finalc),directions_nogap,directions_Egap,directions_Fgap,
+			    bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
+			    /*queryoffset*/0,/*genomeoffset*/0,
+			    /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
+
+#endif
+
+  /*
+  Directions_free(directions);
+  Matrix_free(matrix);
+  */
+
+  debug(printf("End of dynprog single gap\n"));
+
+  return cigar;
+}
+
+
+
+char *
+Dynprog_single_nogap (int *finalscore, int *nmismatches, int *finalc, char **md_string, T dynprog,
+		      char *rsequence, char *gsequence, char *gsequence_alt,
+		      int *nindels, char **delstrings, int rlength, int glength,
+		      int extraband_single) {
+  char *cigar;
+  int bestr, bestc;
+
+  Mismatchtype_T mismatchtype;
+  int lband, uband;
+#if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
+  Score8_T **matrix8;
+  Score16_T **matrix16;
+#else
+  Score32_T **matrix;
+#endif
+
+  mismatchtype = HIGHQ;
+
+  /* Rlength: maxlookback+MAXPEELBACK.  Glength +EXTRAMATERIAL */
+  debug(printf("Aligning single gap middle with wideband = %d and extraband %d\n",widebandp,extraband_single));
+#ifdef EXTRACT_GENOMICSEG
+  debug(printf("At genomic offset %d-%d, %.*s\n",goffset,goffset+glength-1,glength,gsequence));
+#endif
+  debug(printf("\n"));
+
+#if 0
+  if (rlength > dynprog->max_rlength || glength > dynprog->max_glength) {
+    debug(printf("rlength %d or glength %d is too long.  Returning NULL\n",rlength,glength));
+    return NEG_INFINITY_32;
+  }
+#endif
+
+  debug(printf("At query offset %d-%d, %.*s\n",roffset,roffset+rlength-1,rlength,rsequence));
+  
+  /* Have to set widebandp to be true */
+  Dynprog_compute_bands(&lband,&uband,rlength,glength,extraband_single,/*widebandp*/true);
+#if defined(HAVE_SSE4_1) || defined(HAVE_SSE2)
+  /* Use || because we want the minimum length (which determines the diagonal length) to achieve a score less than 128 */
+  if (rlength <= SIMD_MAXLENGTH_EPI8 || glength <= SIMD_MAXLENGTH_EPI8) {
+    matrix8 = Dynprog_simd_nogap_8(dynprog,rsequence,gsequence,gsequence_alt,rlength,glength,
+				   mismatchtype,lband,uband,/*revp*/false);
+
+    *finalscore = find_best_endpoint_to_queryend_nogap_8(&bestr,&bestc,matrix8,rlength,glength,
+							 lband,uband);
+
+    cigar = Dynprog_cigar_nogap_8(&(*nmismatches),&(*md_string),&(*finalc),
+				  bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
+				  /*queryoffset*/0,/*genomeoffset*/0,
+				  /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
+    
+  } else {
+    matrix16 = Dynprog_simd_nogap_16(dynprog,rsequence,gsequence,gsequence_alt,rlength,glength,
+				     mismatchtype,lband,uband,/*revp*/false);
+    *finalscore = find_best_endpoint_to_queryend_nogap_16(&bestr,&bestc,matrix16,rlength,glength,
+							  lband,uband);
+
+    cigar = Dynprog_cigar_nogap_16(&(*nmismatches),&(*md_string),&(*finalc),
+				   bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
+				   /*queryoffset*/0,/*genomeoffset*/0,
+				   /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
+  }
+
+#else
+
+  matrix = Dynprog_standard_nogap(dynprog,rsequence,gsequence,gsequence_alt,rlength,glength,
+				  goffset,chroffset,chrhigh,watsonp,mismatchtype,
+				  lband,uband,/*revp*/false,/*saturation*/NEG_INFINITY_INT);
+  *finalscore = find_best_endpoint_to_queryend_nogap_std(&bestr,&bestc,matrix8,rlength,glength,
+							 lband,uband);
+
+  cigar = Dynprog_cigar_std(&(*md_string),&(*finalc),directions_nogap,directions_Egap,directions_Fgap,
+			    bestr,bestc,rsequence,gsequence,gsequence,delstrings,nindels,
 			    /*queryoffset*/0,/*genomeoffset*/0,
 			    /*revp*/false,/*chroffset*/0,/*chrhigh*/0);
 

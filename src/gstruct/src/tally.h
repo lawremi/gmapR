@@ -4,6 +4,7 @@
 #include "bool.h"
 
 #include "genomicpos.h"
+#include "genome.h"
 
 #include "matchdef.h"
 #include "matchpool.h"
@@ -79,6 +80,29 @@ extern Deletion_T
 find_deletion_seg (List_T deletions, char *segment, int mlength);
 
 
+typedef struct Readevid_T *Readevid_T;
+extern Readevid_T
+Readevid_new (unsigned int linei, char nt, int shift, int mapq, char quality, int xs);
+extern unsigned int
+Readevid_linei (Readevid_T this);
+extern char
+Readevid_nt (Readevid_T this);
+extern int
+Readevid_quality_score (Readevid_T this);
+
+/* Needs to be signed char, because can return -1 for non-ACGT */
+extern char
+Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
+		      Readevid_T frame0, Readevid_T frame1, Readevid_T frame2);
+/* Needs to be signed char, because can return -1 for non-ACGT */
+extern char
+Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
+		       Readevid_T frame0, Readevid_T frame1, Readevid_T frame2);
+extern int
+Readevid_cmp (const void *a, const void *b);
+
+
+
 typedef struct Tally_T *Tally_T;
 struct Tally_T {
   char refnt;
@@ -128,6 +152,8 @@ struct Tally_T {
 
   List_T insertions_byshift;
   List_T deletions_byshift;
+
+  List_T readevidence;
 };
 
 
@@ -139,6 +165,14 @@ extern void
 Tally_transfer (Tally_T *dest, Tally_T *src);
 extern void
 Tally_free (Tally_T *old);
+extern char
+Tally_codoni_plus (Tally_T tally0, Tally_T tally1, Tally_T tally2,
+		   Genomicpos_T chrpos0, Genomicpos_T chrpos1, Genomicpos_T chrpos2,
+		   Genome_T genome, Genomicpos_T chroffset);
+extern char
+Tally_codoni_minus (Tally_T tally0, Tally_T tally1, Tally_T tally2,
+		    Genomicpos_T chrpos0, Genomicpos_T chrpos1, Genomicpos_T chrpos2,
+		    Genome_T genome, Genomicpos_T chroffset);
 
 
 #endif

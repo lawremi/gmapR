@@ -1,4 +1,4 @@
-/* $Id: bamread.h 137605 2014-05-30 00:33:41Z twu $ */
+/* $Id: bamread.h 141010 2014-07-09 16:34:11Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -64,6 +64,8 @@ extern int
 Bamline_nhits (Bamline_T this);
 extern bool
 Bamline_good_unique_p (Bamline_T this);
+extern bool
+Bamline_perfect_match_p (Bamline_T this);
 extern int
 Bamline_mapq (Bamline_T this);
 extern char *
@@ -104,7 +106,7 @@ extern void
 Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj);
 extern void
 Bamline_print_new_cigar (FILE *fp, Bamline_T this, Genomicpos_T chrpos_low, char *new_cigar,
-			 char *new_md_string);
+			 char *new_md_string, int quality_score_adj);
 extern void
 Bamline_print_new_mate (FILE *fp, Bamline_T this, char *mate_chr, Genomicpos_T mate_chrpos_low,
 			int insert_length);
@@ -116,6 +118,12 @@ extern char
 Bamline_strand (Bamline_T this, Genome_T genome, IIT_T chromosome_iit);
 extern Genomicpos_T
 Bamline_chrpos_high (Bamline_T this);
+extern Genomicpos_T
+Bamline_chrpos_high_noclip (Bamline_T this);
+extern Genomicpos_T
+Bamline_total_ins (Bamline_T this);
+extern int
+Bamline_nmismatches (Bamline_T this);
 
 
 extern void
@@ -124,6 +132,17 @@ extern Bamline_T
 Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		      bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		      bool need_concordant_p);
+extern Bamline_T
+Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+			    bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+			    bool need_concordant_p);
+
+extern Bamline_T *
+Bamread_next_bamline_set (int *nlines, Bamline_T *prev_bamline,
+			  T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+			  bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+			  bool need_concordant_p);
+
 extern Bamline_T
 Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *desired_acc);
 

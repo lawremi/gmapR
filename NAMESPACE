@@ -1,20 +1,22 @@
 useDynLib(gmapR, .registration = TRUE)
 
-import(methods)
-importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
-           list_files_with_exts)
-importFrom(utils, packageVersion)
-
 importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList,
            BamSampler)
+importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
+           list_files_with_exts)
 importFrom(Biobase, createPackage)
-import(S4Vectors)
 import(IRanges)
-import(GenomeInfoDb)
+import(S4Vectors)
+import(methods)
 import(GenomicRanges)
+import(BiocParallel)
+importMethodsFrom(GenomeInfoDb, genome)
+importFrom(utils, packageVersion)
 importFrom(Biostrings, getSeq, readDNAStringSet, DNAStringSet)
+importFrom(GenomicRanges, seqinfo)
+importMethodsFrom(GenomicRanges, seqnames, strand)
 importMethodsFrom(Rsamtools, asBam)
-importClassesFrom(GenomicFeatures, TxDb)
+importClassesFrom(GenomicFeatures, TxDb) #TranscriptDb)
 importFrom(GenomicFeatures, transcripts, exons)
 importClassesFrom(rtracklayer, RTLFile, FastaFile)
 importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)

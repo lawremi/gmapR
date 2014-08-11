@@ -7,7 +7,7 @@
 ### High-level wrapper
 ###
 
-setGeneric("iit_store", function(x, dest, ...) standardGeneric("iit_store"))
+setGeneric("iit_store", function(x, dest, BPPARAM=MulticoreParam(1), ...) standardGeneric("iit_store"))
 
 gmapRange <- function(x) {
   pos <- strand(x) == "+"
@@ -18,8 +18,42 @@ gmapRange <- function(x) {
   range
 }
 
-setMethod("iit_store", c("GenomicRanges", "character"),
-          function(x, dest, info = colnames(values(x))[1]) {
+
+
+.make_iit_interval = function(grange, name) {
+    pos = runValue(strand(grange))[1] == "+"
+    strts = start(grange)
+    ends = end(grange)
+    o = order(strts, decreasing = !pos)
+    
+    strtpos = if(pos) min(strts) else max(ends)
+    endpos = if(!pos) min(strts) else max(ends)
+    hdr = paste0(">", name, " ", runValue(seqnames(grange))[1], ":", strtpos, "..", endpos )
+
+    datline = paste(name, name, "NA")
+    rngst = if(pos) strts[o] else ends[o]
+    rngend = if(!pos) strts[o] else ends[o]
+    rnglines = paste0(rngst , " ", rngend)
+    c(hdr, datline, rnglines)
+}
+    
+    
+
+setMethod("iit_store", c("GenomicRangesList"),
+          function(x, dest =  tempfile(pattern="iit", fileext=".iit"), BPPARAM= MulticoreParam(1)) {
+              nms = gsub("( |:|\\.)", "_", names(x))
+              lines = unlist(bpmapply(.make_iit_interval, x, nms, BPPARAM = BPPARAM), use.names = FALSE)
+              p <- .iit_store(sort = "none", output = dest)
+              #writeLines(lines, p)
+              cat(paste(lines, collapse="\n"), file =p)
+              close(p)
+              dest
+          })
+
+
+setMethod("iit_store", c("GenomicRanges"),
+          function(x, dest =  tempfile(pattern="iit", fileext=".iit"),
+                   info = colnames(values(x))[1]) {
             lines <- paste0(">", names(x), " ", gmapRange(x), " ",
                             values(x)[[info]])
             p <- .iit_store(sort = "none", output = dest)
@@ -28,8 +62,10 @@ setMethod("iit_store", c("GenomicRanges", "character"),
             dest
           })
 
-setMethod("iit_store", c("character", "character"),
-          function(x, dest, gff = file_ext(x) == "gff",
+
+setMethod("iit_store", c("character"),
+          function(x, dest =  tempfile(pattern="iit", fileext=".iit"),
+                   gff = file_ext(x) == "gff",
                    label = if (gff) "ID" else NULL)
           {
             .iit_store(gff = gff, label = label, sort = "none",

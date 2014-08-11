@@ -49,7 +49,6 @@ test_GmapGenome_accessors <- function() {
   if (file.exists(genomeDir)) unlink(genomeDir, recursive=TRUE)
   dir.create(genomeDir, recursive=TRUE)
   on.exit(unlink(genomeDir, recursive=TRUE))
-  genomeDir <- tools::file_path_as_absolute(genomeDir)
   gmapGenome <- GmapGenome(genome=dna, directory=genomeDir,
                            name=genomeName, create=FALSE, k=12)
   checkIdentical(path(gmapGenome), file.path(genomeDir, genomeName))
