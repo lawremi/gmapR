@@ -37,7 +37,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 @MAKE_BINARIES_TRUE@bin_PROGRAMS = $(am__EXEEXT_1)
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__append_1 = bam_tally
+@HAVE_SAMTOOLS_LIB_TRUE@@MAKE_BINARIES_TRUE@am__append_1 = bam_tally
 subdir = src
 DIST_COMMON = $(gstruct_include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in
@@ -77,8 +77,8 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_DEPENDENCIES =  \
-@SAMTOOLS_TRUE@	$(am__DEPENDENCIES_1)
+@HAVE_SAMTOOLS_LIB_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_DEPENDENCIES =  \
+@HAVE_SAMTOOLS_LIB_TRUE@	$(am__DEPENDENCIES_1)
 am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST =  \
 	config.h fopen.h bool.h types.h except.c except.h assert.c \
 	assert.h mem.c mem.h intlistdef.h intlist.c intlist.h \
@@ -126,8 +126,8 @@ am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-translation.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo
-@SAMTOOLS_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
-@SAMTOOLS_TRUE@	$(am__objects_1)
+@HAVE_SAMTOOLS_LIB_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
+@HAVE_SAMTOOLS_LIB_TRUE@	$(am__objects_1)
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
 	$(dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS)
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LINK = $(LIBTOOL) --tag=CC \
@@ -135,7 +135,7 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la_LINK = $(LIBTOOL) --tag=CC \
 	$(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) \
 	$(libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS) $(LDFLAGS) \
 	-o $@
-@MAKE_BINARIES_TRUE@@SAMTOOLS_TRUE@am__EXEEXT_1 = bam_tally$(EXEEXT)
+@HAVE_SAMTOOLS_LIB_TRUE@@MAKE_BINARIES_TRUE@am__EXEEXT_1 = bam_tally$(EXEEXT)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h except.c \
@@ -171,10 +171,11 @@ am__objects_2 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-bamtally.$(OBJEXT) bam_tally-datadir.$(OBJEXT) \
 	bam_tally-getopt.$(OBJEXT) bam_tally-getopt1.$(OBJEXT) \
 	bam_tally-bamtally_main.$(OBJEXT)
-@SAMTOOLS_TRUE@dist_bam_tally_OBJECTS = $(am__objects_2)
+@HAVE_SAMTOOLS_LIB_TRUE@dist_bam_tally_OBJECTS = $(am__objects_2)
 bam_tally_OBJECTS = $(dist_bam_tally_OBJECTS)
-@SAMTOOLS_TRUE@bam_tally_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-@SAMTOOLS_TRUE@	$(am__DEPENDENCIES_1)
+@HAVE_SAMTOOLS_LIB_TRUE@bam_tally_DEPENDENCIES =  \
+@HAVE_SAMTOOLS_LIB_TRUE@	$(am__DEPENDENCIES_1) \
+@HAVE_SAMTOOLS_LIB_TRUE@	$(am__DEPENDENCIES_1)
 bam_tally_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(bam_tally_CFLAGS) \
 	$(CFLAGS) $(bam_tally_LDFLAGS) $(LDFLAGS) -o $@
@@ -354,10 +355,10 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
-@SAMTOOLS_TRUE@bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-@SAMTOOLS_TRUE@bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
-@SAMTOOLS_TRUE@bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
-@SAMTOOLS_TRUE@dist_bam_tally_SOURCES = $(BAM_TALLY_FILES)
+@HAVE_SAMTOOLS_LIB_TRUE@bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+@HAVE_SAMTOOLS_LIB_TRUE@bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
+@HAVE_SAMTOOLS_LIB_TRUE@bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
+@HAVE_SAMTOOLS_LIB_TRUE@dist_bam_tally_SOURCES = $(BAM_TALLY_FILES)
 LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
@@ -376,10 +377,10 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
 
 
 # Do not add SAMTOOLS LIBS here
-@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
-@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
-@SAMTOOLS_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
-@SAMTOOLS_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES = $(LIBGSTRUCT_LA_FILES)
+@HAVE_SAMTOOLS_LIB_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+@HAVE_SAMTOOLS_LIB_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
+@HAVE_SAMTOOLS_LIB_TRUE@libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
+@HAVE_SAMTOOLS_LIB_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES = $(LIBGSTRUCT_LA_FILES)
 
 #gstruct_includedir = $(includedir)/gstruct-$(LIBGSTRUCT_API_VERSION)
 #gstruct_include_HEADERS = bamtally.h

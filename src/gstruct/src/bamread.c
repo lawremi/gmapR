@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 141010 2014-07-09 16:34:11Z twu $";
+static char rcsid[] = "$Id: bamread.c 143410 2014-08-05 17:23:27Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -29,8 +29,8 @@ static char rcsid[] = "$Id: bamread.c 141010 2014-07-09 16:34:11Z twu $";
 
 
 
-#ifdef HAVE_SAMTOOLS
-#include <bam.h>
+#ifdef HAVE_SAMTOOLS_LIB
+#include "bam.h"
 typedef uint8_t *BAM_Sequence_T;
 typedef uint32_t *BAM_Cigar_T;
 #endif
@@ -38,7 +38,7 @@ typedef uint32_t *BAM_Cigar_T;
 #define T Bamreader_T
 struct T {
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   bamFile fp;
   bam_header_t *header;
 
@@ -56,7 +56,7 @@ struct T {
 };
 
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
 #ifndef bam_init_header_hash
 /* Not declared in bam.h */
 extern void bam_init_header_hash (bam_header_t *header);
@@ -67,7 +67,7 @@ extern void bam_init_header_hash (bam_header_t *header);
 void
 Bamread_free (T *old) {
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   bam_index_destroy((*old)->idx);
   bam_destroy1((*old)->bam);
   if ((*old)->header != NULL) {
@@ -86,7 +86,7 @@ T
 Bamread_new (char *filename) {
   T new = (T) MALLOC(sizeof(*new));
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   if (Access_file_exists_p(filename) == false) {
     fprintf(stderr,"BAM file %s does not exist\n",filename);
     return (T) NULL;
@@ -148,7 +148,7 @@ Genomicpos_T
 Bamread_chrlength (T this, char *chr) {
   int32_t tid;
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   /* bam_parse_region(this->header,region,&tid,&chrstart,&chrend); */
   if ((tid = bam_get_tid(this->header,chr)) < 0) {
     fprintf(stderr,"chr %s is not in BAM file\n",chr);
@@ -166,7 +166,7 @@ Bamread_chrlength (T this, char *chr) {
 #if 0
 void
 Bamread_reset (T this) {
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   bam_destroy1(this->bam);
   this->bam = bam_init1();
   this->core = &(this->bam->core);
@@ -185,7 +185,7 @@ bool
 Bamread_limit_region (T this, char *chr, Genomicpos_T chrstart, Genomicpos_T chrend) {
   int32_t tid;
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   /* bam_parse_region(this->header,region,&tid,&chrstart,&chrend); */
   if ((tid = bam_get_tid(this->header,chr)) < 0) {
     fprintf(stderr,"chr %s is not in BAM file\n",chr);
@@ -204,7 +204,7 @@ Bamread_limit_region (T this, char *chr, Genomicpos_T chrstart, Genomicpos_T chr
 void
 Bamread_unlimit_region (T this) {
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   if (this->region_limited_p == 1) {
     this->region_limited_p = 0;
     bam_iter_destroy(this->iter);
@@ -230,7 +230,7 @@ Bamread_nreads (int *npositions, T this, char *chr, Genomicpos_T chrpos1, Genomi
     chrend = chrpos1;
   }
   
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   Genomicpos_T chrpos_low, chrpos_high;
   BAM_Cigar_T cigar;
   int type;
@@ -375,7 +375,7 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   int i;
   unsigned int length;
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   BAM_Sequence_T seq;
   BAM_Cigar_T cigar;
   uint8_t *ptr;
@@ -485,7 +485,7 @@ has_indel_p (T this) {
   int type;
   int i;
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   BAM_Cigar_T cigar;
 
   /* Cigar */
@@ -510,7 +510,7 @@ perfect_match_p (T this) {
   unsigned char tag1, tag2;
 
 
-#ifdef HAVE_SAMTOOLS
+#ifdef HAVE_SAMTOOLS_LIB
   BAM_Cigar_T cigar;
 
   /* Cigar */
@@ -586,7 +586,7 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
 		   bool *terminalp) {
   int insert_length;
 
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return 0;
 #else
   if (this->region_limited_p == 1) {
@@ -1226,7 +1226,7 @@ static char
 aux_splice_strand (T this) {
   char strand;
 
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return ' ';
 #else
   uint8_t *s;
@@ -1250,7 +1250,7 @@ Bamline_splice_strand (Bamline_T this) {
 
 static int
 aux_nhits (T this) {
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return 1;
 #else
   uint8_t *s;
@@ -1267,7 +1267,7 @@ aux_nhits (T this) {
 
 static bool
 aux_good_unique_p (T this, int good_unique_mapq) {
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return true;
 #else
   uint8_t *s;
@@ -1817,7 +1817,7 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
   char *read_group;
   bool terminalp;
 
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {
@@ -1930,7 +1930,7 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
   char *read_group;
   bool terminalp;
 
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {
@@ -2054,7 +2054,7 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
   char *read_group;
   bool terminalp;
 
-#ifndef HAVE_SAMTOOLS
+#ifndef HAVE_SAMTOOLS_LIB
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {

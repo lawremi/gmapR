@@ -1,4 +1,4 @@
-/* $Id: bamtally.h 141508 2014-07-15 02:46:24Z twu $ */
+/* $Id: bamtally.h 143437 2014-08-05 21:45:04Z twu $ */
 #ifndef BAMTALLY_INCLUDED
 #define BAMTALLY_INCLUDED
 #include "bamread.h"

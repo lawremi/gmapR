@@ -2,7 +2,7 @@
 if MAKE_BINARIES
 bin_PROGRAMS = 
 
-if SAMTOOLS
+if HAVE_SAMTOOLS_LIB
 bin_PROGRAMS += bam_tally
 endif
 
@@ -30,7 +30,7 @@ BAM_TALLY_FILES = fopen.h bool.h types.h \
  datadir.c datadir.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
-if SAMTOOLS
+if HAVE_SAMTOOLS_LIB
 bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
@@ -55,7 +55,7 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  datadir.c datadir.h
 
 # Do not add SAMTOOLS LIBS here
-if SAMTOOLS
+if HAVE_SAMTOOLS_LIB
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)

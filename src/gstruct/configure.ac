@@ -423,42 +423,76 @@ AC_SUBST(ZLIB_LIBS)
 
 # Samtools package
 
-AC_MSG_CHECKING(for samtools library)
-AC_ARG_WITH([samtools],
-            AC_HELP_STRING([--with-samtools=DIR],
-                           [Location of samtools header and library files (both in DIR) (optional)]),
+# Samtools program
+
+AC_MSG_CHECKING(for samtools program)
+AC_ARG_WITH([samtools-program],
+            AC_HELP_STRING([--with-samtools-program=FILE],
+                           [Full path of samtools program]),
             [answer="$withval"],
             [answer=""])
-if test x"$answer" = x; then
-  SAMTOOLS_CFLAGS=""
-  SAMTOOLS_LDFLAGS=""
-  SAMTOOLS_LIBS=""
-  AC_MSG_RESULT(disabled)
-  samtools=false
+if test x"$answer" != x; then
+  SAMTOOLS=$answer
+  AC_MSG_RESULT(provided by --with-samtools-program)
 else
-  if test x$have_zlib = xno; then
-     SAMTOOLS_CFLAGS=""
-     SAMTOOLS_LDFLAGS=""
-     SAMTOOLS_LIBS=""
-     AC_MSG_RESULT(enabled, but zlib not enabled)
-     samtools=false
-  else
-     AC_DEFINE(HAVE_SAMTOOLS,1,[Define to 1 if you have a working Samtools library.])
-     SAMTOOLS_CFLAGS="-I$withval"
-     SAMTOOLS_LDFLAGS="-L$withval -Wl,-rpath,$withval"
-     SAMTOOLS_LIBS="-lbam"
-     AC_MSG_RESULT(enabled)
-     samtools=true
+  AC_ARG_WITH([samtools],
+              AC_HELP_STRING([--with-samtools=DIR],
+                             [Location of samtools bin, include, and lib subdirs]),
+              [answer="$withval"],
+              [answer=""])
+  if test x"$answer" != x; then
+    if test -r "$answer/bin/samtools"; then
+      SAMTOOLS=$answer/bin/samtools
+      AC_MSG_RESULT(provided by --with-samtools and found)
+    else
+      AC_PATH_PROG([SAMTOOLS],[samtools],false,$PATH)
+    fi
   fi
 fi
+
+
+# Samtools headers
+
+SAMTOOLS_CFLAGS="-I."
 AC_SUBST(SAMTOOLS_CFLAGS)
+
+
+# Samtools library
+
+AC_MSG_CHECKING(for samtools library)
+AC_ARG_WITH([samtools-lib],
+            AC_HELP_STRING([--with-samtools-lib=DIR],
+                           [Directory containing samtools libbam.a library]),
+            [answer="$withval"],
+            [answer=""])
+if test x"$answer" != x; then
+  AC_DEFINE(HAVE_SAMTOOLS_LIB,1,[Define to 1 if you have a working Samtools library.])
+  SAMTOOLS_LDFLAGS="-L$answer -Wl,-rpath,$answer"
+  SAMTOOLS_LIBS="-lbam"
+  AC_MSG_RESULT(provided by --with-samtools-lib)
+else
+  AC_ARG_WITH([samtools],
+              AC_HELP_STRING([--with-samtools=DIR],
+                             [Location of samtools bin, include, and lib subdirs]),
+              [answer="$withval"],
+              [answer=""])
+  if test x"$answer" != x; then
+    if test -r "$answer/lib/libbam.a"; then
+      AC_DEFINE(HAVE_SAMTOOLS_LIB,1,[Define to 1 if you have a working Samtools library.])
+      SAMTOOLS_LDFLAGS="-L$answer/lib -Wl,-rpath,$answer/lib"
+      SAMTOOLS_LIBS="-lbam"
+      AC_MSG_RESULT(provided by --with-samtools and found)
+    else
+     SAMTOOLS_LDFLAGS=""
+     SAMTOOLS_LIBS=""
+     AC_MSG_RESULT(provided by --with-samtools but not found)
+    fi
+  fi
+fi
 AC_SUBST(SAMTOOLS_LDFLAGS)
 AC_SUBST(SAMTOOLS_LIBS)
-AM_CONDITIONAL([SAMTOOLS], [test "x$samtools" = xtrue])
+AM_CONDITIONAL([HAVE_SAMTOOLS_LIB], [test "x$SAMTOOLS_LIBS" != x])
 
-
-# Checks for samtools program, but don't use header and library path provided to --with-samtools
-AC_PATH_PROG([SAMTOOLS],[samtools])
 
 
 AC_CONFIG_FILES([Makefile])
