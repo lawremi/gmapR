@@ -186,9 +186,9 @@ normArgTRUEorFALSE <- function(x) {
   x
 }
 
-normArgSingleCharacter <- function(x) {
+normArgSingleCharacterOrNULL <- function(x) {
   name <- deparse(substitute(x))
-  if (!is(x, "character") || length(x) != 1)
+  if (!is.null(x) && (!is(x, "character") || length(x) != 1))
     stop("'", name, "' should be a single character value")
   x
 }
@@ -206,7 +206,7 @@ normArgSingleCharacter <- function(x) {
                          indels = FALSE,
                          blocksize = 1000L, verbosep = FALSE,
                          include_soft_clips = 0L,
-                         cds_iit)
+                         exon_iit = NULL)
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
@@ -245,7 +245,7 @@ normArgSingleCharacter <- function(x) {
         normArgSingleInteger(blocksize),
         normArgTRUEorFALSE(verbosep),
         normArgSingleInteger(include_soft_clips),
-        normArgSingleCharacter(cds_iit))
+        normArgSingleCharacterOrNULL(exon_iit))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
