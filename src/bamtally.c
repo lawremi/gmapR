@@ -79,11 +79,11 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  print_indels_p, blocksize, verbosep,
                                  /*readlevel_p*/false, max_softclip,
 				 /* print_xs_scores_p ??? */ false,
-//				 /* print_noncovered_p ??? */ false);
-				 /* print_noncovered_p ??? */ true);
+				 /* print_noncovered_p ??? */ false);
   IIT_free(&chromosome_iit);
   Genome_free(&genome);
-  IIT_free(&map_iit);
+  if(map_iit != NULL)
+    IIT_free(&map_iit);
   if (tally_iit == NULL) {
     error("Could not create tally\n");
   }

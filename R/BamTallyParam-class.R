@@ -47,11 +47,12 @@ normArgWhich <- function(x, genome) {
 setGeneric("normArgCdsIIT", function(exon_iit, genome, ...) standardGeneric("normArgCdsIIT"))
 
 setMethod("normArgCdsIIT", "ANY", function(exon_iit, genome, BPPARAM) {
-    if(!is(exon_iit, "character") || length(exon_iit) > 1)
-        stop("Invalid exon_iit value. Accepted values types are: single character value (file location), GRangesList of exons, a TxDb object (use the exons in the TxDb), or a GmapGenome (use the genome gene map iit)")
-    if(nchar(exon_iit) && !file.exists(exon_iit))
+    if(!is.null(exon_iit) && (!is(exon_iit, "character") || length(exon_iit) > 1))
+        stop("Invalid exon_iit value. Accepted values types are: single character value (file location), GRangesList of exons, a TxDb object (use the exons in the TxDb),  a GmapGenome (use the genome gene map iit), or NULL")
+    if(!is.null(exon_iit) && (nchar(exon_iit) && !file.exists(exon_iit)))
         stop("exon_iit is non-empty and does not point to an existing file")
     exon_iit
+
 })
 
 setMethod("normArgCdsIIT", "TxDb", function(exon_iit, genome, BPPARAM) {

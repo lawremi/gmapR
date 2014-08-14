@@ -20,6 +20,12 @@ AC_INIT([gstruct],PKG_VERSION,[Thomas Wu <twu@gene.com>])
 AC_MSG_CHECKING(package version)
 AC_MSG_RESULT(PKG_VERSION)
 
+## Added by gabe to enable "--disable-maintainer-mode" configure argument 
+## for bioc build machines
+AM_MAINTAINER_MODE([enable]) 
+
+
+
 ### Read defaults
 AC_MSG_CHECKING(CONFIG_SITE)
 if test -z "$CONFIG_SITE"; then

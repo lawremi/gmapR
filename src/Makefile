@@ -45,13 +45,12 @@ $(SUBDIRS): %: %/Makefile
 
 gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools 
 	cd $(dir $@); \
-	CFLAGS="-g -O0" ./configure --enable-static --disable-shared \
+	CFLAGS="-g" ./configure --enable-static --disable-shared \
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools-lib=${R_SRC_DIR}/samtools \
                     --disable-binaries  \
-# --disable-maintainer-mode \
-		     #\ added by gabe 5/14/14
+                    --disable-maintainer-mode \
 ## does not appear to be a true dependency yet
 ##	            --with-gmap=${PREFIX}/bin
 
