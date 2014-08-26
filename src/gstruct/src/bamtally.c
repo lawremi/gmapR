@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 143624 2014-08-06 21:44:41Z twu $";
+static char rcsid[] = "$Id: bamtally.c 145823 2014-08-23 00:16:59Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -4072,25 +4072,24 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	  List_free(&unique_mismatches_byxs);
 #endif
 	}
+      }
 
+      debug2(printf("Pointers for plus-strand amino acid counts:\n"));
+      pointers = push_int(&ignore,pointers,nbytes);
+      if (map_iit != NULL) {
+	bytes = report_plus_genes(bytes,&nbytes,/*tally2*/this,block_tallies,blockstart,prev_block_tallies,
+				  prev_blockstart,prev_blockptr,plus_genes,chrpos,genome,chroffset,/*signed_counts_p*/true,
+				  /*print_cycles_p*/true,/*print_quality_scores_p*/true,/*print_mapq_scores_p*/false,print_xs_scores_p,
+				  quality_score_adj,/*output_type*/OUTPUT_IIT);
+      }
 
-	debug2(printf("Pointers for plus-strand amino acid counts:\n"));
-	pointers = push_int(&ignore,pointers,nbytes);
-	if (map_iit != NULL) {
-	  bytes = report_plus_genes(bytes,&nbytes,/*tally2*/this,block_tallies,blockstart,prev_block_tallies,
-				    prev_blockstart,prev_blockptr,plus_genes,chrpos,genome,chroffset,/*signed_counts_p*/true,
-				    /*print_cycles_p*/true,/*print_quality_scores_p*/true,/*print_mapq_scores_p*/false,print_xs_scores_p,
-				    quality_score_adj,/*output_type*/OUTPUT_IIT);
-	}
-
-	debug2(printf("Pointers for minus-strand amino acid counts:\n"));
-	pointers = push_int(&ignore,pointers,nbytes);
-	if (map_iit != NULL) {
-	  bytes = report_minus_genes(bytes,&nbytes,/*tally2*/this,block_tallies,blockstart,prev_block_tallies,
-				     prev_blockstart,prev_blockptr,minus_genes,chrpos,genome,chroffset,/*signed_counts_p*/true,
-				     /*print_cycles_p*/true,/*print_quality_scores_p*/true,/*print_mapq_scores_p*/false,print_xs_scores_p,
-				     quality_score_adj,/*output_type*/OUTPUT_IIT);
-	}
+      debug2(printf("Pointers for minus-strand amino acid counts:\n"));
+      pointers = push_int(&ignore,pointers,nbytes);
+      if (map_iit != NULL) {
+	bytes = report_minus_genes(bytes,&nbytes,/*tally2*/this,block_tallies,blockstart,prev_block_tallies,
+				   prev_blockstart,prev_blockptr,minus_genes,chrpos,genome,chroffset,/*signed_counts_p*/true,
+				   /*print_cycles_p*/true,/*print_quality_scores_p*/true,/*print_mapq_scores_p*/false,print_xs_scores_p,
+				   quality_score_adj,/*output_type*/OUTPUT_IIT);
       }
 
 #if 0
