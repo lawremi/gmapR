@@ -3,8 +3,11 @@ geneGenomeName <- function(gene) {
 }
 
 TP53Genome <- function() {
-  gene <- "TP53"
-  genomeName <- geneGenomeName(gene)
+  GeneGenome("TP53")
+}
+
+GeneGenome <- function(gene) {
+  genomeName <- geneGenomeName(paste(gene, collapse="_"))
   
   if (genomeName %in% genome(GmapGenomeDirectory(create=TRUE))) {
     GmapGenome(genomeName)
