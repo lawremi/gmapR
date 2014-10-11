@@ -26,6 +26,10 @@ setMethod("gmap_build", c("FastaFile", "GmapGenome"), function(x, genome, ...) {
   gmap_build(path(x), genome, ...)
 })
 
+setMethod("gmap_build", c("RTLFile", "GmapGenome"), function(x, genome, ...) {
+  gmap_build(import(x), genome, ...)
+})
+
 setMethod("gmap_build", c("DNAStringSet", "GmapGenome"),
           function(x, genome, ...) {
             tmpfile <- tempfile()

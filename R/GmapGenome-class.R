@@ -50,7 +50,7 @@ setGeneric("genomeName", function(x) standardGeneric("genomeName"))
 
 setMethod("genomeName", "character", function(x) x)
 setMethod("genomeName", "BSgenome", function(x) providerVersion(x))
-setMethod("genomeName", "FastaFile",
+setMethod("genomeName", "RTLFile",
           function(x) file_path_sans_ext(basename(path(x)), TRUE))
 
 file_path_is_absolute <- function(x) {
