@@ -22,7 +22,7 @@
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
                 indels = FALSE, include_soft_clips = 0L,
-                cds_iit = NULL, IIT_BPPARAM = NULL)
+                exon_iit = NULL, IIT_BPPARAM = NULL)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
