@@ -9,7 +9,7 @@
 \alias{GmapGenome}
 \alias{snps<-,GmapGenome,ANY,ANY-method}
 \alias{spliceSites<-,GmapGenome,GRangesList-method}
-\alias{spliceSites<-,GmapGenome,TranscriptDb-method}
+\alias{spliceSites<-,GmapGenome,TxDb-method}
 \alias{coerce,GmapGenome,DNAStringSet-method}
 \alias{snps<-}
 \alias{spliceSites<-}
@@ -88,7 +88,7 @@
       this genome.
     }
     \item{}{\code{genome(x)}: gets the name of this genome.}
-    \item{}{\code{seqinfo(x)}: gets the \code{\link[GenomicRanges]{Seqinfo}}
+    \item{}{\code{seqinfo(x)}: gets the \code{\link[GenomeInfoDb]{Seqinfo}}
       for this genome; only sequence names and lengths are available.
     }
   }
