@@ -1,12 +1,3 @@
-
-### =========================================================================
-### CharOrGRangesList
-### -------------------------------------------------------------------------
-###
-### Unifies the two ways we can represent the genome IIT BamTally now expects
-### (specifying CDS regions)
-setClassUnion("CharOrGRangesList", c("character", "GRangesList", "NULL"))
-
 ### =========================================================================
 ### BamTallyParam class
 ### -------------------------------------------------------------------------
@@ -44,11 +35,13 @@ normArgWhich <- function(x, genome) {
   x
 }
 
-setGeneric("normArgCdsIIT", function(exon_iit, genome, ...) standardGeneric("normArgCdsIIT"))
+setGeneric("normArgCdsIIT", function(exon_iit, genome, ...)
+           standardGeneric("normArgCdsIIT"))
 
 setMethod("normArgCdsIIT", "ANY", function(exon_iit, genome, BPPARAM) {
-    if(!is.null(exon_iit) && (!is(exon_iit, "character") || length(exon_iit) > 1))
-        stop("Invalid exon_iit value. Accepted values types are: single character value (file location), GRangesList of exons, a TxDb object (use the exons in the TxDb),  a GmapGenome (use the genome gene map iit), or NULL")
+    if(!is.null(exon_iit)
+       && (!is(exon_iit, "character") || length(exon_iit) > 1))
+      stop("Invalid exon_iit value. See ?BamTallyParam for acceptable values")
     if(!is.null(exon_iit) && (nchar(exon_iit) && !file.exists(exon_iit)))
         stop("exon_iit is non-empty and does not point to an existing file")
     exon_iit
@@ -56,18 +49,14 @@ setMethod("normArgCdsIIT", "ANY", function(exon_iit, genome, BPPARAM) {
 })
 
 setMethod("normArgCdsIIT", "TxDb", function(exon_iit, genome, BPPARAM) {
-    exon_iit = iit_store(exonsBy(exon_iit, "gene"), dest = tempfile(pattern = "cds", fileext = ".iit"), BPPARAM = BPPARAM)
+    exon_iit = iit_store(exonsBy(exon_iit, "gene"),
+      dest = tempfile(pattern = "cds", fileext = ".iit"), BPPARAM = BPPARAM)
     normArgCdsIIT(exon_iit)
 })
 
 setMethod("normArgCdsIIT", "GRangesList", function(exon_iit, genome, BPPARAM) {
-    exon_iit = iit_store(exon_iit, dest = tempfile(pattern = "cds", fileext = ".iit"), BPPARAM = BPPARAM)
-    normArgCdsIIT(exon_iit)
-})
-
-
-setMethod("normArgCdsIIT", "GRanges", function(exon_iit, genome, BPPARAM) {
-    exon_iit = iit_store(GRangesList( exon_iit), dest = tempfile(pattern = "cds", fileext = ".iit"), BPPARAM = BPPARAM)
+    exon_iit = iit_store(exon_iit, dest = tempfile(pattern = "cds",
+                                     fileext = ".iit"), BPPARAM = BPPARAM)
     normArgCdsIIT(exon_iit)
 })
 
@@ -82,7 +71,9 @@ setMethod("normArgCdsIIT", "GmapGenome", function(exon_iit, genome, BPPARAM) {
     normArgsCdsIIT(exon_iit)
 })
 
-.makeCdsIIT= function(exons, filename = tempfile(pattern="exon_iit", fileext=".iit")) {
+.makeCdsIIT <- function(exons,
+                        filename = tempfile(pattern="exon_iit", fileext=".iit"))
+{
     exonsFlat <- unlist(exons, use.names=FALSE)
     exonsPart <- PartitioningByWidth(exons)
     exonsHead <- exonsFlat[-end(exonsPart)]
