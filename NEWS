@@ -1,3 +1,18 @@
+CHANGES IN VERSION 1.8.0
+-----------------------
+
+NEW FEATURES
+
+    o GmapGenomes can be built from any file supported by rtracklayer
+      (so 2bit now works, as well as fasta).
+
+    o Tally BAM files by codon given a set of transcript
+      structures. This happens at the read level, i.e., a codon is
+      observed within an individual read.
+
+    o Tally BAM files strand by XS tag (inferred strand of
+      transcription, instead of strand of alignment).
+    
 CHANGES IN VERSION 1.6.0
 -----------------------
 
