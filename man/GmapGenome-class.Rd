@@ -107,7 +107,7 @@ flyGG <- GmapGenome(genome = "dm3",
                     directory = path.expand("/usr/share/gmap"))
 
 ##create a GmapGenome from a FASTA file
-fa <- system.file("extdata/hg19.MT.fasta", package="gmapR")
+fa <- system.file("extdata/hg19.p53.fasta", package="gmapR")
 fastaFile <- rtracklayer::FastaFile(fa)
 gmapGenome <- GmapGenome(fastaFile, create=TRUE)
 }
