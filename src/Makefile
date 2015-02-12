@@ -13,7 +13,7 @@ GSTRUCT_INCLUDE_DIR = $(INCLUDE_DIR)/gstruct
 
 SAMTOOLS_LIB = samtools/libbam.a
 
-PKG_CPPFLAGS += -I$(INCLUDE_DIR) -g -O3
+PKG_CPPFLAGS += -I$(INCLUDE_DIR)
 PKG_CFLAGS += -g -O3
 PKG_LIBS += $(GSTRUCT_LIB) $(SAMTOOLS_LIB) -lz
 
@@ -28,8 +28,8 @@ $(OBJECTS): $(GSTRUCT_INCLUDE_DIR) $(OBJECTS:%.o=%.c)
 
 $(GSTRUCT_LIB) $(GSTRUCT_INCLUDE_DIR): gstruct
 
-RSAMTOOLS_PATH := $(shell R_LIBS_USER=$(R_LIBRARY_DIR) $(R_HOME)/bin/Rscript --vanilla -e \
-                    'cat(system.file(package="Rsamtools"))')
+RSAMTOOLS_PATH := $(shell R_LIBS=$(R_LIBRARY_DIR) $(R_HOME)/bin/Rscript \
+		    --vanilla -e 'cat(system.file(package="Rsamtools"))')
 ${R_SRC_DIR}/samtools: $(RSAMTOOLS_PATH)
 ## gmap/gstruct assume samtools headers and libs are in one directory,
 ## so we need to create one and populate it with links to Rsamtools.
@@ -45,7 +45,7 @@ $(SUBDIRS): %: %/Makefile
 
 gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools 
 	cd $(dir $@); \
-	CFLAGS="-g" ./configure --enable-static --disable-shared \
+	./configure --enable-static --disable-shared \
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools-lib=${R_SRC_DIR}/samtools \
@@ -57,8 +57,7 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 gmap/Makefile: gmap/configure
 	cd $(dir $@); \
 	 ./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
-	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode \
-		    CFLAGS=-g #added by gabe 5/14/14
+	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode
 
 clean:
 	for dir in $(SUBDIRS); do \
