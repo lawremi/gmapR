@@ -169,6 +169,7 @@ setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
   if (!.gmapGenomeCreated(x))
     stop("Genome index does not exist")
   which <- as(which, "GRanges")
+  merge(seqinfo(x), seqinfo(which)) # for the checks
   ans <- .Call(R_Genome_getSeq, path(directory(x)), genome(x),
                as.character(seqnames(which)), start(which), width(which),
                as.character(strand(which)))

@@ -103,8 +103,14 @@ library(BSgenome.Dmelanogaster.UCSC.dm3)
 flyGG <- GmapGenome(Dmelanogaster, create = TRUE)
 
 ## access system-wide genome using a key
-flyGG <- GmapGenome(genome = "dm3",
-                    directory = path.expand("/usr/share/gmap"))
+flyGG <- GmapGenome(genome = "dm3")
+
+which <- seqinfo(flyGG)["chr4"]
+firstchr <- getSeq(flyGG, which)
+
+genome(which) <- "hg19"
+## should throw an error
+try(getSeq(flyGG, which))
 
 ##create a GmapGenome from a FASTA file
 fa <- system.file("extdata/hg19.p53.fasta", package="gmapR")
