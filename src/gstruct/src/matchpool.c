@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: matchpool.c 135603 2014-05-08 20:10:58Z twu $";
+static char rcsid[] = "$Id: matchpool.c 159527 2015-02-25 21:26:07Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -164,7 +164,7 @@ Matchpool_reset (T this) {
 }
 
 List_T
-Matchpool_push (List_T list, T this, int shift, int mapq, char quality, int xs) {
+Matchpool_push (List_T list, T this, int shift, int nm, int xs, int ncounts) {
   List_T listcell;
   Match_T new;
   List_T p;
@@ -182,12 +182,11 @@ Matchpool_push (List_T list, T this, int shift, int mapq, char quality, int xs) 
   this->objectctr++;
 
   new->shift = shift;
-  new->mapq = mapq;
-  new->quality = quality;
+  new->nm = nm;
   new->xs = xs;
-  new->count = 1;
+  new->count = ncounts;
 
-  debug(printf("Creating %p: %d %d %c\n",new,shift,mapq,quality));
+  debug(printf("Creating %p: %d %d\n",new,shift));
 
 
   if (this->listcellctr >= this->nlistcells) {

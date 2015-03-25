@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 143437 2014-08-05 21:45:04Z twu $";
+static char rcsid[] = "$Id: tally.c 159976 2015-03-02 22:51:51Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -21,14 +21,13 @@ static char rcsid[] = "$Id: tally.c 143437 2014-08-05 21:45:04Z twu $";
 
 #ifndef USE_MATCHPOOL
 Match_T
-Match_new (int shift, int mapq, char quality, int xs) {
+Match_new (int shift, int nm, int xs, int ncounts) {
   Match_T new = (Match_T) MALLOC(sizeof(*new));
 
   new->shift = shift;
-  new->mapq = mapq;
-  new->quality = quality;
+  new->nm = nm;
   new->xs = xs;			/* intron strand (+1 for '+', +2 for '-', 0 for others) */
-  new->count = 1;
+  new->count = ncounts;
 
   return new;
 }
@@ -44,15 +43,14 @@ Match_free (Match_T *old) {
 
 #ifndef USE_MISMATCHPOOL
 Mismatch_T
-Mismatch_new (char nt, int shift, int mapq, char quality, int xs) {
+Mismatch_new (char nt, int shift, int nm, int xs, int ncounts) {
   Mismatch_T new = (Mismatch_T) MALLOC(sizeof(*new));
 
   new->nt = nt;
   new->shift = shift;
-  new->mapq = mapq;
-  new->quality = quality;
+  new->nm = nm;
   new->xs = xs;
-  new->count = 1;
+  new->count = ncounts;
 
   /* Assigned when mismatch added to unique list */
   /* new->count_plus = 0; */
@@ -71,7 +69,7 @@ Mismatch_free (Mismatch_T *old) {
 
 
 Insertion_T
-Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int mapq, char quality) {
+Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int ncounts) {
   Insertion_T new = (Insertion_T) MALLOC(sizeof(*new));
 
   new->chrpos = chrpos;
@@ -79,9 +77,8 @@ Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, 
   strncpy(new->segment,query_insert,mlength);
   new->mlength = mlength;
   new->shift = shift;
-  new->mapq = mapq;
-  new->quality = quality;
-  new->count = 1;
+  new->nm = nm;
+  new->count = ncounts;
 
   /* Assigned when mismatch added to unique list */
   /* new->count_plus = 0; */
@@ -109,10 +106,9 @@ Insertion_count_cmp (const void *a, const void *b) {
   } else if (x->count < y->count) {
     return +1;
   } else {
-    return 0;
+    return strcmp(x->segment,y->segment);
   }
 }
-
 
 Insertion_T
 find_insertion_byshift (List_T insertions, char *segment, int mlength, int shift) {
@@ -122,6 +118,20 @@ find_insertion_byshift (List_T insertions, char *segment, int mlength, int shift
   for (p = insertions; p != NULL; p = List_next(p)) {
     ins = (Insertion_T) List_head(p);
     if (ins->shift == shift && ins->mlength == mlength && !strncmp(ins->segment,segment,mlength)) {
+      return ins;
+    }
+  }
+  return (Insertion_T) NULL;
+}
+
+Insertion_T
+find_insertion_bynm (List_T insertions, char *segment, int mlength, int nm) {
+  List_T p;
+  Insertion_T ins;
+
+  for (p = insertions; p != NULL; p = List_next(p)) {
+    ins = (Insertion_T) List_head(p);
+    if (ins->nm == nm && ins->mlength == mlength && !strncmp(ins->segment,segment,mlength)) {
       return ins;
     }
   }
@@ -144,7 +154,7 @@ find_insertion_seg (List_T insertions, char *segment, int mlength) {
 }
 
 Deletion_T
-Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int mapq) {
+Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int ncounts) {
   Deletion_T new = (Deletion_T) MALLOC(sizeof(*new));
 
   new->chrpos = chrpos;
@@ -152,8 +162,8 @@ Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int m
   strncpy(new->segment,deletion,mlength);
   new->mlength = mlength;
   new->shift = shift;
-  new->mapq = mapq;
-  new->count = 1;
+  new->nm = nm;
+  new->count = ncounts;
 
   /* Assigned when mismatch added to unique list */
   /* new->count_plus = 0; */
@@ -182,7 +192,7 @@ Deletion_count_cmp (const void *a, const void *b) {
   } else if (x->count < y->count) {
     return +1;
   } else {
-    return 0;
+    return strcmp(x->segment,y->segment);
   }
 }
 
@@ -194,6 +204,20 @@ find_deletion_byshift (List_T deletions, char *segment, int mlength, int shift) 
   for (p = deletions; p != NULL; p = List_next(p)) {
     del = (Deletion_T) List_head(p);
     if (del->shift == shift && del->mlength == mlength /* && !strncmp(del->segment,segment,mlength)*/) {
+      return del;
+    }
+  }
+  return (Deletion_T) NULL;
+}
+
+Deletion_T
+find_deletion_bynm (List_T deletions, char *segment, int mlength, int nm) {
+  List_T p;
+  Deletion_T del;
+
+  for (p = deletions; p != NULL; p = List_next(p)) {
+    del = (Deletion_T) List_head(p);
+    if (del->nm == nm && del->mlength == mlength /* && !strncmp(del->segment,segment,mlength)*/) {
       return del;
     }
   }
@@ -228,14 +252,13 @@ struct Readevid_T {
   char nti;
 
   int shift;
-  int mapq;
-  char quality;
+  int nm;
   int xs;
 };
 
 
 Readevid_T
-Readevid_new (unsigned int linei, char nt, int shift, int mapq, char quality, int xs) {
+Readevid_new (unsigned int linei, char nt, int shift, int nm, int xs) {
   Readevid_T new = (Readevid_T) MALLOC(sizeof(*new));
 
   new->linei = linei;
@@ -249,8 +272,7 @@ Readevid_new (unsigned int linei, char nt, int shift, int mapq, char quality, in
   }
 
   new->shift = shift;
-  new->mapq = mapq;
-  new->quality = quality;
+  new->nm = nm;
   new->xs = xs;
 
   return new;
@@ -275,7 +297,7 @@ Readevid_nt (Readevid_T this) {
 
 
 char
-Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
+Readevid_codoni_plus (int *shift, int *nm, int *xs,
 		      Readevid_T frame0, Readevid_T frame1, Readevid_T frame2) {
   if (frame0->nti < 0) {
     return -1;
@@ -293,15 +315,6 @@ Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
       *shift = frame2->shift;
     }
 
-    *quality = frame0->quality;
-    if (frame1->quality < *quality) {
-      *quality = frame1->quality;
-    }
-    if (frame2->quality < *quality) {
-      *quality = frame2->quality;
-    }
-
-    *mapq = frame0->mapq;
 #if 0
     /* MAPQ should be a read-level quantity */
     if (frame1->mapq < *mapq) {
@@ -312,6 +325,7 @@ Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
     }
 #endif
 
+    *nm = frame0->nm;
     *xs = frame0->xs;
 #if 0
     /* XS should be a read-level quantity */
@@ -327,7 +341,7 @@ Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
 }
 
 char
-Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
+Readevid_codoni_minus (int *shift, int *nm, int *xs,
 		       Readevid_T frame0, Readevid_T frame1, Readevid_T frame2) {
   if (frame0->nti < 0) {
     return -1;
@@ -344,15 +358,6 @@ Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
       *shift = frame2->shift;
     }
 
-    *quality = frame0->quality;
-    if (frame1->quality < *quality) {
-      *quality = frame1->quality;
-    }
-    if (frame2->quality < *quality) {
-      *quality = frame2->quality;
-    }
-
-    *mapq = frame0->mapq;
 #if 0
     /* MAPQ should be a read-level quantity */
     if (frame1->mapq < *mapq) {
@@ -363,6 +368,7 @@ Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
     }
 #endif
 
+    *nm = frame0->nm;
     *xs = frame0->xs;
 #if 0
     /* XS should be a read-level quantity */
@@ -407,6 +413,8 @@ Tally_new () {
 
   new->refnt = ' ';
   new->nmatches = 0;
+  new->delcounts_plus = 0;
+  new->delcounts_minus = 0;
   new->n_fromleft_plus = 0;
   new->n_fromleft_minus = 0;
   
@@ -416,8 +424,7 @@ Tally_new () {
 
   new->use_array_p = false;
   new->list_matches_byshift = (List_T) NULL;
-  new->list_matches_byquality = (List_T) NULL;
-  new->list_matches_bymapq = (List_T) NULL;
+  new->list_matches_bynm = (List_T) NULL;
   new->list_matches_byxs = (List_T) NULL;
 
   new->n_matches_byshift_plus = INITIAL_READLENGTH+1;
@@ -425,11 +432,10 @@ Tally_new () {
   new->matches_byshift_plus = (int *) CALLOC(new->n_matches_byshift_plus,sizeof(int));
   new->matches_byshift_minus = (int *) CALLOC(new->n_matches_byshift_minus,sizeof(int));
 
-  new->n_matches_byquality = MAX_QUALITY_SCORE+1;
-  new->n_matches_bymapq = MAX_MAPQ_SCORE+1;
+  new->n_matches_bynm = INITIAL_READLENGTH+1;
+  new->matches_bynm = (int *) CALLOC(new->n_matches_bynm,sizeof(int));
+
   new->n_matches_byxs = 3+1;	/* for 0, 1, and 2 */
-  new->matches_byquality = (int *) CALLOC(new->n_matches_byquality,sizeof(int));
-  new->matches_bymapq = (int *) CALLOC(new->n_matches_bymapq,sizeof(int));
   new->matches_byxs = (int *) CALLOC(new->n_matches_byxs,sizeof(int));
 
 #ifdef USE_MISMATCHPOOL
@@ -437,12 +443,14 @@ Tally_new () {
 #endif
 
   new->mismatches_byshift = (List_T) NULL;
-  new->mismatches_byquality = (List_T) NULL;
-  new->mismatches_bymapq = (List_T) NULL;
+  new->mismatches_bynm = (List_T) NULL;
   new->mismatches_byxs = (List_T) NULL;
 
   new->insertions_byshift = (List_T) NULL;
+  new->insertions_bynm = (List_T) NULL;
+
   new->deletions_byshift = (List_T) NULL;
+  new->deletions_bynm = (List_T) NULL;
 
   new->readevidence = (List_T) NULL;
 
@@ -462,6 +470,8 @@ Tally_clear (T this) {
 
   this->refnt = ' ';
   this->nmatches = 0;
+  this->delcounts_plus = 0;
+  this->delcounts_minus = 0;
   this->n_fromleft_plus = 0;
   this->n_fromleft_minus = 0;
 
@@ -470,8 +480,7 @@ Tally_clear (T this) {
     /* Note: these memset instructions are necessary to get correct results */
     memset((void *) this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int));
     memset((void *) this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int));
-    memset((void *) this->matches_byquality,0,this->n_matches_byquality * sizeof(int));
-    memset((void *) this->matches_bymapq,0,this->n_matches_bymapq * sizeof(int));
+    memset((void *) this->matches_bynm,0,this->n_matches_bynm * sizeof(int));
     memset((void *) this->matches_byxs,0,this->n_matches_byxs * sizeof(int));
 #endif
     this->use_array_p = false;
@@ -487,19 +496,12 @@ Tally_clear (T this) {
     List_free(&(this->list_matches_byshift));
     this->list_matches_byshift = (List_T) NULL;
 
-    for (ptr = this->list_matches_byquality; ptr != NULL; ptr = List_next(ptr)) {
+    for (ptr = this->list_matches_bynm; ptr != NULL; ptr = List_next(ptr)) {
       match = (Match_T) List_head(ptr);
       Match_free(&match);
     }
-    List_free(&(this->list_matches_byquality));
-    this->list_matches_byquality = (List_T) NULL;
-
-    for (ptr = this->list_matches_bymapq; ptr != NULL; ptr = List_next(ptr)) {
-      match = (Match_T) List_head(ptr);
-      Match_free(&match);
-    }
-    List_free(&(this->list_matches_bymapq));
-    this->list_matches_bymapq = (List_T) NULL;
+    List_free(&(this->list_matches_bynm));
+    this->list_matches_bynm = (List_T) NULL;
 
     for (ptr = this->list_matches_byxs; ptr != NULL; ptr = List_next(ptr)) {
       match = (Match_T) List_head(ptr);
@@ -520,19 +522,12 @@ Tally_clear (T this) {
   List_free(&(this->mismatches_byshift));
   this->mismatches_byshift = (List_T) NULL;
 
-  for (ptr = this->mismatches_byquality; ptr != NULL; ptr = List_next(ptr)) {
+  for (ptr = this->mismatches_bynm; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
     Mismatch_free(&mismatch);
   }
-  List_free(&(this->mismatches_byquality));
-  this->mismatches_byquality = (List_T) NULL;
-
-  for (ptr = this->mismatches_bymapq; ptr != NULL; ptr = List_next(ptr)) {
-    mismatch = (Mismatch_T) List_head(ptr);
-    Mismatch_free(&mismatch);
-  }
-  List_free(&(this->mismatches_bymapq));
-  this->mismatches_bymapq = (List_T) NULL;
+  List_free(&(this->mismatches_bynm));
+  this->mismatches_bynm = (List_T) NULL;
 
   for (ptr = this->mismatches_byxs; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
@@ -550,12 +545,26 @@ Tally_clear (T this) {
   List_free(&(this->insertions_byshift));
   this->insertions_byshift = (List_T) NULL;
 
+  for (ptr = this->insertions_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    ins = (Insertion_T) List_head(ptr);
+    Insertion_free(&ins);
+  }
+  List_free(&(this->insertions_bynm));
+  this->insertions_bynm = (List_T) NULL;
+
   for (ptr = this->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     del = (Deletion_T) List_head(ptr);
     Deletion_free(&del);
   }
   List_free(&(this->deletions_byshift));
   this->deletions_byshift = (List_T) NULL;
+
+  for (ptr = this->deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    del = (Deletion_T) List_head(ptr);
+    Deletion_free(&del);
+  }
+  List_free(&(this->deletions_bynm));
+  this->deletions_bynm = (List_T) NULL;
 
 
   for (ptr = this->readevidence; ptr != NULL; ptr = List_next(ptr)) {
@@ -580,29 +589,30 @@ Tally_transfer (T *dest, T *src) {
 
   temp->refnt = ' ';
   temp->nmatches = 0;
+  temp->delcounts_plus = 0;
+  temp->delcounts_minus = 0;
   temp->n_fromleft_plus = 0;
   temp->n_fromleft_minus = 0;
 
   if (temp->use_array_p == true) {
     memset((void *) temp->matches_byshift_plus,0,temp->n_matches_byshift_plus * sizeof(int));
     memset((void *) temp->matches_byshift_minus,0,temp->n_matches_byshift_minus * sizeof(int));
-    memset((void *) temp->matches_byquality,0,temp->n_matches_byquality * sizeof(int));
-    memset((void *) temp->matches_bymapq,0,temp->n_matches_bymapq * sizeof(int));
+    memset((void *) temp->matches_bynm,0,temp->n_matches_bynm * sizeof(int));
     memset((void *) temp->matches_byxs,0,temp->n_matches_byxs * sizeof(int));
     temp->use_array_p = false;
   }
   temp->list_matches_byshift = (List_T) NULL;
-  temp->list_matches_byquality = (List_T) NULL;
-  temp->list_matches_bymapq = (List_T) NULL;
+  temp->list_matches_bynm = (List_T) NULL;
   temp->list_matches_byxs = (List_T) NULL;
 
   temp->mismatches_byshift = (List_T) NULL;
-  temp->mismatches_byquality = (List_T) NULL;
-  temp->mismatches_bymapq = (List_T) NULL;
+  temp->mismatches_bynm = (List_T) NULL;
   temp->mismatches_byxs = (List_T) NULL;
 
   temp->insertions_byshift = (List_T) NULL;
+  temp->insertions_bynm = (List_T) NULL;
   temp->deletions_byshift = (List_T) NULL;
+  temp->deletions_bynm = (List_T) NULL;
 
   temp->readevidence = (List_T) NULL;
 
@@ -626,14 +636,15 @@ Tally_free (T *old) {
 #if 0
   (*old)->refnt = ' ';
   (*old)->nmatches = 0;
+  (*old)->delcounts_plus = 0;
+  (*old)->delcounts_minus = 0;
   (*old)->n_fromleft_plus = 0;
   (*old)->n_fromleft_minus = 0;
 #endif
 
   FREE((*old)->matches_byshift_plus);
   FREE((*old)->matches_byshift_minus);
-  FREE((*old)->matches_byquality);
-  FREE((*old)->matches_bymapq);
+  FREE((*old)->matches_bynm);
   FREE((*old)->matches_byxs);
 
 #ifdef USE_MATCHPOOL
@@ -646,19 +657,12 @@ Tally_free (T *old) {
   List_free(&((*old)->list_matches_byshift));
   (*old)->list_matches_byshift = (List_T) NULL;
 
-  for (ptr = (*old)->list_matches_byquality; ptr != NULL; ptr = List_next(ptr)) {
+  for (ptr = (*old)->list_matches_bynm; ptr != NULL; ptr = List_next(ptr)) {
     match = (Match_T) List_head(ptr);
     Match_free(&match);
   }
-  List_free(&((*old)->list_matches_byquality));
-  (*old)->list_matches_byquality = (List_T) NULL;
-
-  for (ptr = (*old)->list_matches_bymapq; ptr != NULL; ptr = List_next(ptr)) {
-    match = (Match_T) List_head(ptr);
-    Match_free(&match);
-  }
-  List_free(&((*old)->list_matches_bymapq));
-  (*old)->list_matches_bymapq = (List_T) NULL;
+  List_free(&((*old)->list_matches_bynm));
+  (*old)->list_matches_bynm = (List_T) NULL;
 
   for (ptr = (*old)->list_matches_byxs; ptr != NULL; ptr = List_next(ptr)) {
     match = (Match_T) List_head(ptr);
@@ -678,19 +682,12 @@ Tally_free (T *old) {
   List_free(&((*old)->mismatches_byshift));
   (*old)->mismatches_byshift = (List_T) NULL;
 
-  for (ptr = (*old)->mismatches_byquality; ptr != NULL; ptr = List_next(ptr)) {
+  for (ptr = (*old)->mismatches_bynm; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
     Mismatch_free(&mismatch);
   }
-  List_free(&((*old)->mismatches_byquality));
-  (*old)->mismatches_byquality = (List_T) NULL;
-
-  for (ptr = (*old)->mismatches_bymapq; ptr != NULL; ptr = List_next(ptr)) {
-    mismatch = (Mismatch_T) List_head(ptr);
-    Mismatch_free(&mismatch);
-  }
-  List_free(&((*old)->mismatches_bymapq));
-  (*old)->mismatches_bymapq = (List_T) NULL;
+  List_free(&((*old)->mismatches_bynm));
+  (*old)->mismatches_bynm = (List_T) NULL;
 
   for (ptr = (*old)->mismatches_byxs; ptr != NULL; ptr = List_next(ptr)) {
     mismatch = (Mismatch_T) List_head(ptr);
@@ -708,12 +705,26 @@ Tally_free (T *old) {
   List_free(&((*old)->insertions_byshift));
   /* (*old)->insertions_byshift = (List_T) NULL; */
 
+  for (ptr = (*old)->insertions_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    ins = (Insertion_T) List_head(ptr);
+    Insertion_free(&ins);
+  }
+  List_free(&((*old)->insertions_bynm));
+  /* (*old)->insertions_bynm = (List_T) NULL; */
+
   for (ptr = (*old)->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     del = (Deletion_T) List_head(ptr);
     Deletion_free(&del);
   }
   List_free(&((*old)->deletions_byshift));
   /* (*old)->deletions_byshift = (List_T) NULL; */
+
+  for (ptr = (*old)->deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    del = (Deletion_T) List_head(ptr);
+    Deletion_free(&del);
+  }
+  List_free(&((*old)->deletions_bynm));
+  /* (*old)->deletions_bynm = (List_T) NULL; */
 
 
   for (ptr = (*old)->readevidence; ptr != NULL; ptr = List_next(ptr)) {

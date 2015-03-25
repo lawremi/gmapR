@@ -50,14 +50,14 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools-lib=${R_SRC_DIR}/samtools \
                     --disable-binaries  \
-                    --disable-maintainer-mode \
+#                    --disable-maintainer-mode \
 ## does not appear to be a true dependency yet
 ##	            --with-gmap=${PREFIX}/bin
 
 gmap/Makefile: gmap/configure
 	cd $(dir $@); \
 	 ./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
-	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode
+	            --libdir=${PREFIX}/${LIBnn} # --disable-maintainer-mode
 
 clean:
 	for dir in $(SUBDIRS); do \

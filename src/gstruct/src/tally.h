@@ -17,11 +17,11 @@
 
 
 extern Match_T
-Match_new (int shift, int mapq, char quality, int xs);
+Match_new (int shift, int nm, int xs, int ncounts);
 extern void
 Match_free (Match_T *old);
 extern Mismatch_T
-Mismatch_new (char nt, int shift, int mapq, char quality, int xs);
+Mismatch_new (char nt, int shift, int nm, int xs, int ncounts);
 extern void
 Mismatch_free (Mismatch_T *old);
 
@@ -31,8 +31,7 @@ struct Insertion_T {
   char *segment;
   int mlength;
   int shift;			/* Used to record shifts */
-  int mapq;
-  char quality;
+  int nm;
   long int count;
 
   long int count_plus;		/* Used by unique elements */
@@ -42,13 +41,15 @@ struct Insertion_T {
 };
 
 extern Insertion_T
-Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int mapq, char quality);
+Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int ncounts);
 extern void
 Insertion_free (Insertion_T *old);
 extern int
 Insertion_count_cmp (const void *a, const void *b);
 extern Insertion_T
 find_insertion_byshift (List_T insertions, char *segment, int mlength, int shift);
+extern Insertion_T
+find_insertion_bynm (List_T insertions, char *segment, int mlength, int nm);
 extern Insertion_T
 find_insertion_seg (List_T insertions, char *segment, int mlength);
 
@@ -59,7 +60,7 @@ struct Deletion_T {
   char *segment;
   int mlength;
   int shift;			/* Used to record shifts */
-  int mapq;
+  int nm;
   long int count;
 
   long int count_plus;		/* Used by unique elements */
@@ -69,7 +70,7 @@ struct Deletion_T {
 };
 
 extern Deletion_T
-Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int mapq);
+Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int ncounts);
 extern void
 Deletion_free (Deletion_T *old);
 extern int
@@ -77,12 +78,14 @@ Deletion_count_cmp (const void *a, const void *b);
 extern Deletion_T
 find_deletion_byshift (List_T deletions, char *segment, int mlength, int shift);
 extern Deletion_T
+find_deletion_bynm (List_T deletions, char *segment, int mlength, int nm);
+extern Deletion_T
 find_deletion_seg (List_T deletions, char *segment, int mlength);
 
 
 typedef struct Readevid_T *Readevid_T;
 extern Readevid_T
-Readevid_new (unsigned int linei, char nt, int shift, int mapq, char quality, int xs);
+Readevid_new (unsigned int linei, char nt, int shift, int nm, int xs);
 extern unsigned int
 Readevid_linei (Readevid_T this);
 extern char
@@ -92,11 +95,11 @@ Readevid_quality_score (Readevid_T this);
 
 /* Needs to be signed char, because can return -1 for non-ACGT */
 extern char
-Readevid_codoni_plus (int *shift, int *mapq, char *quality, int *xs,
+Readevid_codoni_plus (int *shift, int *nm, int *xs,
 		      Readevid_T frame0, Readevid_T frame1, Readevid_T frame2);
 /* Needs to be signed char, because can return -1 for non-ACGT */
 extern char
-Readevid_codoni_minus (int *shift, int *mapq, char *quality, int *xs,
+Readevid_codoni_minus (int *shift, int *nm, int *xs,
 		       Readevid_T frame0, Readevid_T frame1, Readevid_T frame2);
 extern int
 Readevid_cmp (const void *a, const void *b);
@@ -107,6 +110,8 @@ typedef struct Tally_T *Tally_T;
 struct Tally_T {
   char refnt;
   int nmatches;
+  int delcounts_plus;
+  int delcounts_minus;
 
   long int n_fromleft_plus; /* Used for reference count for insertions */
   long int n_fromleft_minus; /* Used for reference count for insertions */
@@ -120,15 +125,12 @@ struct Tally_T {
 
   bool use_array_p;
   List_T list_matches_byshift;
-  List_T list_matches_byquality;
-  List_T list_matches_bymapq;
+  List_T list_matches_bynm;
   List_T list_matches_byxs;
 
 #ifdef REUSE_ARRAYS
   int avail_matches_byshift_plus;
   int avail_matches_byshift_minus;
-  int avail_matches_byquality;
-  int avail_matches_bymapq;
 #endif
 
   int n_matches_byshift_plus;
@@ -136,22 +138,20 @@ struct Tally_T {
   int n_matches_byshift_minus;
   int *matches_byshift_minus;
 
-  int n_matches_byquality;
-  int *matches_byquality;
-
-  int n_matches_bymapq;
-  int *matches_bymapq;
+  int n_matches_bynm;
+  int *matches_bynm;
 
   int n_matches_byxs;
   int *matches_byxs;
 
   List_T mismatches_byshift;
-  List_T mismatches_byquality;
-  List_T mismatches_bymapq;
+  List_T mismatches_bynm;
   List_T mismatches_byxs;
 
   List_T insertions_byshift;
+  List_T insertions_bynm;
   List_T deletions_byshift;
+  List_T deletions_bynm;
 
   List_T readevidence;
 };

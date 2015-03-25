@@ -51,8 +51,10 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
 
   Genome_T genome = createGenome(genome_dir, db);
   IIT_T chromosome_iit = readChromosomeIIT(genome_dir, db);
-  IIT_T map_iit = genome_iit_file_R == R_NilValue ? NULL : IIT_read(CHAR(asChar(genome_iit_file_R)), /*name*/ NULL, /*readonlyp*/true, /*divread*/READ_ALL, /*divstring*/NULL, /*add_iit_p*/false, /*labels_read_p*/true);
-//  IIT_T map_iit = NULL;
+  IIT_T map_iit = genome_iit_file_R == R_NilValue ? NULL :
+    IIT_read((char*)CHAR(asChar(genome_iit_file_R)), /*name*/ NULL,
+             /*readonlyp*/true, /*divread*/READ_ALL, /*divstring*/NULL,
+             /*add_iit_p*/false, /*labels_read_p*/true);
   const char *chr = NULL;
   Genomicpos_T start = 0;
   Genomicpos_T end = 0;
@@ -67,8 +69,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  /* TODO: bam_lacks_chr */ NULL,
                                  start, end,
                                  genome,
-				 /*chromosome_iit */ chromosome_iit,
-				 /* map_iit*/ map_iit,
+				 chromosome_iit,
+				 map_iit,
 				 alloclength,
 				 (char *)desired_read_group,
                                  minimum_mapq, good_unique_mapq,
@@ -78,8 +80,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  min_depth, variant_strands, ignore_query_Ns_p,
                                  print_indels_p, blocksize, verbosep,
                                  /*readlevel_p*/false, max_softclip,
-				 /* print_xs_scores_p ??? */ false,
-				 /* print_noncovered_p ??? */ false);
+				 /* print_xs_scores_p */ false,
+				 /* print_noncovered_p */ false);
   IIT_free(&chromosome_iit);
   Genome_free(&genome);
   if(map_iit != NULL)

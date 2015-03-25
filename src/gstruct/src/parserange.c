@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: parserange.c 67880 2012-07-02 22:00:11Z twu $";
+static char rcsid[] = "$Id: parserange.c 160316 2015-03-05 23:15:56Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -354,11 +354,12 @@ Parserange_query (char **divstring, unsigned int *coordstart, unsigned int *coor
 
 
 bool
-Parserange_universal (char **div, bool *revcomp,
+Parserange_universal (char **chr, bool *revcomp,
 		      Genomicpos_T *genomicstart, Genomicpos_T *genomiclength,
 		      Genomicpos_T *chrstart, Genomicpos_T *chrend,
 		      Genomicpos_T *chroffset, Genomicpos_T *chrlength,
-		      char *query, char *genomesubdir, char *fileroot) {
+		      char *region, char *genomesubdir, char *fileroot) {
+  char *query, *div;
   char *coords, *filename;
   Genomicpos_T result, left, length;
   IIT_T chromosome_iit, contig_iit;
@@ -366,20 +367,25 @@ Parserange_universal (char **div, bool *revcomp,
   int theindex;
   int rc;
   
+  /* Allows for calling procedure to free the region variable.  Don't
+     try to free query, because it removes *div */
+  query = (char *) MALLOC((strlen(region)+1) * sizeof(char));
+  strcpy(query,region);
+
   *revcomp = false;
   if (index(query,':')) {
     /* Segment must be a genome, chromosome, or contig */
     debug(printf("Parsed query %s into ",query));
-    *div = strtok(query,":");
-    if ((*div)[0] == '+') {
+    div = strtok(query,":");
+    if (div[0] == '+') {
       *revcomp = false;
-      *div = &((*div)[1]);
-    } else if ((*div)[0] == '_') {
+      div = &(div[1]);
+    } else if (div[0] == '_') {
       *revcomp = true;
-      *div = &((*div)[1]);
+      div = &(div[1]);
     }
     coords = strtok(NULL,":");
-    debug(printf("segment %s and coords %s\n",*div,coords));
+    debug(printf("segment %s and coords %s\n",div,coords));
 
     /* Try chromosome first */
     filename = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+strlen(fileroot)+
@@ -389,17 +395,17 @@ Parserange_universal (char **div, bool *revcomp,
 			      /*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
     FREE(filename);
 
-    debug(printf("Interpreting segment %s as a chromosome\n",*div));
+    debug(printf("Interpreting segment %s as a chromosome\n",div));
     if (coords == NULL) {
       debug(printf("  entire chromosome\n"));
-      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),*div,left=0,length=0,chromosome_iit);
+      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),div,left=0,length=0,chromosome_iit);
     } else if (isnumberp(&result,coords)) {
       debug(printf("  and coords %s as a number\n",coords));
-      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),*div,left=result-1,length=1,chromosome_iit);
+      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),div,left=result-1,length=1,chromosome_iit);
     } else if (isrange(&left,&length,&(*revcomp),coords)) {
       debug(printf("  and coords %s as a range starting at %u with length %u and revcomp = %d\n",
 		   coords,left,length,*revcomp));
-      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),*div,left,length,chromosome_iit);
+      rc = translate_chromosomepos_universal(&(*genomicstart),&(*genomiclength),div,left,length,chromosome_iit);
     } else {
       debug(printf("  but coords %s is neither a number nor a range\n",coords));
       rc = -1;
@@ -411,8 +417,8 @@ Parserange_universal (char **div, bool *revcomp,
     *chrstart += 1U;		/* Make 1-based */
 
     /* Get chromosomal information */
-    if ((theindex = IIT_find_one(chromosome_iit,*div)) < 0) {
-      fprintf(stderr,"Cannot find chromosome %s in chromosome IIT file\n",*div);
+    if ((theindex = IIT_find_one(chromosome_iit,div)) < 0) {
+      fprintf(stderr,"Cannot find chromosome %s in chromosome IIT file\n",div);
       /* exit(9); */
     } else {
       interval = IIT_interval(chromosome_iit,theindex);
@@ -434,17 +440,17 @@ Parserange_universal (char **div, bool *revcomp,
 			    /*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
       FREE(filename);
 
-      debug(printf("Interpreting segment %s as a contig\n",*div));
+      debug(printf("Interpreting segment %s as a contig\n",div));
       if (coords == NULL) {
 	debug(printf("  entire contig\n"));
-	rc = translate_contig_universal(&(*genomicstart),&(*genomiclength),*div,left=0,length=0,contig_iit);
+	rc = translate_contig_universal(&(*genomicstart),&(*genomiclength),div,left=0,length=0,contig_iit);
       } else if (isnumberp(&result,coords)) {
 	debug(printf("  and coords %s as a number\n",coords));
-	rc = translate_contig(&(*genomicstart),&(*genomiclength),*div,left=result-1,length=1,contig_iit);
+	rc = translate_contig(&(*genomicstart),&(*genomiclength),div,left=result-1,length=1,contig_iit);
       } else if (isrange(&left,&length,&(*revcomp),coords)) {
 	debug(printf("  and coords %s as a range starting at %u with length %u and revcomp = %d\n",
 		     coords,left,length,*revcomp));
-	rc = translate_contig(&(*genomicstart),&(*genomiclength),*div,left,length,contig_iit);
+	rc = translate_contig(&(*genomicstart),&(*genomiclength),div,left,length,contig_iit);
       } else {
 	debug(printf("  but coords %s is neither a number nor a range\n",coords));
 	rc = -1;
@@ -454,8 +460,12 @@ Parserange_universal (char **div, bool *revcomp,
     }
 #endif
 
+    *chr = (char *) MALLOC((strlen(div)+1) * sizeof(char));
+    strcpy(*chr,div);
+    FREE(query);
+
     if (rc != 0) {
-      fprintf(stderr,"Can't find coordinates %s:%s\n",*div,coords);
+      fprintf(stderr,"Can't find coordinates %s:%s\n",div,coords);
       return false;
     } else {
       return true;
@@ -479,6 +489,11 @@ Parserange_universal (char **div, bool *revcomp,
     } else {
 
       debug(printf("contig\n"));
+
+      *chr = (char *) MALLOC((strlen(div)+1) * sizeof(char));
+      strcpy(*chr,div);
+      FREE(query);
+
       return false;
 #if 0
       filename = (char *) CALLOC(strlen(genomesubdir)+strlen("/")+strlen(fileroot)+
@@ -493,7 +508,7 @@ Parserange_universal (char **div, bool *revcomp,
 #endif
     }
 
-    *div = convert_to_chrpos(&(*chrstart),genomesubdir,fileroot,*genomicstart);
+    div = convert_to_chrpos(&(*chrstart),genomesubdir,fileroot,*genomicstart);
     *chrend = *chrstart + *genomiclength;
     *chrstart += 1U;		/* Make 1-based */
 
@@ -505,8 +520,12 @@ Parserange_universal (char **div, bool *revcomp,
 			      /*divstring*/NULL,/*add_iit_p*/false,/*labels_read_p*/true);
     FREE(filename);
 
-    if ((theindex = IIT_find_one(chromosome_iit,*div)) < 0) {
-      fprintf(stderr,"Cannot find chromosome %s in chromosome IIT file\n",*div);
+    *chr = (char *) MALLOC((strlen(div)+1) * sizeof(char));
+    strcpy(*chr,div);
+    FREE(query);
+
+    if ((theindex = IIT_find_one(chromosome_iit,div)) < 0) {
+      fprintf(stderr,"Cannot find chromosome %s in chromosome IIT file\n",div);
       IIT_free(&chromosome_iit);
       return false;
     } else {
@@ -679,7 +698,7 @@ Parserange_simple (char **div, bool *revcomp, Genomicpos_T *chrstart, Genomicpos
       debug(printf("  and coords %s as a range starting at %u with length %u and revcomp = %d\n",
 		   coords,left,length,*revcomp));
     } else {
-      fprintf(stderr,"Coordinates after ':' is neither a number nor a range\n");
+      fprintf(stderr,"Coordinates after ':' is neither a number nor a range: %s\n",coords);
       debug(printf("  but coords %s is neither a number nor a range\n",coords));
       return false;
     }

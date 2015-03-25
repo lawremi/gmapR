@@ -11,11 +11,11 @@ Parserange_query (char **divstring, unsigned int *coordstart, unsigned int *coor
 
 /* genomicstart is 0-based, chrstart is 1-based */
 extern bool
-Parserange_universal (char **div, bool *revcomp,
+Parserange_universal (char **chr, bool *revcomp,
 		      Genomicpos_T *genomicstart, Genomicpos_T *genomiclength,
 		      Genomicpos_T *chrstart, Genomicpos_T *chrend,
 		      Genomicpos_T *chroffset, Genomicpos_T *chrlength,
-		      char *query, char *genomesubdir, char *fileroot);
+		      char *region, char *genomesubdir, char *fileroot);
 
 #if 0
   /* Old style */
@@ -34,7 +34,7 @@ Parserange_universal_iit (char **div, bool *revcomp,
 
 extern bool
 Parserange_simple (char **div, bool *revcomp, Genomicpos_T *chrstart, Genomicpos_T *chrend,
-		   char *query);
+		   char *region);
 
 #endif
 
