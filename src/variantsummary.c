@@ -18,10 +18,14 @@ enum{ CODON_MINUS = -1,
 
 
 static char *codon_table[64] = 
-  {"AAA", "AAC", "AAG", "AAT", "ACA", "ACC", "ACG", "ACT", "AGA", "AGC", "AGG", "AGT", "ATA", "ATC", "ATG", "ATT",
-   "CAA", "CAC", "CAG", "CAT", "CCA", "CCC", "CCG", "CCT", "CGA", "CGC", "CGG", "CGT", "CTA", "CTC", "CTG", "CTT",
-   "GAA", "GAC", "GAG", "GAT", "GCA", "GCC", "GCG", "GCT", "GGA", "GGC", "GGG", "GGT", "GTA", "GTC", "GTG", "GTT",
-   "TAA", "TAC", "TAG", "TAT", "TCA", "TCC", "TCG", "TCT", "TGA", "TGC", "TGG", "TGT", "TTA", "TTC", "TTG", "TTT"};
+  {"AAA", "AAC", "AAG", "AAT", "ACA", "ACC", "ACG", "ACT",
+   "AGA", "AGC", "AGG", "AGT", "ATA", "ATC", "ATG", "ATT",
+   "CAA", "CAC", "CAG", "CAT", "CCA", "CCC", "CCG", "CCT",
+   "CGA", "CGC", "CGG", "CGT", "CTA", "CTC", "CTG", "CTT",
+   "GAA", "GAC", "GAG", "GAT", "GCA", "GCC", "GCG", "GCT",
+   "GGA", "GGC", "GGG", "GGT", "GTA", "GTC", "GTG", "GTT",
+   "TAA", "TAC", "TAG", "TAT", "TCA", "TCC", "TCG", "TCT",
+   "TGA", "TGC", "TGG", "TGT", "TTA", "TTC", "TTG", "TTT"};
 
 
 
@@ -288,7 +292,6 @@ read_allele_counts(unsigned char **bytes, int row, SEXP read_R,
 #ifdef DEBUG2
   printf("Starting read_allele_counts (codon strand %d) at row %d. Total length of read_R is %d\n", strand, row, LENGTH(read_R));
 #endif
-//  while((allele = read_char(bytes)) != '\0' && (strand == 0 || (int) allele != 255)) {
   while((allele = read_char(bytes)) != stop) {
 #ifdef DEBUG2
       printf("Parsing counts for allele: %d (%s) row %d \n", allele, &allele, row );
