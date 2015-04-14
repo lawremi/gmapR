@@ -1,4 +1,4 @@
-/* $Id: substring.h 110467 2013-10-09 00:30:28Z twu $ */
+/* $Id: substring.h 154006 2014-11-25 01:17:17Z twu $ */
 #ifndef SUBSTRING_INCLUDED
 #define SUBSTRING_INCLUDED
 
@@ -65,22 +65,24 @@ Substring_contains_p (T this, int querypos);
 extern void
 Substring_print_ends (T this, int chrnum);
 extern int
-Substring_compare (T substring1, T substring2);
+Substring_compare (T substring1, T substring2, int alias1, int alias2, Chrpos_T chrlength1, Chrpos_T chrlength2);
 extern bool
 Substring_overlap_p (T substring1, T substring2);
 extern Chrpos_T
 Substring_insert_length (T substring5, T substring3);
 extern bool
 Substring_overlap_point_trimmed_p (T substring, Univcoord_T endpos);
-extern bool
-Substring_overlap_segment_trimmed_p (T substring1, T substring2);
+extern Univcoord_T
+Substring_overlap_segment_trimmed (T substring1, T substring2);
 
+extern Univcoord_T
+Substring_splicecoord (T this);
 extern int
-Substring_splicesites_i (T this);
-extern int
-Substring_splicesites_i_A (T this);
-extern int
-Substring_splicesites_i_D (T this);
+Substring_splicesites_knowni (T this);
+extern Univcoord_T
+Substring_splicecoord_A (T this);
+extern Univcoord_T
+Substring_splicecoord_D (T this);
 
 extern bool
 Substring_plusp (T this);
@@ -152,6 +154,8 @@ Substring_alignstart_trim (T this);
 extern Univcoord_T
 Substring_alignend_trim (T this);
 extern Univcoord_T
+Substring_left_genomicseg (T this);
+extern Univcoord_T
 Substring_genomicstart (T this);
 extern Univcoord_T
 Substring_genomicend (T this);
@@ -165,6 +169,8 @@ Substring_chrend (T this);
 
 extern double
 Substring_chimera_prob (T this);
+extern double
+Substring_chimera_prob_2 (T this);
 extern int
 Substring_chimera_pos (T this);
 extern int
@@ -189,17 +195,17 @@ extern T
 Substring_copy (T old);
 
 extern T
-Substring_new_donor (int splicesites_i, int splicesites_offset, int donor_pos, int donor_nmismatches,
+Substring_new_donor (Univcoord_T donor_coord, int donor_knowni, int donor_pos, int donor_nmismatches,
 		     double donor_prob, Univcoord_T left, Compress_T query_compress,
 		     int querylength, bool plusp, int genestrand, bool sensep,
 		     Chrnum_T chrnum, Univcoord_T chroffset, Univcoord_T chrhigh, Chrpos_T chrlength);
 extern T
-Substring_new_acceptor (int splicesites_i, int splicesites_offset, int acceptor_pos, int acceptor_nmismatches,
+Substring_new_acceptor (Univcoord_T acceptor_coord, int acceptor_knowni, int acceptor_pos, int acceptor_nmismatches,
 			double acceptor_prob, Univcoord_T left, Compress_T query_compress,
 			int querylength, bool plusp, int genestrand, bool sensep,
 			Chrnum_T chrnum, Univcoord_T chroffset, Univcoord_T chrhigh, Chrpos_T chrlength);
 extern T
-Substring_new_shortexon (int acceptor_splicesites_i, int donor_splicesites_i, int splicesites_offset,
+Substring_new_shortexon (Univcoord_T acceptor_coord, int acceptor_knowni, Univcoord_T donor_coord, int donor_knowni,
 			 int acceptor_pos, int donor_pos, int nmismatches,
 			 double acceptor_prob, double donor_prob, Univcoord_T left,
 			 Compress_T query_compress, int querylength,
@@ -276,6 +282,19 @@ Substring_assign_shortexon_prob (T shortexon);
 extern int
 Substring_count_mismatches_region (T this, int trim_left, int trim_right,
 				   Compress_T query_compress_fwd, Compress_T query_compress_rev);
+
+extern List_T
+Substring_convert_to_pairs (List_T pairs, T substring, Shortread_T queryseq,
+			    int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset);
+extern List_T
+Substring_add_insertion (List_T pairs, T substringA, T substringB, int insertionlength, Shortread_T queryseq,
+			 int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset);
+extern List_T
+Substring_add_deletion (List_T pairs, T substringA, T substringB, char *deletion, int deletionlength,
+			int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset);
+extern List_T
+Substring_add_intron (List_T pairs, T substringA, T substringB,
+		      int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset);
 
 #undef T
 #endif

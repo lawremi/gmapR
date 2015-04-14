@@ -32,6 +32,7 @@ struct Insertion_T {
   int mlength;
   int shift;			/* Used to record shifts */
   int nm;
+  int xs;
   long int count;
 
   long int count_plus;		/* Used by unique elements */
@@ -41,7 +42,7 @@ struct Insertion_T {
 };
 
 extern Insertion_T
-Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int ncounts);
+Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int xs, int ncounts);
 extern void
 Insertion_free (Insertion_T *old);
 extern int
@@ -50,6 +51,8 @@ extern Insertion_T
 find_insertion_byshift (List_T insertions, char *segment, int mlength, int shift);
 extern Insertion_T
 find_insertion_bynm (List_T insertions, char *segment, int mlength, int nm);
+extern Insertion_T
+find_insertion_byxs (List_T insertions, char *segment, int mlength, int xs);
 extern Insertion_T
 find_insertion_seg (List_T insertions, char *segment, int mlength);
 
@@ -61,6 +64,7 @@ struct Deletion_T {
   int mlength;
   int shift;			/* Used to record shifts */
   int nm;
+  int xs;
   long int count;
 
   long int count_plus;		/* Used by unique elements */
@@ -70,7 +74,7 @@ struct Deletion_T {
 };
 
 extern Deletion_T
-Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int ncounts);
+Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int xs, int ncounts);
 extern void
 Deletion_free (Deletion_T *old);
 extern int
@@ -79,6 +83,8 @@ extern Deletion_T
 find_deletion_byshift (List_T deletions, char *segment, int mlength, int shift);
 extern Deletion_T
 find_deletion_bynm (List_T deletions, char *segment, int mlength, int nm);
+extern Deletion_T
+find_deletion_byxs (List_T deletions, char *segment, int mlength, int xs);
 extern Deletion_T
 find_deletion_seg (List_T deletions, char *segment, int mlength);
 
@@ -150,8 +156,11 @@ struct Tally_T {
 
   List_T insertions_byshift;
   List_T insertions_bynm;
+  List_T insertions_byxs;
+
   List_T deletions_byshift;
   List_T deletions_bynm;
+  List_T deletions_byxs;
 
   List_T readevidence;
 };

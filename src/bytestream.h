@@ -18,7 +18,7 @@ read_char (unsigned char **bytes) {
 
 static inline const char *
 read_string (unsigned char **bytes) {
-  const char *string = *bytes;
+  const char *string = (char *)*bytes;
   (*bytes) += strlen(string) + 1;
   return string;
 }

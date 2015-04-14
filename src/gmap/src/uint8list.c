@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uint8list.c 99737 2013-06-27 19:33:03Z twu $";
+static char rcsid[] = "$Id: uint8list.c 140158 2014-06-28 23:42:12Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -102,6 +102,34 @@ Uint8list_to_array (int *n, T list) {
     list = list->rest;
   }
   return array;
+}
+
+UINT8 *
+Uint8list_to_array_out (int *n, T list) {
+  UINT8 *array;
+  int i;
+
+  *n = Uint8list_length(list);
+  array = (UINT8 *) CALLOC_OUT(*n,sizeof(UINT8));
+  for (i = 0; i < *n; i++) {
+    array[i] = list->first;
+    list = list->rest;
+  }
+  return array;
+}
+
+T
+Uint8list_from_array (UINT8 *array, int n) {
+  T list = NULL, p;
+
+  while (--n >= 0) {
+    p = (T) MALLOC(sizeof(*p));
+    p->first = array[n];
+    p->rest = list;
+    list = p;
+  }
+
+  return list;
 }
 
 T

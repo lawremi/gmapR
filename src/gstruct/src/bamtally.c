@@ -1,4 +1,5 @@
-static char rcsid[] = "$Id: bamtally.c 160726 2015-03-11 16:45:31Z twu $";
+#define DEBUG2 1
+static char rcsid[] = "$Id: bamtally.c 161991 2015-03-25 23:24:46Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -423,6 +424,20 @@ Insertion_nm_cmp (const void *a, const void *b) {
   }
 }
 
+static int
+Insertion_xs_cmp (const void *a, const void *b) {
+  Insertion_T x = * (Insertion_T *) a;
+  Insertion_T y = * (Insertion_T *) b;
+
+  if (x->xs < y->xs) {
+    return -1;
+  } else if (y->xs < x->xs) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
 
 static int
 Deletion_chain_length (Deletion_T this) {
@@ -465,6 +480,20 @@ Deletion_nm_cmp (const void *a, const void *b) {
   if (x->nm < y->nm) {
     return -1;
   } else if (y->nm < x->nm) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
+static int
+Deletion_xs_cmp (const void *a, const void *b) {
+  Deletion_T x = * (Deletion_T *) a;
+  Deletion_T y = * (Deletion_T *) b;
+
+  if (x->xs < y->xs) {
+    return -1;
+  } else if (y->xs < x->xs) {
     return +1;
   } else {
     return 0;
@@ -2963,10 +2992,11 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
   int blocki, lasti;
   Match_T *match_array, match;
   Mismatch_T mismatch, mismatch0, *mm_array, *mm_subarray;
-  Insertion_T ins, ins0, *ins_array_byshift, *ins_array_bynm, *ins_subarray;
-  Deletion_T del, del0, *del_array_byshift, *del_array_bynm, *del_subarray;
+  Insertion_T ins, ins0, *ins_array_byshift, *ins_array_bynm, *ins_array_byxs, *ins_subarray;
+  Deletion_T del, del0, *del_array_byshift, *del_array_bynm, *del_array_byxs, *del_subarray;
   List_T unique_mismatches_byshift, unique_mismatches_bynm, unique_mismatches_byxs, ptr;
-  List_T unique_insertions_byshift, unique_insertions_bynm, unique_deletions_byshift, unique_deletions_bynm;
+  List_T unique_insertions_byshift, unique_insertions_bynm, unique_insertions_byxs,
+    unique_deletions_byshift, unique_deletions_bynm, unique_deletions_byxs;
   long int total, total_matches_plus, total_matches_minus, total_mismatches_plus, total_mismatches_minus;
   int shift, quality, nm, xs;
   int ignore;
@@ -3049,7 +3079,7 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (ins->shift > 0) {
 	      ins0->count_plus = ins->count;
 	      ins0->count_minus = 0;
@@ -3063,7 +3093,6 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	}
 	ins_array_byshift = (Insertion_T *) List_to_array(unique_insertions_byshift,NULL);
 	qsort(ins_array_byshift,List_length(unique_insertions_byshift),sizeof(Insertion_T),Insertion_count_cmp);
-
 
 	unique_insertions_bynm = NULL;
 	for (ptr = this->insertions_bynm; ptr != NULL; ptr = List_next(ptr)) {
@@ -3083,7 +3112,7 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (ins->shift > 0) {
 	      ins0->count_plus = ins->count;
 	      ins0->count_minus = 0;
@@ -3097,6 +3126,39 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	}
 	ins_array_bynm = (Insertion_T *) List_to_array(unique_insertions_bynm,NULL);
 	qsort(ins_array_bynm,List_length(unique_insertions_bynm),sizeof(Insertion_T),Insertion_count_cmp);
+
+	unique_insertions_byxs = NULL;
+	for (ptr = this->insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  ins = (Insertion_T) List_head(ptr);
+	  if ((ins0 = find_insertion_seg(unique_insertions_byxs,ins->segment,ins->mlength)) != NULL) {
+	    if (ins->shift > 0) {
+	      ins0->count_plus += ins->count;
+	    } else {
+	      ins0->count_minus += ins->count;
+	    }
+
+	    /* Insert insertion into list */
+	    ins->next = ins0->next;
+	    ins0->next = ins;
+
+#if 0
+	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (ins->shift > 0) {
+	      ins0->count_plus = ins->count;
+	      ins0->count_minus = 0;
+	    } else {
+	      ins0->count_minus = ins->count;
+	      ins0->count_plus = 0;
+	    }
+	    ins0->next = ins;
+	    unique_insertions_byxs = List_push(unique_insertions_byxs,ins0);
+	  }
+	}
+	ins_array_byxs = (Insertion_T *) List_to_array(unique_insertions_byxs,NULL);
+	qsort(ins_array_byxs,List_length(unique_insertions_byxs),sizeof(Insertion_T),Insertion_count_cmp);
 
 
 	printf("^");
@@ -3116,37 +3178,57 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    printf("%s %ld|%ld",ins0->segment,ins0->count_plus,ins0->count_minus);
 	  }
 	  if (print_cycles_p == true) {
-	    printf("(");
-	    length = Insertion_chain_length(ins0->next);
-	    ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
-	    for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
-	      ins_subarray[j] = ins;
-	    }
-	    qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_shift_cmp);
+	    if ((length = Insertion_chain_length(ins0->next)) > 0) {
+	      printf("(");
+	      ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
+	      for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
+		ins_subarray[j] = ins;
+	      }
+	      qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_shift_cmp);
 
-	    printf("%ld@%d",ins_subarray[0]->count,ins_subarray[0]->shift);
-	    for (j = 1; j < length; j++) {
-	      printf(",%ld@%d",ins_subarray[j]->count,ins_subarray[j]->shift);
+	      printf("%ld@%d",ins_subarray[0]->count,ins_subarray[0]->shift);
+	      for (j = 1; j < length; j++) {
+		printf(",%ld@%d",ins_subarray[j]->count,ins_subarray[j]->shift);
+	      }
+	      FREE(ins_subarray);
+	      printf(")");
 	    }
-	    FREE(ins_subarray);
-	    printf(")");
 	  }
 	  if (print_nm_scores_p == true) {
 	    ins0 = ins_array_bynm[i];
-	    printf("(");
-	    length = Insertion_chain_length(ins0->next);
-	    ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
-	    for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
-	      ins_subarray[j] = ins;
-	    }
-	    qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_nm_cmp);
+	    if ((length = Insertion_chain_length(ins0->next)) > 0) {
+	      printf("(");
+	      ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
+	      for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
+		ins_subarray[j] = ins;
+	      }
+	      qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_nm_cmp);
 
-	    printf("%ldNM%d",ins_subarray[0]->count,ins_subarray[0]->nm);
-	    for (j = 1; j < length; j++) {
-	      printf(",%ldNM%d",ins_subarray[j]->count,ins_subarray[j]->nm);
+	      printf("%ldNM%d",ins_subarray[0]->count,ins_subarray[0]->nm);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldNM%d",ins_subarray[j]->count,ins_subarray[j]->nm);
+	      }
+	      FREE(ins_subarray);
+	      printf(")");
 	    }
-	    FREE(ins_subarray);
-	    printf(")");
+	  }
+	  if (print_xs_scores_p == true) {
+	    ins0 = ins_array_byxs[i];
+	    if ((length = Insertion_chain_length(ins0->next)) > 0) {
+	      printf("(");
+	      ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
+	      for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
+		ins_subarray[j] = ins;
+	      }
+	      qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_xs_cmp);
+
+	      printf("%ldXS%d",ins_subarray[0]->count,ins_subarray[0]->xs);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldXS%d",ins_subarray[j]->count,ins_subarray[j]->xs);
+	      }
+	      FREE(ins_subarray);
+	      printf(")");
+	    }
 	  }
 	  if (signed_counts_p == false) {
 	    printf(" ref:%ld",this->n_fromleft_plus+this->n_fromleft_minus);
@@ -3157,8 +3239,15 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 
 	printf("\n");
 
+	FREE(ins_array_byxs);
 	FREE(ins_array_bynm);
 	FREE(ins_array_byshift);
+
+	for (ptr = unique_insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  ins0 = List_head(ptr);
+	  Insertion_free(&ins0);
+	}
+	List_free(&unique_insertions_byxs);
 
 	for (ptr = unique_insertions_bynm; ptr != NULL; ptr = List_next(ptr)) {
 	  ins0 = List_head(ptr);
@@ -3194,7 +3283,7 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    del0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (del->shift > 0) {
 	      del0->count_plus = del->count;
 	      del0->count_minus = 0;
@@ -3208,7 +3297,6 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	}
 	del_array_byshift = (Deletion_T *) List_to_array(unique_deletions_byshift,NULL);
 	qsort(del_array_byshift,List_length(unique_deletions_byshift),sizeof(Deletion_T),Deletion_count_cmp);
-
 
 	unique_deletions_bynm = NULL;
 	for (ptr = this->deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
@@ -3228,7 +3316,7 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    del0->shift += 1; /* Used here as nshifts.  Not necessary */
 #endif
 	  } else {
-	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (del->shift > 0) {
 	      del0->count_plus = del->count;
 	      del0->count_minus = 0;
@@ -3242,6 +3330,39 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	}
 	del_array_bynm = (Deletion_T *) List_to_array(unique_deletions_bynm,NULL);
 	qsort(del_array_bynm,List_length(unique_deletions_bynm),sizeof(Deletion_T),Deletion_count_cmp);
+
+	unique_deletions_byxs = NULL;
+	for (ptr = this->deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  del = (Deletion_T) List_head(ptr);
+	  if ((del0 = find_deletion_seg(unique_deletions_byxs,del->segment,del->mlength)) != NULL) {
+	    if (del->shift > 0) {
+	      del0->count_plus += del->count;
+	    } else {
+	      del0->count_minus += del->count;
+	    }
+
+	    /* Insert deletion into list */
+	    del->next = del0->next;
+	    del0->next = del;
+
+#if 0
+	    del0->shift += 1; /* Used here as nshifts.  Not necessary */
+#endif
+	  } else {
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (del->shift > 0) {
+	      del0->count_plus = del->count;
+	      del0->count_minus = 0;
+	    } else {
+	      del0->count_minus = del->count;
+	      del0->count_plus = 0;
+	    }
+	    del0->next = del;
+	    unique_deletions_byxs = List_push(unique_deletions_byxs,del0);
+	  }
+	}
+	del_array_byxs = (Deletion_T *) List_to_array(unique_deletions_byxs,NULL);
+	qsort(del_array_byxs,List_length(unique_deletions_byxs),sizeof(Deletion_T),Deletion_count_cmp);
 
 
 	printf("_");
@@ -3261,37 +3382,57 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    printf("%s %ld|%ld",del0->segment,del0->count_plus,del0->count_minus);
 	  }
 	  if (print_cycles_p == true) {
-	    printf("(");
-	    length = Deletion_chain_length(del0->next);
-	    del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
-	    for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
-	      del_subarray[j] = del;
+	    if ((length = Deletion_chain_length(del0->next)) > 0) {
+	      printf("(");
+	      del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
+	      for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
+		del_subarray[j] = del;
+	      }
+	      qsort(del_subarray,length,sizeof(Deletion_T),Deletion_shift_cmp);
+	      
+	      printf("%ld@%d",del_subarray[0]->count,del_subarray[0]->shift);
+	      for (j = 1; j < length; j++) {
+		printf(",%ld@%d",del_subarray[j]->count,del_subarray[j]->shift);
+	      }
+	      FREE(del_subarray);
+	      printf(")");
 	    }
-	    qsort(del_subarray,length,sizeof(Deletion_T),Deletion_shift_cmp);
-
-	    printf("%ld@%d",del_subarray[0]->count,del_subarray[0]->shift);
-	    for (j = 1; j < length; j++) {
-	      printf(",%ld@%d",del_subarray[j]->count,del_subarray[j]->shift);
-	    }
-	    FREE(del_subarray);
-	    printf(")");
 	  }
 	  if (print_nm_scores_p == true) {
 	    del0 = del_array_bynm[i];
-	    printf("(");
-	    length = Deletion_chain_length(del0->next);
-	    del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
-	    for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
-	      del_subarray[j] = del;
+	    if ((length = Deletion_chain_length(del0->next)) > 0) {
+	      printf("(");
+	      del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
+	      for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
+		del_subarray[j] = del;
+	      }
+	      qsort(del_subarray,length,sizeof(Deletion_T),Deletion_nm_cmp);
+	      
+	      printf("%ldNM%d",del_subarray[0]->count,del_subarray[0]->nm);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldNM%d",del_subarray[j]->count,del_subarray[j]->nm);
+	      }
+	      FREE(del_subarray);
+	      printf(")");
 	    }
-	    qsort(del_subarray,length,sizeof(Deletion_T),Deletion_nm_cmp);
+          }
+	  if (print_xs_scores_p == true) {
+	    del0 = del_array_byxs[i];
+	    if ((length = Deletion_chain_length(del0->next)) > 0) {
+	      printf("(");
+	      del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
+	      for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
+		del_subarray[j] = del;
+	      }
+	      qsort(del_subarray,length,sizeof(Deletion_T),Deletion_xs_cmp);
 
-	    printf("%ldNM%d",del_subarray[0]->count,del_subarray[0]->nm);
-	    for (j = 1; j < length; j++) {
-	      printf(",%ldNM%d",del_subarray[j]->count,del_subarray[j]->nm);
+	      printf("%ldXS%d",del_subarray[0]->count,del_subarray[0]->xs);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldXS%d",del_subarray[j]->count,del_subarray[j]->xs);
+	      }
+	      FREE(del_subarray);
+	      printf(")");
 	    }
-	    FREE(del_subarray);
-	    printf(")");
           }
 	  if (signed_counts_p == false) {
 	    printf(" ref:%ld",this->n_fromleft_plus+this->n_fromleft_minus);
@@ -3302,8 +3443,15 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 
 	printf("\n");
 
+	FREE(del_array_byxs);
 	FREE(del_array_bynm);
 	FREE(del_array_byshift);
+
+	for (ptr = unique_deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  del0 = List_head(ptr);
+	  Deletion_free(&del0);
+	}
+	List_free(&unique_deletions_byxs);
 
 	for (ptr = unique_deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
 	  del0 = List_head(ptr);
@@ -3407,23 +3555,25 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	  }
 
 	  if (print_cycles_p == true) {
-	    printf("(");
 	    if (this->use_array_p == false) {
 	      /* This sorts by -1 to -readlength, then +readlength to +1 */
-	      length = List_length(this->list_matches_byshift);
-	      match_array = (Match_T *) List_to_array(this->list_matches_byshift,NULL);
-	      qsort(match_array,length,sizeof(Match_T),Match_shift_cmp);
-	      printf("%ld@%d",match_array[0]->count,match_array[0]->shift);
-	      for (j = 1; j < length; j++) {
-		printf(",%ld@%d",match_array[j]->count,match_array[j]->shift);
+	      if ((length = List_length(this->list_matches_byshift)) > 0) {
+		printf("(");
+		match_array = (Match_T *) List_to_array(this->list_matches_byshift,NULL);
+		qsort(match_array,length,sizeof(Match_T),Match_shift_cmp);
+		printf("%ld@%d",match_array[0]->count,match_array[0]->shift);
+		for (j = 1; j < length; j++) {
+		  printf(",%ld@%d",match_array[j]->count,match_array[j]->shift);
+		}
+		FREE(match_array);
+		printf(")");
 	      }
-	      FREE(match_array);
 	    } else {
 	      firstp = true;
 	      for (shift = 1; shift < this->n_matches_byshift_minus; shift++) {
 		if (this->matches_byshift_minus[shift] > 0) {
 		  if (firstp == true) {
-		    printf("%ld@%d",this->matches_byshift_minus[shift],-shift);
+		    printf("(%ld@%d",this->matches_byshift_minus[shift],-shift);
 		    firstp = false;
 		  } else {
 		    printf(",%ld@%d",this->matches_byshift_minus[shift],-shift);
@@ -3434,7 +3584,7 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	      for (shift = this->n_matches_byshift_plus - 1; shift >= 1; shift--) {
 		if (this->matches_byshift_plus[shift] > 0) {
 		  if (firstp == true) {
-		    printf("%ld@%d",this->matches_byshift_plus[shift],shift);
+		    printf("(%ld@%d",this->matches_byshift_plus[shift],shift);
 		    firstp = false;
 		  } else {
 		    printf(",%ld@%d",this->matches_byshift_plus[shift],shift);
@@ -3442,27 +3592,31 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 		  this->matches_byshift_plus[shift] = 0; /* clear */
 		}
 	      }
+	      if (firstp == false) {
+		printf(")");
+	      }
 	    }
-	    printf(")");
 	  }
 
 	  if (print_nm_scores_p == true) {
-	    printf("(");
 	    if (this->use_array_p == false) {
-	      length = List_length(this->list_matches_bynm);
-	      match_array = (Match_T *) List_to_array(this->list_matches_bynm,NULL);
-	      qsort(match_array,length,sizeof(Match_T),Match_nm_cmp);
-	      printf("%ldNM%d",match_array[0]->count,match_array[0]->nm);
-	      for (j = 1; j < length; j++) {
-		printf(",%ldNM%d",match_array[j]->count,match_array[j]->nm);
+	      if ((length = List_length(this->list_matches_bynm)) > 0) {
+		printf("(");
+		match_array = (Match_T *) List_to_array(this->list_matches_bynm,NULL);
+		qsort(match_array,length,sizeof(Match_T),Match_nm_cmp);
+		printf("%ldNM%d",match_array[0]->count,match_array[0]->nm);
+		for (j = 1; j < length; j++) {
+		  printf(",%ldNM%d",match_array[j]->count,match_array[j]->nm);
+		}
+		FREE(match_array);
+		printf(")");
 	      }
-	      FREE(match_array);
 	    } else {
 	      firstp = true;
 	      for (nm = 0; nm < this->n_matches_bynm; nm++) {
 		if (this->matches_bynm[nm] > 0) {
 		  if (firstp == true) {
-		    printf("%ldNM%d",this->matches_bynm[nm],nm);
+		    printf("(%ldNM%d",this->matches_bynm[nm],nm);
 		    firstp = false;
 		  } else {
 		    printf(",%ldNM%d",this->matches_bynm[nm],nm);
@@ -3470,39 +3624,44 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 		  this->matches_bynm[nm] = 0; /* clear */
 		}
 	      }
+	      if (firstp == false) {
+		printf(")");
+	      }
 	    }
-	    printf(")");
 	  }
 
 	  if (print_xs_scores_p == true) {
-	    printf("(");
 	    if (this->use_array_p == false) {
-	      length = List_length(this->list_matches_byxs);
-	      match_array = (Match_T *) List_to_array(this->list_matches_byxs,NULL);
-	      qsort(match_array,length,sizeof(Match_T),Match_xs_cmp);
-	      printf("%ldXS",match_array[0]->count);
-	      switch (match_array[0]->xs) {
-	      case 0: printf("0"); break;
-	      case 1: printf("+"); break;
-	      case 2: printf("-"); break;
-	      default: abort();
-	      }
-	      for (j = 1; j < length; j++) {
-		printf(",%ldXS",match_array[j]->count);
-		switch (match_array[j]->xs) {
+	      if ((length = List_length(this->list_matches_byxs)) > 0) {
+		printf("(");
+		match_array = (Match_T *) List_to_array(this->list_matches_byxs,NULL);
+		qsort(match_array,length,sizeof(Match_T),Match_xs_cmp);
+		printf("%ldXS",match_array[0]->count);
+		switch (match_array[0]->xs) {
 		case 0: printf("0"); break;
 		case 1: printf("+"); break;
 		case 2: printf("-"); break;
 		default: abort();
 		}
+		for (j = 1; j < length; j++) {
+		  printf(",%ldXS",match_array[j]->count);
+		  switch (match_array[j]->xs) {
+		  case 0: printf("0"); break;
+		  case 1: printf("+"); break;
+		  case 2: printf("-"); break;
+		  default: abort();
+		  }
+		}
+		FREE(match_array);
+		printf(")");
 	      }
-	      FREE(match_array);
+
 	    } else {
 	      firstp = true;
 	      for (xs = 0; xs < this->n_matches_byxs; xs++) {
 		if (this->matches_byxs[xs] > 0) {
 		  if (firstp == true) {
-		    printf("%ldXS",this->matches_byxs[xs]);
+		    printf("(%ldXS",this->matches_byxs[xs]);
 		    firstp = false;
 		  } else {
 		    printf(",%ldXS",this->matches_byxs[xs]);
@@ -3516,8 +3675,10 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 		  this->matches_byxs[xs] = 0; /* clear */
 		}
 	      }
+	      if (firstp == false) {
+		printf(")");
+	      }
 	    }
-	    printf(")");
           }
 	}
 
@@ -3543,68 +3704,71 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	      printf(" %c%ld|%ld",mismatch0->nt,mismatch0->count_plus,mismatch0->count_minus);
 	    }
 	    if (print_cycles_p == true) {
-	      printf("(");
-	      length = Mismatch_chain_length(mismatch0->next);
-	      mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
-	      for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
-		mm_subarray[j] = mismatch;
-	      }
-	      qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_shift_cmp);
+	      if ((length = Mismatch_chain_length(mismatch0->next)) > 0) {
+		printf("(");
+		mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
+		for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
+		  mm_subarray[j] = mismatch;
+		}
+		qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_shift_cmp);
 
-	      printf("%ld@%d",mm_subarray[0]->count,mm_subarray[0]->shift);
-	      for (j = 1; j < length; j++) {
-		printf(",%ld@%d",mm_subarray[j]->count,mm_subarray[j]->shift);
+		printf("%ld@%d",mm_subarray[0]->count,mm_subarray[0]->shift);
+		for (j = 1; j < length; j++) {
+		  printf(",%ld@%d",mm_subarray[j]->count,mm_subarray[j]->shift);
+		}
+		FREE(mm_subarray);
+		printf(")");
 	      }
-	      FREE(mm_subarray);
-	      printf(")");
 	    }
 	      
 	    if (print_nm_scores_p == true) {
-	      printf("(");
 	      mismatch0 = find_mismatch_nt(unique_mismatches_bynm,mismatch0->nt);
-	      length = Mismatch_chain_length(mismatch0->next);
-	      mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
-	      for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
-		mm_subarray[j] = mismatch;
-	      }
-	      qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_nm_cmp);
+	      if ((length = Mismatch_chain_length(mismatch0->next)) > 0) {
+		printf("(");
+		mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
+		for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
+		  mm_subarray[j] = mismatch;
+		}
+		qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_nm_cmp);
 
-	      printf("%ldNM%d",mm_subarray[0]->count,mm_subarray[0]->nm);
-	      for (j = 1; j < length; j++) {
-		printf(",%ldNM%d",mm_subarray[j]->count,mm_subarray[j]->nm);
+		printf("%ldNM%d",mm_subarray[0]->count,mm_subarray[0]->nm);
+		for (j = 1; j < length; j++) {
+		  printf(",%ldNM%d",mm_subarray[j]->count,mm_subarray[j]->nm);
+		}
+		FREE(mm_subarray);
+		printf(")");
 	      }
-	      FREE(mm_subarray);
-	      printf(")");
 	    }
 
 	    if (print_xs_scores_p == true) {
-	      printf("(");
 	      mismatch0 = find_mismatch_nt(unique_mismatches_byxs,mismatch0->nt);
-	      length = Mismatch_chain_length(mismatch0->next);
-	      mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
-	      for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
-		mm_subarray[j] = mismatch;
-	      }
-	      qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_xs_cmp);
+	      if ((length = Mismatch_chain_length(mismatch0->next)) > 0) {
+		printf("(");
+		mm_subarray = (Mismatch_T *) CALLOC(length,sizeof(Mismatch_T));
+		for (mismatch = mismatch0->next, j = 0; mismatch != NULL; mismatch = mismatch->next, j++) {
+		  mm_subarray[j] = mismatch;
+		}
+		qsort(mm_subarray,length,sizeof(Mismatch_T),Mismatch_xs_cmp);
 	      
-	      printf("%ldXS",mm_subarray[0]->count);
-	      switch (mm_subarray[0]->xs) {
-	      case 0: printf("0"); break;
-	      case 1: printf("+"); break;
-	      case 2: printf("-"); break;
-	      default: abort();
-	      }
-	      for (j = 1; j < length; j++) {
-		printf(",%ldXS",mm_subarray[j]->count);
-		switch (mm_subarray[j]->xs) {
+		printf("%ldXS",mm_subarray[0]->count);
+		switch (mm_subarray[0]->xs) {
 		case 0: printf("0"); break;
 		case 1: printf("+"); break;
 		case 2: printf("-"); break;
 		default: abort();
 		}
+		for (j = 1; j < length; j++) {
+		  printf(",%ldXS",mm_subarray[j]->count);
+		  switch (mm_subarray[j]->xs) {
+		  case 0: printf("0"); break;
+		  case 1: printf("+"); break;
+		  case 2: printf("-"); break;
+		  default: abort();
+		  }
+		}
+		FREE(mm_subarray);
+		printf(")");
 	      }
-	      FREE(mm_subarray);
-	      printf(")");
 	    }
 	  }
 
@@ -3834,10 +3998,11 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
   int blocki, lasti;
   Match_T *match_array, match;
   Mismatch_T mismatch, mismatch0, *mm_array, *mm_subarray;
-  Insertion_T ins, ins0, *ins_array_byshift, *ins_array_bynm, *ins_subarray;
-  Deletion_T del, del0, *del_array_byshift, *del_array_bynm, *del_subarray;
+  Insertion_T ins, ins0, *ins_array_byshift, *ins_array_bynm, *ins_array_byxs, *ins_subarray;
+  Deletion_T del, del0, *del_array_byshift, *del_array_bynm, *del_array_byxs, *del_subarray;
   List_T unique_mismatches_byshift, unique_mismatches_bynm, unique_mismatches_byxs, ptr;
-  List_T unique_insertions_byshift, unique_deletions_byshift, unique_insertions_bynm, unique_deletions_bynm;
+  List_T unique_insertions_byshift, unique_deletions_byshift, unique_insertions_bynm, unique_deletions_bynm,
+    unique_insertions_byxs, unique_deletions_byxs;
   long int total, total_matches_plus, total_matches_minus, total_mismatches_plus, total_mismatches_minus;
   int ninsertions, ndeletions;
   int shift, quality, nm, xs;
@@ -3915,7 +4080,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*cnounts*/1);
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*cnounts*/1);
 	    if (ins->shift > 0) {
 	      ins0->count_plus = ins->count;
 	      ins0->count_minus = 0;
@@ -3950,7 +4115,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*cnounts*/1);
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*cnounts*/1);
 	    if (ins->shift > 0) {
 	      ins0->count_plus = ins->count;
 	      ins0->count_minus = 0;
@@ -3966,6 +4131,42 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	assert(List_length(unique_insertions_bynm) == ninsertions);
 	qsort(ins_array_bynm,ninsertions,sizeof(Insertion_T),Insertion_count_cmp);
 	/* We hope that ins_array_byshift and ins_array_bynm have the same insertions in parallel */
+
+
+	unique_insertions_byxs = NULL;
+	for (ptr = this->insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  ins = (Insertion_T) List_head(ptr);
+	  if ((ins0 = find_insertion_seg(unique_insertions_byxs,ins->segment,ins->mlength)) != NULL) {
+	    if (ins->shift > 0) {
+	      ins0->count_plus += ins->count;
+	    } else {
+	      ins0->count_minus += ins->count;
+	    }
+
+	    /* Insert insertion into list */
+	    ins->next = ins0->next;
+	    ins0->next = ins;
+
+#if 0
+	    ins0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    ins0 = Insertion_new(chrpos,ins->segment,ins->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*cnounts*/1);
+	    if (ins->shift > 0) {
+	      ins0->count_plus = ins->count;
+	      ins0->count_minus = 0;
+	    } else {
+	      ins0->count_minus = ins->count;
+	      ins0->count_plus = 0;
+	    }
+	    ins0->next = ins;
+	    unique_insertions_byxs = List_push(unique_insertions_byxs,ins0);
+	  }
+	}
+	ins_array_byxs = (Insertion_T *) List_to_array(unique_insertions_byxs,NULL);
+	assert(List_length(unique_insertions_byxs) == ninsertions);
+	qsort(ins_array_byxs,ninsertions,sizeof(Insertion_T),Insertion_count_cmp);
+
 
 
 	/* Total number of different insertions at this position */
@@ -4010,10 +4211,33 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    bytes = push_int(&nbytes,bytes,ins_subarray[j]->count);
 	  }
 	  FREE(ins_subarray);
+
+	  /* NM counts for insertion i */
+	  ins0 = ins_array_byxs[i];
+	  length = Insertion_chain_length(ins0->next);
+	  ins_subarray = (Insertion_T *) CALLOC(length,sizeof(Insertion_T));
+	  for (ins = ins0->next, j = 0; ins != NULL; ins = ins->next, j++) {
+	    ins_subarray[j] = ins;
+	  }
+
+	  qsort(ins_subarray,length,sizeof(Insertion_T),Insertion_xs_cmp);
+	  bytes = push_int(&nbytes,bytes,length);
+	  for (j = 0; j < length; j++) {
+	    bytes = push_int(&nbytes,bytes,ins_subarray[j]->xs);
+	    bytes = push_int(&nbytes,bytes,ins_subarray[j]->count);
+	  }
+	  FREE(ins_subarray);
 	}
 
+	FREE(ins_array_byxs);
 	FREE(ins_array_bynm);
 	FREE(ins_array_byshift);
+
+	for (ptr = unique_insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  ins0 = List_head(ptr);
+	  Insertion_free(&ins0);
+	}
+	List_free(&unique_insertions_byxs);
 
 	for (ptr = unique_insertions_bynm; ptr != NULL; ptr = List_next(ptr)) {
 	  ins0 = List_head(ptr);
@@ -4050,7 +4274,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    del0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (del->shift > 0) {
 	      del0->count_plus = del->count;
 	      del0->count_minus = 0;
@@ -4065,7 +4289,6 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	del_array_byshift = (Deletion_T *) List_to_array(unique_deletions_byshift,NULL);
 	ndeletions = List_length(unique_deletions_byshift);
 	qsort(del_array_byshift,ndeletions,sizeof(Deletion_T),Deletion_count_cmp);
-
 
 	unique_deletions_bynm = NULL;
 	for (ptr = this->deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
@@ -4085,7 +4308,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    del0->shift += 1; /* Used here as nshifts.  Not necessary. */
 #endif
 	  } else {
-	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*ncounts*/1);
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
 	    if (del->shift > 0) {
 	      del0->count_plus = del->count;
 	      del0->count_minus = 0;
@@ -4101,6 +4324,40 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	assert(List_length(unique_deletions_bynm) == ndeletions);
 	qsort(del_array_bynm,ndeletions,sizeof(Deletion_T),Deletion_count_cmp);
 	/* We hope that del_array_byshift and del_array_bynm have the same deletions in parallel */
+
+	unique_deletions_byxs = NULL;
+	for (ptr = this->deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  del = (Deletion_T) List_head(ptr);
+	  if ((del0 = find_deletion_seg(unique_deletions_byxs,del->segment,del->mlength)) != NULL) {
+	    if (del->shift > 0) {
+	      del0->count_plus += del->count;
+	    } else {
+	      del0->count_minus += del->count;
+	    }
+
+	    /* Insert deletion into list */
+	    del->next = del0->next;
+	    del0->next = del;
+
+#if 0
+	    del0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    del0 = Deletion_new(chrpos,del->segment,del->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (del->shift > 0) {
+	      del0->count_plus = del->count;
+	      del0->count_minus = 0;
+	    } else {
+	      del0->count_minus = del->count;
+	      del0->count_plus = 0;
+	    }
+	    del0->next = del;
+	    unique_deletions_byxs = List_push(unique_deletions_byxs,del0);
+	  }
+	}
+	del_array_byxs = (Deletion_T *) List_to_array(unique_deletions_byxs,NULL);
+	assert(List_length(unique_deletions_byxs) == ndeletions);
+	qsort(del_array_byxs,ndeletions,sizeof(Deletion_T),Deletion_count_cmp);
 
 
 	/* Total number of different deletions at this position */
@@ -4145,10 +4402,33 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	    bytes = push_int(&nbytes,bytes,del_subarray[j]->count);
 	  }
 	  FREE(del_subarray);
+
+	  /* XS counts for deletion i */
+	  del0 = del_array_byxs[i];
+	  length = Deletion_chain_length(del0->next);
+	  del_subarray = (Deletion_T *) CALLOC(length,sizeof(Deletion_T));
+	  for (del = del0->next, j = 0; del != NULL; del = del->next, j++) {
+	    del_subarray[j] = del;
+	  }
+
+	  qsort(del_subarray,length,sizeof(Deletion_T),Deletion_xs_cmp);
+	  bytes = push_int(&nbytes,bytes,length);
+	  for (j = 0; j < length; j++) {
+	    bytes = push_int(&nbytes,bytes,del_subarray[j]->xs);
+	    bytes = push_int(&nbytes,bytes,del_subarray[j]->count);
+	  }
+	  FREE(del_subarray);
 	}
 
+	FREE(del_array_byxs);
 	FREE(del_array_bynm);
 	FREE(del_array_byshift);
+
+	for (ptr = unique_deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  del0 = List_head(ptr);
+	  Deletion_free(&del0);
+	}
+	List_free(&unique_deletions_byxs);
 
 	for (ptr = unique_deletions_bynm; ptr != NULL; ptr = List_next(ptr)) {
 	  del0 = List_head(ptr);
@@ -4896,40 +5176,52 @@ revise_position (char querynt, char genomicnt, int nm, int xs, int signed_shift,
 
 
 static void
-revise_insertion (Genomicpos_T chrpos, char *query_insert, int mlength, int signed_shift, int nm,
+revise_insertion (Genomicpos_T chrpos, char *query_insert, int mlength, int signed_shift, int nm, int xs,
 		  Tally_T this, int ncounts) {
   Insertion_T ins;
 
   if ((ins = find_insertion_byshift(this->insertions_byshift,query_insert,mlength,signed_shift)) != NULL) {
     ins->count += ncounts;
   } else {
-    this->insertions_byshift = List_push(this->insertions_byshift,(void *) Insertion_new(chrpos,query_insert,mlength,signed_shift,nm,ncounts));
+    this->insertions_byshift = List_push(this->insertions_byshift,(void *) Insertion_new(chrpos,query_insert,mlength,signed_shift,nm,xs,ncounts));
   }
 
-  if ((ins = find_insertion_bynm(this->insertions_byshift,query_insert,mlength,nm)) != NULL) {
+  if ((ins = find_insertion_bynm(this->insertions_bynm,query_insert,mlength,nm)) != NULL) {
     ins->count += ncounts;
   } else {
-    this->insertions_bynm = List_push(this->insertions_bynm,(void *) Insertion_new(chrpos,query_insert,mlength,signed_shift,nm,ncounts));
+    this->insertions_bynm = List_push(this->insertions_bynm,(void *) Insertion_new(chrpos,query_insert,mlength,signed_shift,nm,xs,ncounts));
+  }
+
+  if ((ins = find_insertion_byxs(this->insertions_byxs,query_insert,mlength,xs)) != NULL) {
+    ins->count += ncounts;
+  } else {
+    this->insertions_byxs = List_push(this->insertions_byxs,(void *) Insertion_new(chrpos,query_insert,mlength,signed_shift,nm,xs,ncounts));
   }
 
   return;
 }
 
 static void
-revise_deletion (Genomicpos_T chrpos, char *deletion, int mlength, int signed_shift, int nm, Tally_T this,
+revise_deletion (Genomicpos_T chrpos, char *deletion, int mlength, int signed_shift, int nm, int xs, Tally_T this,
 		 int ncounts) {
   Deletion_T del;
 
   if ((del = find_deletion_byshift(this->deletions_byshift,deletion,mlength,signed_shift)) != NULL) {
     del->count += ncounts;
   } else {
-    this->deletions_byshift = List_push(this->deletions_byshift,(void *) Deletion_new(chrpos,deletion,mlength,signed_shift,nm,ncounts));
+    this->deletions_byshift = List_push(this->deletions_byshift,(void *) Deletion_new(chrpos,deletion,mlength,signed_shift,nm,xs,ncounts));
   }
 
   if ((del = find_deletion_bynm(this->deletions_bynm,deletion,mlength,nm)) != NULL) {
     del->count += ncounts;
   } else {
-    this->deletions_bynm = List_push(this->deletions_bynm,(void *) Deletion_new(chrpos,deletion,mlength,signed_shift,nm,ncounts));
+    this->deletions_bynm = List_push(this->deletions_bynm,(void *) Deletion_new(chrpos,deletion,mlength,signed_shift,nm,xs,ncounts));
+  }
+
+  if ((del = find_deletion_byxs(this->deletions_byxs,deletion,mlength,xs)) != NULL) {
+    del->count += ncounts;
+  } else {
+    this->deletions_byxs = List_push(this->deletions_byxs,(void *) Deletion_new(chrpos,deletion,mlength,signed_shift,nm,xs,ncounts));
   }
 
   return;
@@ -5063,7 +5355,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 
 	signed_shift = (strand == '+') ? shift : -shift;
 	/* quality_score = (int) count_average(counts,r,mlength); */
-	revise_insertion(pos,/*query_insert*/p,mlength,signed_shift,nm,this,nreps);
+	revise_insertion(pos,/*query_insert*/p,mlength,signed_shift,nm,xs,this,nreps);
       }
 
       p += mlength;
@@ -5094,7 +5386,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 	this = alloc_tallies[alloci];
 
 	signed_shift = (strand == '+') ? shift : -shift;
-	revise_deletion(pos,/*deletion*/q,mlength,signed_shift,nm,this,nreps);
+	revise_deletion(pos,/*deletion*/q,mlength,signed_shift,nm,xs,this,nreps);
 	/* Revise deletion counts for coverage */
 	if (signed_shift > 0) {
 	  for (i = 0; i < mlength; i++) {
@@ -5327,7 +5619,7 @@ revise_read_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high, Genomic
 	  quality_score = (int) average(r,mlength);
 	}
 
-	revise_insertion(pos,/*query_insert*/p,mlength,signed_shift,nm,this,/*nreps*/1);
+	revise_insertion(pos,/*query_insert*/p,mlength,signed_shift,nm,xs,this,/*nreps*/1);
       }
 
       p += mlength;
@@ -5357,7 +5649,7 @@ revise_read_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high, Genomic
 	this = (lowend_p == true) ? alloc_tallies_low[alloci] : alloc_tallies_high[alloci];
 
 	signed_shift = (strand == '+') ? shift : -shift;
-	revise_deletion(pos,/*deletion*/q,mlength,signed_shift,nm,this,/*nreps*/1);
+	revise_deletion(pos,/*deletion*/q,mlength,signed_shift,nm,xs,this,/*nreps*/1);
       }
 
       pos += mlength;

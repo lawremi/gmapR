@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 159976 2015-03-02 22:51:51Z twu $";
+static char rcsid[] = "$Id: tally.c 161999 2015-03-26 00:05:19Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -9,6 +9,7 @@ static char rcsid[] = "$Id: tally.c 159976 2015-03-02 22:51:51Z twu $";
 #include <stdlib.h>
 #include <string.h>
 #include "mem.h"
+#include "assert.h"
 
 
 #define INITIAL_READLENGTH 75
@@ -69,7 +70,7 @@ Mismatch_free (Mismatch_T *old) {
 
 
 Insertion_T
-Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int ncounts) {
+Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, int nm, int xs, int ncounts) {
   Insertion_T new = (Insertion_T) MALLOC(sizeof(*new));
 
   new->chrpos = chrpos;
@@ -78,6 +79,7 @@ Insertion_new (Genomicpos_T chrpos, char *query_insert, int mlength, int shift, 
   new->mlength = mlength;
   new->shift = shift;
   new->nm = nm;
+  new->xs = xs;
   new->count = ncounts;
 
   /* Assigned when mismatch added to unique list */
@@ -138,6 +140,20 @@ find_insertion_bynm (List_T insertions, char *segment, int mlength, int nm) {
   return (Insertion_T) NULL;
 }
 
+Insertion_T
+find_insertion_byxs (List_T insertions, char *segment, int mlength, int xs) {
+  List_T p;
+  Insertion_T ins;
+
+  for (p = insertions; p != NULL; p = List_next(p)) {
+    ins = (Insertion_T) List_head(p);
+    if (ins->xs == xs && ins->mlength == mlength && !strncmp(ins->segment,segment,mlength)) {
+      return ins;
+    }
+  }
+  return (Insertion_T) NULL;
+}
+
 
 Insertion_T
 find_insertion_seg (List_T insertions, char *segment, int mlength) {
@@ -154,7 +170,7 @@ find_insertion_seg (List_T insertions, char *segment, int mlength) {
 }
 
 Deletion_T
-Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int ncounts) {
+Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int nm, int xs, int ncounts) {
   Deletion_T new = (Deletion_T) MALLOC(sizeof(*new));
 
   new->chrpos = chrpos;
@@ -163,6 +179,7 @@ Deletion_new (Genomicpos_T chrpos, char *deletion, int mlength, int shift, int n
   new->mlength = mlength;
   new->shift = shift;
   new->nm = nm;
+  new->xs = xs;
   new->count = ncounts;
 
   /* Assigned when mismatch added to unique list */
@@ -218,6 +235,20 @@ find_deletion_bynm (List_T deletions, char *segment, int mlength, int nm) {
   for (p = deletions; p != NULL; p = List_next(p)) {
     del = (Deletion_T) List_head(p);
     if (del->nm == nm && del->mlength == mlength /* && !strncmp(del->segment,segment,mlength)*/) {
+      return del;
+    }
+  }
+  return (Deletion_T) NULL;
+}
+
+Deletion_T
+find_deletion_byxs (List_T deletions, char *segment, int mlength, int xs) {
+  List_T p;
+  Deletion_T del;
+
+  for (p = deletions; p != NULL; p = List_next(p)) {
+    del = (Deletion_T) List_head(p);
+    if (del->xs == xs && del->mlength == mlength /* && !strncmp(del->segment,segment,mlength)*/) {
       return del;
     }
   }
@@ -448,9 +479,11 @@ Tally_new () {
 
   new->insertions_byshift = (List_T) NULL;
   new->insertions_bynm = (List_T) NULL;
+  new->insertions_byxs = (List_T) NULL;
 
   new->deletions_byshift = (List_T) NULL;
   new->deletions_bynm = (List_T) NULL;
+  new->deletions_byxs = (List_T) NULL;
 
   new->readevidence = (List_T) NULL;
 
@@ -484,8 +517,8 @@ Tally_clear (T this) {
     memset((void *) this->matches_byxs,0,this->n_matches_byxs * sizeof(int));
 #endif
     this->use_array_p = false;
-  } else {
 
+  } else {
 #ifdef USE_MATCHPOOL
     Matchpool_reset(this->matchpool);
 #else
@@ -552,6 +585,14 @@ Tally_clear (T this) {
   List_free(&(this->insertions_bynm));
   this->insertions_bynm = (List_T) NULL;
 
+  for (ptr = this->insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    ins = (Insertion_T) List_head(ptr);
+    Insertion_free(&ins);
+  }
+  List_free(&(this->insertions_byxs));
+  this->insertions_byxs = (List_T) NULL;
+
+
   for (ptr = this->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     del = (Deletion_T) List_head(ptr);
     Deletion_free(&del);
@@ -565,6 +606,13 @@ Tally_clear (T this) {
   }
   List_free(&(this->deletions_bynm));
   this->deletions_bynm = (List_T) NULL;
+
+  for (ptr = this->deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    del = (Deletion_T) List_head(ptr);
+    Deletion_free(&del);
+  }
+  List_free(&(this->deletions_byxs));
+  this->deletions_byxs = (List_T) NULL;
 
 
   for (ptr = this->readevidence; ptr != NULL; ptr = List_next(ptr)) {
@@ -582,6 +630,8 @@ Tally_clear (T this) {
 void
 Tally_transfer (T *dest, T *src) {
   T temp;
+  Readevid_T readevid;
+  List_T ptr;
 
 
   temp = *dest;
@@ -611,9 +661,18 @@ Tally_transfer (T *dest, T *src) {
 
   temp->insertions_byshift = (List_T) NULL;
   temp->insertions_bynm = (List_T) NULL;
+  temp->insertions_byxs = (List_T) NULL;
+
   temp->deletions_byshift = (List_T) NULL;
   temp->deletions_bynm = (List_T) NULL;
+  temp->deletions_byxs = (List_T) NULL;
 
+  /* Not clear why we have to delete readevid, but not the other lists */
+  for (ptr = temp->readevidence; ptr != NULL; ptr = List_next(ptr)) {
+    readevid = (Readevid_T) List_head(ptr);
+    Readevid_free(&readevid);
+  }
+  List_free(&(temp->readevidence));
   temp->readevidence = (List_T) NULL;
 
   *src = temp;
@@ -712,6 +771,14 @@ Tally_free (T *old) {
   List_free(&((*old)->insertions_bynm));
   /* (*old)->insertions_bynm = (List_T) NULL; */
 
+  for (ptr = (*old)->insertions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    ins = (Insertion_T) List_head(ptr);
+    Insertion_free(&ins);
+  }
+  List_free(&((*old)->insertions_byxs));
+  /* (*old)->insertions_byxs = (List_T) NULL; */
+
+
   for (ptr = (*old)->deletions_byshift; ptr != NULL; ptr = List_next(ptr)) {
     del = (Deletion_T) List_head(ptr);
     Deletion_free(&del);
@@ -725,6 +792,13 @@ Tally_free (T *old) {
   }
   List_free(&((*old)->deletions_bynm));
   /* (*old)->deletions_bynm = (List_T) NULL; */
+
+  for (ptr = (*old)->deletions_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    del = (Deletion_T) List_head(ptr);
+    Deletion_free(&del);
+  }
+  List_free(&((*old)->deletions_byxs));
+  /* (*old)->deletions_byxs = (List_T) NULL; */
 
 
   for (ptr = (*old)->readevidence; ptr != NULL; ptr = List_next(ptr)) {

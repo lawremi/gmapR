@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: gmap.c 110292 2013-10-07 23:11:30Z twu $";
+static char rcsid[] = "$Id: gmap.c 135441 2014-05-07 22:15:13Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -31,11 +31,11 @@ static char rcsid[] = "$Id: gmap.c 110292 2013-10-07 23:11:30Z twu $";
 #include "access.h"
 
 #include "sequence.h"
-#include "oligoindex.h"
 #include "match.h"
 #include "matchpool.h"
 #include "pairpool.h"
 #include "diagpool.h"
+#include "cellpool.h"
 #include "stopwatch.h"
 #include "genome.h"
 #include "genome-write.h"
@@ -47,7 +47,8 @@ static char rcsid[] = "$Id: gmap.c 110292 2013-10-07 23:11:30Z twu $";
 #include "gregion.h"
 #include "oligoindex_hr.h"	/* For Oligoindex_hr_setup */
 #include "stage2.h"
-#include "splicetrie.h"
+#include "splicestringpool.h"
+#include "splicetrie_build.h"
 #include "dynprog.h"
 #include "stage3.h"
 #include "comp.h"
@@ -71,6 +72,10 @@ static char rcsid[] = "$Id: gmap.c 110292 2013-10-07 23:11:30Z twu $";
 #include "inbuffer.h"
 #include "outbuffer.h"
 #include "getopt.h"
+
+
+#define MAX_QUERYLENGTH_FOR_ALLOC    100000
+#define MAX_GENOMICLENGTH_FOR_ALLOC 1000000
 
 
 #define POSSIBLE_OLIGOS 65536	/* 4^8 */
@@ -882,9 +887,8 @@ update_stage3list (List_T stage3list, bool lowidentityp, Sequence_T queryseq,
 		   Sequence_T queryntseq,
 #endif
 		   Sequence_T queryuc,
-		   Oligoindex_T *oligoindices_major, int noligoindices_major,
-		   Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		   Pairpool_T pairpool, Diagpool_T diagpool, int straintype, char *strain,
+		   Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		   Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool, int straintype, char *strain,
 		   Chrnum_T chrnum, Univcoord_T chroffset, Univcoord_T chrhigh, Chrpos_T chrlength,
 		   Chrpos_T chrstart, Chrpos_T chrend, bool watsonp, int genestrand,
 		   Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
@@ -952,8 +956,8 @@ update_stage3list (List_T stage3list, bool lowidentityp, Sequence_T queryseq,
 				     chrstart,chrend,
 				     chroffset,chrhigh,/*plusp*/watsonp,genestrand,
 
-				     oligoindices_major,noligoindices_major,/*proceed_pctcoverage*/0.3,
-				     pairpool,diagpool,sufflookback,nsufflookback,maxintronlen_bound,
+				     oligoindices_major,/*proceed_pctcoverage*/0.3,
+				     pairpool,diagpool,cellpool,sufflookback,nsufflookback,maxintronlen_bound,
 				     /*localp*/true,/*skip_repetitive_p*/true,
 				     /*favor_right_p*/false,/*max_nalignments*/MAX_NALIGNMENTS,debug_graphic_p,
 				     diagnosticp,worker_stopwatch,diag_debug);
@@ -992,7 +996,7 @@ update_stage3list (List_T stage3list, bool lowidentityp, Sequence_T queryseq,
 			       extraband_single,extraband_end,extraband_paired,
 			       minendexon,pairpool,dynprogL,dynprogM,dynprogR,ngap,
 			       diagnosticp,checkp,do_final_p,sense_try,sense_filter,
-			       oligoindices_minor,noligoindices_minor,diagpool,
+			       oligoindices_minor,diagpool,cellpool,
 			       sufflookback,nsufflookback,maxintronlen_bound,close_indels_mode,
 			       /*paired_favor_mode*/0,/*zero_offset*/0);
     stage3_runtime = Stopwatch_stop(worker_stopwatch);
@@ -1090,9 +1094,8 @@ static Stage3_T *
 stage3_from_usersegment (int *npaths, int *first_absmq, int *second_absmq,
 			 bool lowidentityp, Sequence_T queryseq,
 			 Sequence_T queryuc, Sequence_T usersegment,
-			 Oligoindex_T *oligoindices_major, int noligoindices_major,
-			 Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-			 Pairpool_T pairpool, Diagpool_T diagpool,
+			 Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+			 Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
 			 Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 			 Stopwatch_T worker_stopwatch) {
   List_T stage3list;
@@ -1112,9 +1115,8 @@ stage3_from_usersegment (int *npaths, int *first_absmq, int *second_absmq,
 #ifdef PMAP
 				 queryntseq,
 #endif
-				 queryuc,oligoindices_major,noligoindices_major,
-				 oligoindices_minor,noligoindices_minor,
-				 pairpool,diagpool,/*straintype*/0,/*strain*/NULL,
+				 queryuc,oligoindices_major,oligoindices_minor,
+				 pairpool,diagpool,cellpool,/*straintype*/0,/*strain*/NULL,
 				 chrnum,chroffset,chrhigh,chrlength,
 				 /*chrstart*/0,/*chrend*/chrhigh,/*watsonp*/true,/*genestrand*/0,
 				 dynprogL,dynprogM,dynprogR,worker_stopwatch);
@@ -1127,9 +1129,8 @@ stage3_from_usersegment (int *npaths, int *first_absmq, int *second_absmq,
 #ifdef PMAP
 				 queryntseq,
 #endif
-				 queryuc,oligoindices_major,noligoindices_major,
-				 oligoindices_minor,noligoindices_minor,
-				 pairpool,diagpool,/*straintype*/0,/*strain*/NULL,
+				 queryuc,oligoindices_major,oligoindices_minor,
+				 pairpool,diagpool,cellpool,/*straintype*/0,/*strain*/NULL,
 				 chrnum,chroffset,chrhigh,chrlength,
 				 /*chrstart*/0,/*chrend*/chrhigh,/*watsonp*/false,/*genestrand*/0,
 				 dynprogL,dynprogM,dynprogR,worker_stopwatch);
@@ -1276,9 +1277,8 @@ stage3list_filter_and_sort (List_T stage3list) {
 static List_T
 stage3_from_gregions (List_T stage3list, List_T gregions, bool lowidentityp, Sequence_T queryseq,
 		      Sequence_T queryuc, Sequence_T usersegment, 
-		      Oligoindex_T *oligoindices_major, int noligoindices_major,
-		      Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		      Pairpool_T pairpool, Diagpool_T diagpool,
+		      Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		      Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
 		      Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		      Stopwatch_T worker_stopwatch) {
   Gregion_T gregion, *array;
@@ -1322,8 +1322,7 @@ stage3_from_gregions (List_T stage3list, List_T gregions, bool lowidentityp, Seq
 			     Gregion_chrstart(gregion),Gregion_chrend(gregion),
 			     Gregion_chroffset(gregion),Gregion_chrhigh(gregion),
 			     /*plusp*/Gregion_revcompp(gregion) ? false : true,Gregion_genestrand(gregion),
-			     oligoindices_major,noligoindices_major,diagpool,
-			     debug_graphic_p,diagnosticp);
+			     oligoindices_major,diagpool,debug_graphic_p,diagnosticp);
       Gregion_set_ncovered(gregion,ncovered,stage2_source);
       if (diagnosticp == true) {
 	fprintf(stderr,"Scanned %d ncovered\n",ncovered);
@@ -1372,8 +1371,7 @@ stage3_from_gregions (List_T stage3list, List_T gregions, bool lowidentityp, Seq
 #ifdef PMAP
 				       queryntseq,
 #endif
-				       queryuc,oligoindices_major,noligoindices_major,
-				       oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+				       queryuc,oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
 				       /*straintype*/0,/*strain*/NULL,Gregion_chrnum(gregion),
 				       Gregion_chroffset(gregion),Gregion_chrhigh(gregion),Gregion_chrlength(gregion),
 				       Gregion_chrstart(gregion),Gregion_chrend(gregion),
@@ -1427,8 +1425,7 @@ stage3_from_gregions (List_T stage3list, List_T gregions, bool lowidentityp, Seq
 #ifdef PMAP
 				       queryntseq,
 #endif
-				       queryuc,oligoindices_major,noligoindices_major,
-				       oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+				       queryuc,oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
 				       /*straintype*/0,/*strain*/NULL,Gregion_chrnum(gregion),
 				       Gregion_chroffset(gregion),Gregion_chrhigh(gregion),Gregion_chrlength(gregion),
 				       Gregion_chrstart(gregion),Gregion_chrend(gregion),
@@ -1466,9 +1463,8 @@ stage3_from_gregions (List_T stage3list, List_T gregions, bool lowidentityp, Seq
 #ifdef PMAP
 					     queryntseq,
 #endif					     
-					     queryuc,oligoindices_major,noligoindices_major,
-					     oligoindices_minor,noligoindices_minor,
-					     pairpool,diagpool,straintype,strain,
+					     queryuc,oligoindices_major,oligoindices_minor,
+					     pairpool,diagpool,cellpool,straintype,strain,
 					     Gregion_chrnum(gregion),Gregion_chroffset(gregion),
 					     Gregion_chrhigh(gregion),Gregion_chrlength(gregion),
 					     Gregion_chrstart(gregion),Gregion_chrend(gregion),
@@ -1818,7 +1814,7 @@ merge_left_and_right_readthrough (bool *mergedp, Stage3_T *stage3array_sub1, int
 #endif
 				  Sequence_T queryseq, char *queryseq_ptr, char *queryuc_ptr,
 				  Pairpool_T pairpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
-				  Oligoindex_T *oligoindices_minor, int noligoindices_minor, Diagpool_T diagpool,
+				  Oligoindex_array_T oligoindices_minor, Diagpool_T diagpool, Cellpool_T cellpool,
 				  int ngap) {
   List_T newstage3list, p;
   Stage3_T best0, best1, *array, last, freed0 = NULL, freed1 = NULL;
@@ -1863,7 +1859,7 @@ merge_left_and_right_readthrough (bool *mergedp, Stage3_T *stage3array_sub1, int
 			 pairpool,dynprogL,dynprogM,dynprogR,
 			 genomecomp,genomecomp_alt ? genomecomp_alt : genomecomp,
 			 maxpeelback,maxpeelback_distalmedial,nullgap,
-			 oligoindices_minor,noligoindices_minor,diagpool,
+			 oligoindices_minor,diagpool,cellpool,
 			 sufflookback,nsufflookback,maxintronlen_bound,
 			 extramaterial_paired,extramaterial_end,
 			 extraband_paired,extraband_single,extraband_end,ngap,
@@ -2171,10 +2167,9 @@ find_breakpoint (int *cdna_direction, int *chimerapos, int *chimeraequivpos, int
 static List_T
 check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int effective_start, int effective_end,
 		   Sequence_T queryseq, Sequence_T queryuc, int queryntlength, Sequence_T usersegment, 
-		   Oligoindex_T *oligoindices_major, int noligoindices_major,
-		   Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		   Matchpool_T matchpool, Pairpool_T pairpool, 
-		   Diagpool_T diagpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR) {
+		   Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		   Matchpool_T matchpool, Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
+		   Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR) {
   List_T gregions = NULL, nonjoinable = NULL, p;
   Stage3_T *stage3array_sub1 = NULL, *stage3array_sub2 = NULL, from, to, stage3;
   Sequence_T querysubseq = NULL, querysubuc = NULL;
@@ -2253,7 +2248,7 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 	  debug2a(Sequence_print(stdout,querysubseq,/*uppercasep*/true,wraplength,/*trimmedp*/true));
 
 	  diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(querysubuc),Sequence_fulllength(querysubuc),
-				      oligoindices_major[0]);
+				      Oligoindex_array_elt(oligoindices_major,0));
 	  if (poorp == true || repetitivep == true) {
 	    debug2(printf("Subsequence is poor or repetitive\n"));
 	  } else {
@@ -2262,8 +2257,8 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 				      stutterhits,diagnostic,/*worker_stopwatch*/NULL,/*nbest*/10);
 	    debug2(printf("Performing Stage 3 starting with list length %d\n",List_length(stage3list)));
 	    stage3list = stage3_from_gregions(stage3list,gregions,lowidentityp,querysubseq,
-					      querysubuc,usersegment,oligoindices_major,noligoindices_major,
-					      oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+					      querysubuc,usersegment,oligoindices_major,
+					      oligoindices_minor,pairpool,diagpool,cellpool,
 					      dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL);
 	  }
 	  Diagnostic_free(&diagnostic);
@@ -2282,7 +2277,7 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 	  debug2a(Sequence_print(stdout,querysubseq,/*uppercasep*/true,wraplength,/*trimmedp*/true));
 
 	  diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(querysubuc),Sequence_fulllength(querysubuc),
-				      oligoindices_major[0]);
+				      Oligoindex_array_elt(oligoindices_major,0));
 	  if (poorp == true || repetitivep == true) {
 	    debug2(printf("Subsequence is poor or repetitive\n"));
 	  } else {
@@ -2291,8 +2286,8 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 				      stutterhits,diagnostic,/*worker_stopwatch*/NULL,/*nbest*/10);
 	    debug2(printf("Performing Stage 3 starting with list length %d\n",List_length(stage3list)));
 	    stage3list = stage3_from_gregions(stage3list,gregions,lowidentityp,querysubseq,
-					      querysubuc,usersegment,oligoindices_major,noligoindices_major,
-					      oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+					      querysubuc,usersegment,oligoindices_major,
+					      oligoindices_minor,pairpool,diagpool,cellpool,
 					      dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL);
 	  }
 	  Diagnostic_free(&diagnostic);
@@ -2330,7 +2325,7 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 	  debug2(Sequence_print(stdout,querysubseq,/*uppercasep*/true,wraplength,/*trimmedp*/true));
 
 	  diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(querysubuc),Sequence_fulllength(querysubuc),
-				      oligoindices_major[0]);
+				      Oligoindex_array_elt(oligoindices_major,0));
 	  if (poorp == true || repetitivep == true) {
 	    debug2(printf("Subsequence is poor or repetitive\n"));
 	  } else {
@@ -2339,8 +2334,8 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 				      stutterhits,diagnostic,/*worker_stopwatch*/NULL,/*nbest*/10);
 	    debug2(printf("Performing Stage 3 with list length %d\n",List_length(stage3list)));
 	    stage3list = stage3_from_gregions(stage3list,gregions,lowidentityp,querysubseq,
-					      querysubuc,usersegment,oligoindices_major,noligoindices_major,
-					      oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+					      querysubuc,usersegment,oligoindices_major,
+					      oligoindices_minor,pairpool,diagpool,cellpool,
 					      dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL);
 	  }
 	  Diagnostic_free(&diagnostic);
@@ -2359,7 +2354,7 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 	  debug2(Sequence_print(stdout,querysubseq,/*uppercasep*/true,wraplength,/*trimmedp*/true));
 
 	  diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(querysubuc),Sequence_fulllength(querysubuc),
-				      oligoindices_major[0]);
+				      Oligoindex_array_elt(oligoindices_major,0));
 	  if (poorp == true || repetitivep == true) {
 	    debug2(printf("Subsequence is poor or repetitive\n"));
 	  } else {
@@ -2368,8 +2363,8 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 				      stutterhits,diagnostic,/*worker_stopwatch*/NULL,/*nbest*/10);
 	    debug2(printf("Performing Stage 3 with list length %d\n",List_length(stage3list)));
 	    stage3list = stage3_from_gregions(stage3list,gregions,lowidentityp,querysubseq,
-					      querysubuc,usersegment,oligoindices_major,noligoindices_major,
-					      oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+					      querysubuc,usersegment,oligoindices_major,
+					      oligoindices_minor,pairpool,diagpool,cellpool,
 					      dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL);
 	  }
 	  Diagnostic_free(&diagnostic);
@@ -2458,7 +2453,7 @@ check_for_chimera (bool *mergedp, Chimera_T *chimera, List_T stage3list, int eff
 						      /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 						      pairpool,dynprogL,dynprogM,dynprogR,
-						      oligoindices_minor,noligoindices_minor,diagpool,ngap);
+						      oligoindices_minor,diagpool,cellpool,ngap);
 #ifndef PMAP
 	if (cdna_direction == 0) {
 	  Stage3_guess_cdna_direction(from);
@@ -2544,8 +2539,8 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 #endif
 		    Sequence_T queryuc, int queryntlength,
 		    Pairpool_T pairpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
-		    Genome_T genome, Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		    Diagpool_T diagpool, int ngap) {
+		    Genome_T genome, Oligoindex_array_T oligoindices_minor, Diagpool_T diagpool, Cellpool_T cellpool,
+		    int ngap) {
   List_T newstage3list = NULL, merged;
   List_T nonjoinable, r;
   bool mergedAp, mergedBp;
@@ -2579,7 +2574,7 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 					      /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 					      pairpool,dynprogL,dynprogM,dynprogR,
-					      oligoindices_minor,noligoindices_minor,diagpool,ngap);
+					      oligoindices_minor,diagpool,cellpool,ngap);
     List_free(&merged);
 
     newstage3list = merge_left_and_right_readthrough(&mergedBp,/*stage3array_sub1*/&from,/*npaths_sub1*/1,/*bestfrom*/0,
@@ -2596,7 +2591,7 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 						     /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 						     pairpool,dynprogL,dynprogM,dynprogR,
-						     oligoindices_minor,noligoindices_minor,diagpool,ngap);
+						     oligoindices_minor,diagpool,cellpool,ngap);
 
 #ifndef PMAP
     Stage3_guess_cdna_direction(from);
@@ -2619,7 +2614,7 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 						     /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 						     pairpool,dynprogL,dynprogM,dynprogR,
-						     oligoindices_minor,noligoindices_minor,diagpool,ngap);
+						     oligoindices_minor,diagpool,cellpool,ngap);
 #ifndef PMAP
     Stage3_guess_cdna_direction(middle);
 #endif
@@ -2641,7 +2636,7 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 						     /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 						     pairpool,dynprogL,dynprogM,dynprogR,
-						     oligoindices_minor,noligoindices_minor,diagpool,ngap);
+						     oligoindices_minor,diagpool,cellpool,ngap);
 #ifndef PMAP
     Stage3_guess_cdna_direction(from);
 #endif
@@ -2673,9 +2668,8 @@ merge_middlepieces (List_T stage3list, Stage3_T from, Stage3_T to,
 static List_T
 check_middle_piece_local (bool *foundp, List_T stage3list, Sequence_T queryseq,
 			  Sequence_T queryuc, int queryntlength, Sequence_T usersegment, 
-			  Oligoindex_T *oligoindices_major, int noligoindices_major,
-			  Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-			  Matchpool_T matchpool, Pairpool_T pairpool, 
+			  Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+			  Matchpool_T matchpool, Pairpool_T pairpool, Cellpool_T cellpool,
 			  Diagpool_T diagpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR) {
   Sequence_T querysubseq = NULL, querysubuc = NULL;
   int npaths, i, j;
@@ -2758,8 +2752,7 @@ check_middle_piece_local (bool *foundp, List_T stage3list, Sequence_T queryseq,
 #ifdef PMAP
 						  queryntseq,
 #endif
-						  querysubuc,oligoindices_major,noligoindices_major,
-						  oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+						  querysubuc,oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
 						  /*straintype*/0,/*strain*/NULL,chrnum,
 						  chroffset,chrhigh,chrlength,chrstart,chrend,plusp,/*genestrand*/0,
 						  dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL)) != NULL) {
@@ -2843,7 +2836,7 @@ check_middle_piece_local (bool *foundp, List_T stage3list, Sequence_T queryseq,
 					      queryntseq,
 #endif
 					      queryuc,queryntlength,pairpool,dynprogL,dynprogM,dynprogR,
-					      genomecomp,oligoindices_minor,noligoindices_minor,diagpool,ngap);
+					      genomecomp,oligoindices_minor,diagpool,cellpool,ngap);
 	      List_free(&middlepieces);
 	    }
 
@@ -2866,10 +2859,9 @@ check_middle_piece_local (bool *foundp, List_T stage3list, Sequence_T queryseq,
 static List_T
 check_middle_piece_chimera (bool *foundp, List_T stage3list,
 			    Sequence_T queryseq, Sequence_T queryuc, int queryntlength, Sequence_T usersegment, 
-			    Oligoindex_T *oligoindices_major, int noligoindices_major,
-			    Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-			    Matchpool_T matchpool, Pairpool_T pairpool, 
-			    Diagpool_T diagpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR) {
+			    Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+			    Matchpool_T matchpool, Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
+			    Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR) {
   List_T newstage3list = NULL;
   Sequence_T querysubseq = NULL, querysubuc = NULL;
   int npaths, i, j;
@@ -2958,7 +2950,7 @@ check_middle_piece_chimera (bool *foundp, List_T stage3list,
 	  debug2(printf("Performing Stage 3 on %d..%d\n",querystart,queryend));
 
 	  diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(querysubuc),
-				      Sequence_fulllength(querysubuc),oligoindices_major[0]);
+				      Sequence_fulllength(querysubuc),Oligoindex_array_elt(oligoindices_major,0));
 	  if (poorp == true || repetitivep == true) {
 	    debug2(printf("Subsequence is poor or repetitive\n"));
 	  } else {
@@ -2967,8 +2959,8 @@ check_middle_piece_chimera (bool *foundp, List_T stage3list,
 				      stutterhits,diagnostic,/*worker_stopwatch*/NULL,/*nbest*/10);
 	    debug2(printf("Performing Stage 3 starting with list length %d\n",List_length(stage3list)));
 	    middlepieces = stage3_from_gregions(/*stage3list*/NULL,gregions,lowidentityp,querysubseq,
-						querysubuc,usersegment,oligoindices_major,noligoindices_major,
-						oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+						querysubuc,usersegment,oligoindices_major,
+						oligoindices_minor,pairpool,diagpool,cellpool,
 						dynprogL,dynprogM,dynprogR,/*worker_stopwatch*/NULL);
 	  }
 	  Diagnostic_free(&diagnostic);
@@ -3056,7 +3048,7 @@ check_middle_piece_chimera (bool *foundp, List_T stage3list,
 					   /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 					   pairpool,dynprogL,dynprogM,dynprogR,
-					   oligoindices_minor,noligoindices_minor,diagpool,ngap);
+					   oligoindices_minor,diagpool,cellpool,ngap);
 #ifndef PMAP
 	if (cdna_direction_A == 0) {
 	  Stage3_guess_cdna_direction(from);
@@ -3108,7 +3100,7 @@ check_middle_piece_chimera (bool *foundp, List_T stage3list,
 					   /*queryuc_ptr*/Sequence_fullpointer(queryuc),
 #endif
 					   pairpool,dynprogL,dynprogM,dynprogR,
-					   oligoindices_minor,noligoindices_minor,diagpool,ngap);
+					   oligoindices_minor,diagpool,cellpool,ngap);
 
 #ifndef PMAP
 	if (cdna_direction_B == 0) {
@@ -3147,11 +3139,10 @@ check_middle_piece_chimera (bool *foundp, List_T stage3list,
 
 static List_T
 apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidentityp, Sequence_T queryseq, Sequence_T queryuc,
-	      Sequence_T usersegment, Oligoindex_T *oligoindices_major, int noligoindices_major,
-	      Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-	      Matchpool_T matchpool, Pairpool_T pairpool, 
-	      Diagpool_T diagpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
-	      Stopwatch_T worker_stopwatch) {
+	      Sequence_T usersegment, Oligoindex_array_T oligoindices_major,
+	      Oligoindex_array_T oligoindices_minor,
+	      Matchpool_T matchpool, Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
+	      Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR, Stopwatch_T worker_stopwatch) {
 #ifdef DEBUG2
   List_T p;
 #endif
@@ -3167,8 +3158,7 @@ apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidenti
 
   debug(printf("Calling stage3_from_gregions\n"));
   stage3list = stage3_from_gregions(/*stage3list*/(List_T) NULL,gregions,lowidentityp,queryseq,queryuc,
-				    usersegment,oligoindices_major,noligoindices_major,
-				    oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+				    usersegment,oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
 				    dynprogL,dynprogM,dynprogR,worker_stopwatch);
 
   debug2(printf("Initial search gives stage3list of length %d\n",List_length(stage3list)));
@@ -3240,8 +3230,8 @@ apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidenti
 		      List_length(stage3list),effective_start,effective_end));
 	stage3list = check_for_chimera(&(*mergedp),&(*chimera),stage3list,effective_start,effective_end,
 				       queryseq,queryuc,queryntlength,usersegment,
-				       oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-				       matchpool,pairpool,diagpool,dynprogL,dynprogM,dynprogR);
+				       oligoindices_major,oligoindices_minor,
+				       matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR);
 	if (*chimera != NULL) {
 	  testchimerap = false;
 	} else {
@@ -3250,16 +3240,16 @@ apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidenti
 	  } else {
 	    debug2(printf("Checking for middle piece local, starting with list length %d\n",List_length(stage3list)));
 	    stage3list = check_middle_piece_local(&foundp,stage3list,queryseq,queryuc,queryntlength,usersegment,
-						  oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-						  matchpool,pairpool,diagpool,dynprogL,dynprogM,dynprogR);
+						  oligoindices_major,oligoindices_minor,
+						  matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR);
 	    if (foundp == true) {
 	      /* Iterate */
 	      testchimerap = true;
 	    } else {
 	      debug2(printf("Checking for middle piece chimera, starting with list length %d\n",List_length(stage3list)));
 	      stage3list = check_middle_piece_chimera(&foundp,stage3list,queryseq,queryuc,queryntlength,usersegment,
-						      oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-						      matchpool,pairpool,diagpool,dynprogL,dynprogM,dynprogR);
+						      oligoindices_major,oligoindices_minor,
+						      matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR);
 	      if (foundp == true) {
 		/* Iterate */
 		testchimerap = true;
@@ -3288,9 +3278,8 @@ apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidenti
 
 
 static Result_T
-process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, Diagpool_T diagpool, 
-		 Oligoindex_T *oligoindices_major, int noligoindices_major,
-		 Oligoindex_T *oligoindices_minor, int noligoindices_minor,
+process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
+		 Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
 		 Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		 Stopwatch_T worker_stopwatch) {
   Result_T result;
@@ -3310,6 +3299,7 @@ process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, 
   Matchpool_reset(matchpool);
   Pairpool_reset(pairpool);
   Diagpool_reset(diagpool);
+  Cellpool_reset(cellpool);
 
 
   if (Sequence_fulllength_given(queryseq) <= 0) {
@@ -3334,7 +3324,7 @@ process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, 
       diagnostic->query_trim_end = Sequence_fulllength(queryseq);
     } else {
       diagnostic = evaluate_query(&poorp,&repetitivep,Sequence_fullpointer(queryuc),
-				  Sequence_fulllength(queryuc),oligoindices_major[0]);
+				  Sequence_fulllength(queryuc),Oligoindex_array_elt(oligoindices_major,0));
     }
 
 #ifndef PMAP
@@ -3358,8 +3348,8 @@ process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, 
 #endif
 #endif
       stage3array = stage3_from_usersegment(&npaths,&first_absmq,&second_absmq,/*lowidentityp*/false,queryseq,queryuc,usersegment,
-					    oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-					    pairpool,diagpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
+					    oligoindices_major,oligoindices_minor,
+					    pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
       result = Result_new(jobid,/*mergedp*/false,(Chimera_T) NULL,stage3array,npaths,first_absmq,second_absmq,diagnostic,NO_FAILURE);
 
     } else {		/* Not user segment and not maponly */
@@ -3387,8 +3377,8 @@ process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, 
       } else {
 	debug(printf("Applying stage 3\n"));
 	stage3list = apply_stage3(&mergedp,&chimera,gregions,lowidentityp,queryseq,queryuc,usersegment,
-				  oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-				  matchpool,pairpool,diagpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
+				  oligoindices_major,oligoindices_minor,
+				  matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
 	if (diag_debug == true) {
 	  result = Result_new_diag_debug(jobid,/*diagonals*/stage3list,diagnostic,NO_FAILURE);
 	} else if (stage3list == NULL) {
@@ -3407,7 +3397,7 @@ process_request (Request_T request, Matchpool_T matchpool, Pairpool_T pairpool, 
 	}
       }
 
-      Oligoindex_clear_inquery(oligoindices_major[0],/*queryuc_ptr*/Sequence_fullpointer(queryuc),
+      Oligoindex_clear_inquery(Oligoindex_array_elt(oligoindices_major,0),/*queryuc_ptr*/Sequence_fullpointer(queryuc),
 			       /*querylength*/Sequence_fulllength(queryuc));
 
     } /* Matches not user segment and not maponly */
@@ -3451,12 +3441,12 @@ signal_handler (int sig) {
 
 static void
 single_thread () {
-  Oligoindex_T *oligoindices_major, *oligoindices_minor;
-  int noligoindices_major, noligoindices_minor;
+  Oligoindex_array_T oligoindices_major, oligoindices_minor;
   Dynprog_T dynprogL, dynprogM, dynprogR;
   Matchpool_T matchpool;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
+  Cellpool_T cellpool;
   Stopwatch_T worker_stopwatch;
   Request_T request;
   Result_T result;
@@ -3464,14 +3454,15 @@ single_thread () {
   int noutput = 0;
   int jobid = 0;
 
-  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
-  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
+  oligoindices_major = Oligoindex_array_new_major(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
+  oligoindices_minor = Oligoindex_array_new_minor(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   matchpool = Matchpool_new();
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
+  cellpool = Cellpool_new();
   worker_stopwatch = diagnosticp == true ? Stopwatch_new() : (Stopwatch_T) NULL;
 
   while ((request = Inbuffer_get_request(&usersegment,inbuffer,user_pairalign_p)) != NULL) {
@@ -3491,12 +3482,12 @@ single_thread () {
     if (jobid % POOL_FREE_INTERVAL == 0) {
       Pairpool_free_memory(pairpool);
       Diagpool_free_memory(diagpool);
+      Cellpool_free_memory(cellpool);
       Matchpool_free_memory(matchpool);
     }
     TRY
-      result = process_request(request,matchpool,pairpool,diagpool,
-  			       oligoindices_major,noligoindices_major,
-			       oligoindices_minor,noligoindices_minor,
+      result = process_request(request,matchpool,pairpool,diagpool,cellpool,
+  			       oligoindices_major,oligoindices_minor,
 			       dynprogL,dynprogM,dynprogR,worker_stopwatch);
     ELSE
       queryseq = Request_queryseq(request);
@@ -3538,14 +3529,15 @@ single_thread () {
   }
 
   Stopwatch_free(&worker_stopwatch);
+  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Matchpool_free(&matchpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
-  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
+  Oligoindex_array_free(&oligoindices_minor);
+  Oligoindex_array_free(&oligoindices_major);
 
   return;
 }
@@ -3554,12 +3546,12 @@ single_thread () {
 #ifdef HAVE_PTHREAD
 static void *
 worker_thread (void *data) {
-  Oligoindex_T *oligoindices_major, *oligoindices_minor;
-  int noligoindices_major, noligoindices_minor;
+  Oligoindex_array_T oligoindices_major, oligoindices_minor;
   Dynprog_T dynprogL, dynprogM, dynprogR;
   Matchpool_T matchpool;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
+  Cellpool_T cellpool;
   Stopwatch_T worker_stopwatch;
   Request_T request;
   Result_T result;
@@ -3567,14 +3559,15 @@ worker_thread (void *data) {
   int jobid = 0;
 
   /* Thread-specific data and storage */
-  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
-  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
+  oligoindices_major = Oligoindex_array_new_major(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
+  oligoindices_minor = Oligoindex_array_new_minor(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   matchpool = Matchpool_new();
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
+  cellpool = Cellpool_new();
   worker_stopwatch = diagnosticp == true ? Stopwatch_new() : (Stopwatch_T) NULL;
 
   Except_stack_create();
@@ -3583,13 +3576,13 @@ worker_thread (void *data) {
     if (jobid % POOL_FREE_INTERVAL == 0) {
       Pairpool_free_memory(pairpool);
       Diagpool_free_memory(diagpool);
+      Cellpool_free_memory(cellpool);
       Matchpool_free_memory(matchpool);
     }
 
     TRY
-      result = process_request(request,matchpool,pairpool,diagpool,
-			       oligoindices_major,noligoindices_major,
-			       oligoindices_minor,noligoindices_minor,
+      result = process_request(request,matchpool,pairpool,diagpool,cellpool,
+			       oligoindices_major,oligoindices_minor,
 			       dynprogL,dynprogM,dynprogR,worker_stopwatch);
     ELSE
       queryseq = Request_queryseq(request);
@@ -3616,14 +3609,15 @@ worker_thread (void *data) {
   Except_stack_destroy();
 
   Stopwatch_free(&worker_stopwatch);
+  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Matchpool_free(&matchpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
-  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
+  Oligoindex_array_free(&oligoindices_minor);
+  Oligoindex_array_free(&oligoindices_major);
 
   return (void *) NULL;
 }
@@ -3635,8 +3629,7 @@ worker_thread (void *data) {
 static void
 align_relative (FILE *input, char **files, int nfiles, int nextchar,
 		Sequence_T queryseq, Sequence_T referenceseq) {
-  Oligoindex_T *oligoindices_major, *oligoindices_minor;
-  int noligoindices_major, noligoindices_minor;
+  Oligoindex_array_T oligoindices_major, oligoindices_minor;
   Diagnostic_T diagnostic;
   bool lowidentityp;
 #ifndef PMAP
@@ -3646,6 +3639,7 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
   Matchpool_T matchpool;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
+  Cellpool_T cellpool;
   Stopwatch_T stopwatch;
 
   Chrpos_T genomicstart, genomiclength;
@@ -3657,26 +3651,28 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
   Stage3_T *stage3array, stage3, stage3ref;
   int npaths, i;
 
-  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
-  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
+  oligoindices_major = Oligoindex_array_new_major(&noligoindices_major);
+  oligoindices_minor = Oligoindex_array_new_minor(&noligoindices_minor);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   matchpool = Matchpool_new();
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
+  cellpool = Cellpool_new();
   stopwatch = diagnosticp == true ? Stopwatch_new() : (Stopwatch_T) NULL;
 
   Matchpool_reset(matchpool);
   Pairpool_reset(pairpool);
   Diagpool_reset(diagpool);
+  Cellpool_reset(cellpool);
 
   referenceuc = Sequence_uppercase(referenceseq);
 
   /* Do not trim the mutation refseq */
   diagnostic = Diagnostic_new();
   Oligoindex_set_inquery(&diagnostic->query_badoligos,&diagnostic->query_repoligos,&diagnostic->query_trimoligos,
-			 &diagnostic->query_trim_start,&diagnostic->query_trim_end,oligoindices_major[0],
+			 &diagnostic->query_trim_start,&diagnostic->query_trim_end,Oligoindex_array_elt(oligoindices_major,0),
 			 Sequence_fullpointer(referenceuc),Sequence_fulllength(referenceuc),/*trimp*/false);
 #ifndef PMAP
 #if 0
@@ -3688,8 +3684,8 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
 			    /*indexdb_size_threshold*/100,chromosome_iit,chrsubset,matchpool,
 			    stutterhits,diagnostic,/*stopwatch*/NULL);
   stage3list = apply_stage3(&chimera,gregions,lowidentityp,referenceseq,referenceuc,/*usersegment*/NULL,
-			    oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-			    matchpool,pairpool,diagpool,dynprogL,dynprogM,dynprogR,stopwatch);
+			    oligoindices_major,oligoindices_minor,
+			    matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,stopwatch);
   if (stage3list == NULL) {
     npaths = 0;
     stage3array = (Stage3_T *) NULL;
@@ -3726,6 +3722,7 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
       Matchpool_reset(matchpool);
       Pairpool_reset(pairpool);
       Diagpool_reset(diagpool);
+      Cellpool_reset(cellpool);
 
       fprintf(fp,">");
       Sequence_print_header(stdout,queryseq,checksump);
@@ -3748,14 +3745,14 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
 #ifdef PMAP
 	Oligoindex_set_inquery(&diagnostic->query_badoligos,&diagnostic->query_repoligos,
 			       &diagnostic->query_trimoligos,&diagnostic->query_trim_start,
-			       &diagnostic->query_trim_end,oligoindices_major[0],Sequence_fullpointer(queryuc),
-			       Sequence_fulllength(queryuc),/*trimp*/false);
+			       &diagnostic->query_trim_end,Oligoindex_array_elt(oligoindices_major,0),
+			       Sequence_fullpointer(queryuc),Sequence_fulllength(queryuc),/*trimp*/false);
 #else
 	diagnostic->query_oligodepth = 
 	  Oligoindex_set_inquery(&diagnostic->query_badoligos,&diagnostic->query_repoligos,
 				 &diagnostic->query_trimoligos,&diagnostic->query_trim_start,
-				 &diagnostic->query_trim_end,oligoindices_major[0],Sequence_fullpointer(queryuc),
-				 Sequence_fulllength(queryuc),/*trimp*/true);
+				 &diagnostic->query_trim_end,Oligoindex_array_elt(oligoindices_major,0),
+				 Sequence_fullpointer(queryuc),Sequence_fulllength(queryuc),/*trimp*/true);
 
 	if (diagnostic->query_trimoligos == 0) {
 	  poorp = true;
@@ -3784,8 +3781,8 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
 	} else {
 #endif /* PMAP */
 	  stage3array = stage3_from_usersegment(&npaths,lowidentityp,queryseq,queryuc,genomicseg,
-						oligoindices_major,noligoindices_major,oligoindices_minor,noligoindices_minor,
-						pairpool,diagpool,dynprogL,dynprogM,dynprogR,stopwatch);
+						oligoindices_major,oligoindices_minor,
+						pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,stopwatch);
 	  
 	  if (npaths == 0) {
 	    print_npaths(fp,0,diagnostic,/*usersegment*/NULL,chrsubset,/*chimera*/NULL,NO_FAILURE);
@@ -3816,7 +3813,7 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
 	}
 #endif
 
-	Oligoindex_clear_inquery(oligoindices_major[0]);
+	Oligoindex_clear_inquery(Oligoindex_array_elt(oligoindices_major,0));
 
 	Sequence_free(&queryuc);
       }
@@ -3828,13 +3825,14 @@ align_relative (FILE *input, char **files, int nfiles, int nextchar,
   }
 
   Stopwatch_free(&stopwatch);
+  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
-  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
+  Oligoindex_array_free(&oligoindices_minor);
+  Oligoindex_array_free(&oligoindices_major);
 
   return;
 }
@@ -4021,6 +4019,8 @@ main (int argc, char *argv[]) {
   int nfiles;
   unsigned int nread;
   double runtime;
+
+  Splicestringpool_T splicestringpool;
 
 #ifdef HAVE_PTHREAD
   int ret, i;
@@ -5113,11 +5113,13 @@ main (int argc, char *argv[]) {
       if ((donor_typeint = IIT_typeint(splicing_iit,"donor")) >= 0 && 
 	  (acceptor_typeint = IIT_typeint(splicing_iit,"acceptor")) >= 0) {
 	fprintf(stderr,"found donor and acceptor tags, so treating as splicesites file\n");
+	splicestringpool = Splicestringpool_new();
 	splicesites = Splicetrie_retrieve_via_splicesites(&distances_observed_p,&splicetypes,&splicedists,
 							  &splicestrings,&splicefrags_ref,&splicefrags_alt,
 							  &nsplicesites,splicing_iit,splicing_divint_crosstable,
 							  donor_typeint,acceptor_typeint,chromosome_iit,
-							  genomecomp,genomecomp_alt/*can be NULL*/,shortsplicedist);
+							  genomecomp,genomecomp_alt/*can be NULL*/,shortsplicedist,
+							  splicestringpool);
 	if (nsplicesites == 0) {
 	  fprintf(stderr,"\nWarning: No splicesites observed for genome %s.  Are you sure this splicesite file was built for this genome?  Please compare chromosomes below:\n",
 		  dbroot);
@@ -5130,27 +5132,25 @@ main (int argc, char *argv[]) {
 	} else {
 	  Splicetrie_npartners(&nsplicepartners_skip,&nsplicepartners_obs,&nsplicepartners_max,splicesites,splicetypes,splicedists,
 			       splicestrings,nsplicesites,chromosome_iit,shortsplicedist,distances_observed_p);
-#if 0
-	  if (multiple_sequences_p == true && splicetrie_precompute_p == true) {
-#endif
-	    Splicetrie_build_via_splicesites(&triecontents_obs,&trieoffsets_obs,&triecontents_max,&trieoffsets_max,
-					     nsplicepartners_skip,nsplicepartners_obs,nsplicepartners_max,splicetypes,
-					     splicestrings,nsplicesites);
-	    FREE(nsplicepartners_max);
-	    FREE(nsplicepartners_obs);
-	    FREE(nsplicepartners_skip);
-	    Splicestring_gc(splicestrings,nsplicesites);
-#if 0
-	  }
-#endif
+	  Splicetrie_build_via_splicesites(&triecontents_obs,&trieoffsets_obs,&triecontents_max,&trieoffsets_max,
+					   nsplicepartners_skip,nsplicepartners_obs,nsplicepartners_max,splicetypes,
+					   splicestrings,nsplicesites);
+	  FREE(nsplicepartners_max);
+	  FREE(nsplicepartners_obs);
+	  FREE(nsplicepartners_skip);
+	  /* Splicestring_gc(splicestrings,nsplicesites); */
+	  FREE(splicestrings);
 	}
+	Splicestringpool_free(&splicestringpool);
 
       } else {
 	fprintf(stderr,"no donor or acceptor tags found, so treating as introns file\n");
+	splicestringpool = Splicestringpool_new();
 	splicesites = Splicetrie_retrieve_via_introns(&splicetypes,&splicedists,
 						      &splicestrings,&splicefrags_ref,&splicefrags_alt,
 						      &nsplicesites,splicing_iit,splicing_divint_crosstable,
-						      chromosome_iit,genomecomp,genomecomp_alt/*can be NULL*/);
+						      chromosome_iit,genomecomp,genomecomp_alt/*can be NULL*/,
+						      splicestringpool);
 	if (nsplicesites == 0) {
 	  fprintf(stderr,"\nWarning: No splicesites observed for genome %s.  Are you sure this splicesite file was built for this genome?  Please compare chromosomes below:\n",
 		  dbroot);
@@ -5160,18 +5160,15 @@ main (int argc, char *argv[]) {
 	  IIT_dump_divstrings(stderr,splicing_iit);
 	  exit(9);
 	} else {
-#if 0
-	  if (multiple_sequences_p == true && splicetrie_precompute_p == true) {
-#endif
-	    Splicetrie_build_via_introns(&triecontents_obs,&trieoffsets_obs,splicesites,splicetypes,
-					 splicestrings,nsplicesites,chromosome_iit,splicing_iit,splicing_divint_crosstable);
-	    triecontents_max = (Triecontent_T *) NULL;
-	    trieoffsets_max =  (Trieoffset_T *) NULL;
-	    Splicestring_gc(splicestrings,nsplicesites);
-#if 0
-	  }
-#endif
+	  Splicetrie_build_via_introns(&triecontents_obs,&trieoffsets_obs,splicesites,splicetypes,
+				       splicestrings,nsplicesites,chromosome_iit,splicing_iit,splicing_divint_crosstable);
+	  triecontents_max = (Triecontent_T *) NULL;
+	  trieoffsets_max =  (Trieoffset_T *) NULL;
+	  /* Splicestring_gc(splicestrings,nsplicesites); */
+	  FREE(splicestrings);
 	}
+
+	Splicestringpool_free(&splicestringpool);
       }
     }
 
@@ -5365,7 +5362,8 @@ main (int argc, char *argv[]) {
       FREE(nsplicepartners_max);
       FREE(nsplicepartners_obs);
       FREE(nsplicepartners_skip);
-      Splicestring_gc(splicestrings,nsplicesites);
+      /* Splicestring_gc(splicestrings,nsplicesites); */
+      FREE(splicestrings);
     }
     FREE(splicefrags_ref);
     FREE(splicedists);
