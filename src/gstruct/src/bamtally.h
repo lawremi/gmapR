@@ -1,4 +1,4 @@
-/* $Id: bamtally.h 159524 2015-02-25 21:21:38Z twu $ */
+/* $Id: bamtally.h 143437 2014-08-05 21:45:04Z twu $ */
 #ifndef BAMTALLY_INCLUDED
 #define BAMTALLY_INCLUDED
 #include "bamread.h"
@@ -15,17 +15,18 @@ typedef enum {OUTPUT_BLOCKS, OUTPUT_RUNLENGTHS, OUTPUT_TALLY, OUTPUT_IIT, OUTPUT
 extern long int
 Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      List_T *intervallist, List_T *labellist, List_T *datalist,
+	      int *quality_counts_match, int *quality_counts_mismatch,
 	      Bamreader_T bamreader, Genome_T genome, char *printchr,
 	      Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend, IIT_T map_iit,
 	      int alloclength, Tableuint_T resolve_low_table, Tableuint_T resolve_high_table,
-	      char *desired_read_group, int minimum_mapq, int good_unique_mapq,
-	      int minimum_quality_score, int maximum_nhits,
+	      char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      bool ignore_lowend_p, bool ignore_highend_p,
 	      Tally_outputtype_T output_type, bool blockp, int blocksize,
 	      int quality_score_adj, int min_depth, int variant_strands,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
-	      bool print_indels_p, bool print_totals_p, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p,
+	      bool print_indels_p, bool print_totals_p, bool print_cycles_p,
+	      bool print_quality_scores_p, bool print_mapq_scores_p, bool print_xs_scores_p,
 	      bool want_genotypes_p, bool verbosep, bool readlevel_p, int max_softclip, bool print_noncovered_p,
 	      char *bamfile);
 
@@ -33,6 +34,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 extern void
 Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 long int **tally_matches_high, long int **tally_mismatches_high,
+		 int *quality_counts_match, int *quality_counts_mismatch,
 		 Bamreader_T bamreader, Genome_T genome, char *printchr,
 		 Genomicpos_T chroffset, Genomicpos_T chrstart, Genomicpos_T chrend,
 		 IIT_T map_iit, int alloclength,
@@ -46,11 +48,10 @@ extern IIT_T
 Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      Genomicpos_T chrstart, Genomicpos_T chrend,
 	      Genome_T genome, IIT_T chromosome_iit, IIT_T map_iit, int alloclength,
-	      char *desired_read_group, int minimum_mapq, int good_unique_mapq,
-	      int minimum_quality_score, int maximum_nhits,
+	      char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
-	      int max_softclip, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p, bool print_noncovered_p);
+	      int max_softclip, bool print_xs_scores_p, bool print_noncovered_p);
 
 #endif

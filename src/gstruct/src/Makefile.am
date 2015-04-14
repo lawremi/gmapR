@@ -13,7 +13,7 @@ lib_LTLIBRARIES = libgstruct-@LIBGSTRUCT_API_VERSION@.la
 
 
 
-BAM_TALLY_FILES = fopen.h bool.h types.h bam.h bgzf.h \
+BAM_TALLY_FILES = fopen.h bool.h types.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
@@ -31,7 +31,7 @@ BAM_TALLY_FILES = fopen.h bool.h types.h bam.h bgzf.h \
  getopt.c getopt1.c getopt.h bamtally_main.c
 
 if HAVE_SAMTOOLS_LIB
-bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_CFLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
 bam_tally_LDADD = $(PTHREAD_LIBS) $(ZLIB_LIBS) $(SAMTOOLS_LIBS)
 dist_bam_tally_SOURCES = $(BAM_TALLY_FILES)
@@ -56,7 +56,7 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
 
 # Do not add SAMTOOLS LIBS here
 if HAVE_SAMTOOLS_LIB
-libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_CFLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
+libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_FLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -fPIC -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) -version-info $(LIBGSTRUCT_SO_VERSION)
 libgstruct_@LIBGSTRUCT_API_VERSION@_la_LIBADD = $(PTHREAD_LIBS) $(ZLIB_LIBS)
 dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES = $(LIBGSTRUCT_LA_FILES)
@@ -78,7 +78,7 @@ gstruct_include_HEADERS = config.h fopen.h bool.h types.h \
  uinttable.h table.h \
  chrnum.h \
  bamread.h samread.h parserange.h \
- dynprog.h dynprog_nogap.h dynprog_simd.h dynprog_cigar.h dynprog_single.h \
+ dynprog.h dynprog_simd.h dynprog_cigar.h dynprog_single.h \
  tableuint.h iit-write.h ucharlist.h \
  matchdef.h matchpool.h mismatchdef.h mismatchpool.h tally.h translation.h bamtally.h datadir.h
 

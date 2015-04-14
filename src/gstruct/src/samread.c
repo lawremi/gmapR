@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: samread.c 159529 2015-02-25 21:27:09Z twu $";
+static char rcsid[] = "$Id: samread.c 138419 2014-06-06 21:12:49Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -50,10 +50,9 @@ Samread_get_acc (unsigned int *flag, char *line) {
 
 char *
 Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos, char **cigar,
-		    char **mate_chr, Genomicpos_T *mate_chrpos_low, int *readlength, char **read, char **quality_string,
-		    char **hardclip, char **hardclip_quality, char *line) {
-  char *auxinfo, *p, *q, *r;
-  char tag1, tag2;
+		    char **mate_chr, Genomicpos_T *mate_chrpos_low,
+		    int *readlength, char **read, char **quality_string, char *line) {
+  char *p, *q;
   int length, i;
 
   debug(printf("Entering Samread_parse_line with %s\n",line));
@@ -205,110 +204,8 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   }
 
   if (*q == '\t') q++;
-  p = auxinfo = q;
 
-  *hardclip = (char *) NULL;
-  *hardclip_quality = (char *) NULL;
-  while (*p != '\0' && *p != '\n') {
-    tag1 = p[0];
-    tag2 = p[1];
-
-    if (tag1 == 'X' && tag2 == 'H') {
-      debug(printf("Found tag XH\n"));
-      /* XH:Z: */
-      p += 5;
-
-      r = p;
-      while (!isspace(*r)) r++;
-      length = (r - p)/sizeof(char);
-      *hardclip = (char *) MALLOC((length+1) * sizeof(char));
-      strncpy(*hardclip,p,length);
-      (*hardclip)[length] = '\0';
-
-      p = r;
-      if (*p == '\t') {
-	p++;
-      }
-
-    } else if (tag1 == 'X' && tag2 == 'I') {
-      debug(printf("Found tag XI\n"));
-      /* XI:Z: */
-      p += 5;
-
-      r = p;
-      while (!isspace(*r)) r++;
-      length = (r - p)/sizeof(char);
-      *hardclip_quality = (char *) MALLOC((length+1) * sizeof(char));
-      strncpy(*hardclip_quality,p,length);
-      (*hardclip_quality)[length] = '\0';
-
-      p = r;
-      if (*p == '\t') {
-	p++;
-      }
-
-    } else {
-      while (*p != '\0' && *p != '\t') {
-	p++;
-      }
-      if (*p == '\t') {
-	p++;
-      }
-    }
-  }
-
-  return auxinfo;
-}
-
-
-char *
-Samread_chr (char *line) {
-  char *chr;
-  unsigned int flag;
-  int mapq;
-
-  char *p, *q;
-  int length;
-
-  debug(printf("Entering Samread_chr with %s\n",line));
-
-  p = line;
-  while (!isspace(*p)) p++;
-  length = (p - line)/sizeof(char);
-#if 0
-  *acc = (char *) CALLOC(length+1,sizeof(char));
-  strncpy(*acc,line,length);
-#endif
-
-  if (*p != '\0') {		/* Skip over tab */
-    p++;
-  }
-
-  if (sscanf(p,"%u",&flag) != 1) {
-    fprintf(stderr,"Unable to find flag in %s\n",p);
-    abort();
-  } else {
-    debug(printf("  flag = %u\n",flag));
-  }
-
-  while (!isspace(*p)) p++;	/* Skip over flag */
-  if (*p == '\0') {
-    fprintf(stderr,"Can't parse chr part of %s\n",line);
-    abort();
-  } else {
-    p++;			/* Skip over tab */
-  }
-  q = p;
-  while (!isspace(*q)) q++;
-  length = (q - p)/sizeof(char);
-  chr = (char *) CALLOC(length+1,sizeof(char));
-  strncpy(chr,p,length);
-  debug(printf("  chr = %s\n",chr));
-  if (*q != '\0') {
-    q++;
-  }
-
-  return chr;
+  return q;
 }
 
 
@@ -339,7 +236,7 @@ Samread_chrinfo (Genomicpos_T *chrpos, char **cigar, char *line) {
     fprintf(stderr,"Unable to find flag in %s\n",p);
     abort();
   } else {
-    debug(printf("  flag = %u\n",flag));
+    debug(printf("  flag = %u\n",*flag));
   }
 
   while (!isspace(*p)) p++;	/* Skip over flag */

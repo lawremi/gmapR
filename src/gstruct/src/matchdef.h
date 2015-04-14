@@ -7,7 +7,8 @@ typedef struct T *T;
 
 struct T {
   int shift;			/* Used to record shifts */
-  int nm;
+  int mapq;
+  char quality;
   int xs;			/* +1 for +, -1 for -, 0 for others */
   long int count;
 };

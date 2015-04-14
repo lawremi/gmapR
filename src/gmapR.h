@@ -21,9 +21,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP print_indels_p_R,
                 SEXP blocksize_R, 
                 SEXP verbosep_R, SEXP max_softclip_R,
-                SEXP genome_iit_file_R,
-                SEXP print_xs_scores_p_R, SEXP print_cycles_p_R,
-                SEXP minimum_quality_score_R, SEXP nonconvered_R);
+		SEXP genome_iit_file_R);
 
 SEXP
 R_tally_iit_parse(SEXP tally_iit_R, SEXP cycle_breaks_R,

@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: substring.c 154009 2014-11-25 01:41:07Z twu $";
+static char rcsid[] = "$Id: substring.c 120328 2013-12-05 01:14:25Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -19,7 +19,6 @@ static char rcsid[] = "$Id: substring.c 154009 2014-11-25 01:41:07Z twu $";
 #include "mapq.h"
 #include "pair.h"		/* For Pair_print_gsnap */
 #include "pairdef.h"		/* For State_T */
-#include "comp.h"
 
 
 #define TRIM_MATCH_SCORE 1
@@ -64,14 +63,6 @@ static char rcsid[] = "$Id: substring.c 154009 2014-11-25 01:41:07Z twu $";
 #define debug4(x) x
 #else
 #define debug4(x)
-#endif
-
-
-/* Substring_convert_to_pairs */
-#ifdef DEBUG6
-#define debug6(x) x
-#else
-#define debug6(x)
 #endif
 
 
@@ -281,9 +272,9 @@ struct T {
   /* for splices */
   bool chimera_sensep;
 
-  Univcoord_T splicecoord;
-  int splicesites_knowni;	/* Needed for intragenic_splice_p in stage1hr.c */
-
+  int splicesites_i;		/* Keep this for finding short-end
+				   splicing later.  If < 0, then it's
+				   a novel splice site. */
   bool chimera_knownp;
   bool chimera_novelp;
   Univcoord_T chimera_modelpos;
@@ -291,10 +282,8 @@ struct T {
   double chimera_prob;
 
   /* for shortexon (always use *_1 for acceptor and *_2 for donor) */
-  /* for donor/acceptor: the ambiguous position */
-  Univcoord_T splicecoord_2;
-  int splicesites_knowni_2;
-
+  /* for donor/acceptor: the ambiguous site */
+  int splicesites_i_2;
   bool chimera_knownp_2;
   bool chimera_novelp_2;
   Univcoord_T chimera_modelpos_2;
@@ -765,6 +754,7 @@ bool
 Substring_bad_stretch_p (T this, Compress_T query_compress_fwd, Compress_T query_compress_rev) {
   int alignlength, startpos, endpos, pos, i;
   int mismatch_positions[MAX_READLENGTH];
+  int nmismatches;
   float vprob_good, vprob_bad, prev_vprob_good, prev_vprob_bad, good_incr_prob, bad_incr_prob;
 #ifdef DEBUG9
   bool result;
@@ -779,20 +769,16 @@ Substring_bad_stretch_p (T this, Compress_T query_compress_fwd, Compress_T query
     startpos = this->querystart_orig;
     endpos = this->queryend_orig;
     debug9(printf("Calling Genome_mismatches_left from pos5 %d to pos3 %d\n",startpos,endpos));
-#ifdef DEBUG9
     nmismatches = Genome_mismatches_left(mismatch_positions,/*max_mismatches*/alignlength,
 					 query_compress_fwd,this->left,/*pos5*/startpos,/*pos3*/endpos,
 					 /*plusp*/true,this->genestrand);
-#endif
   } else {
     startpos = this->querylength - this->queryend_orig;
     endpos = this->querylength - this->querystart_orig;
     debug9(printf("Calling Genome_mismatches_left from pos5 %d to pos3 %d\n",startpos,endpos));
-#ifdef DEBUG9
     nmismatches = Genome_mismatches_left(mismatch_positions,/*max_mismatches*/alignlength,
 					 query_compress_rev,this->left,/*pos5*/startpos,/*pos3*/endpos,
 					 /*plusp*/false,this->genestrand);
-#endif
   }
 
   debug9(printf("%d mismatches:",nmismatches));
@@ -1009,41 +995,23 @@ Substring_print_ends (T this, int chrnum) {
 
 
 int
-Substring_compare (T substring1, T substring2, int alias1, int alias2, Chrpos_T chrlength1, Chrpos_T chrlength2) {
-  Univcoord_T alignstart1, alignend1, alignstart2, alignend2;
-
+Substring_compare (T substring1, T substring2) {
   if (substring1 == NULL && substring2 == NULL) {
     return 0;
   } else if (substring1 == NULL) {
     return -1;
   } else if (substring2 == NULL) {
     return +1;
+  } else if (substring1->alignstart < substring2->alignstart) {
+    return -1;
+  } else if (substring1->alignstart > substring2->alignstart) {
+    return +1;
+  } else if (substring1->alignend < substring2->alignend) {
+    return -1;
+  } else if (substring1->alignend > substring2->alignend) {
+    return +1;
   } else {
-    alignstart1 = substring1->alignstart;
-    alignend1 = substring1->alignend;
-    if (alias1 < 0) {
-      alignstart1 += chrlength1;
-      alignend1 += chrlength1;
-    }
-
-    alignstart2 = substring2->alignstart;
-    alignend2 = substring2->alignend;
-    if (alias2 < 0) {
-      alignstart2 += chrlength2;
-      alignend2 += chrlength2;
-    }
-
-    if (alignstart1 < alignstart2) {
-      return -1;
-    } else if (alignstart1 > alignstart2) {
-      return +1;
-    } else if (alignend1 < alignend2) {
-      return -1;
-    } else if (alignend1 > alignend2) {
-      return +1;
-    } else {
-      return 0;
-    }
+    return 0;
   }
 }
 
@@ -1133,13 +1101,12 @@ Substring_overlap_point_trimmed_p (T substring, Univcoord_T endpos) {
   if (substring->plusp == true) {
     low = substring->alignstart_trim;
     high = substring->alignend_trim;
-    debug3(printf("Checking overlap between plus %u..%u and %u",low,high,endpos));
   } else {
     low = substring->alignend_trim;
     high = substring->alignstart_trim;
-    debug3(printf("Checking overlap between minus %u..%u and %u",low,high,endpos));
   }
 
+  debug3(printf("Checking overlap between %u..%u and %u",low,high,endpos));
 
   if (endpos < low) {
     debug3(printf(" => no because %u < %u\n",endpos,low));
@@ -1154,9 +1121,8 @@ Substring_overlap_point_trimmed_p (T substring, Univcoord_T endpos) {
 }
 
 
-Univcoord_T
-Substring_overlap_segment_trimmed (T substring1, T substring2) {
-  Univcoord_T maxlow, minhigh;
+bool
+Substring_overlap_segment_trimmed_p (T substring1, T substring2) {
   Univcoord_T low1, high1, low2, high2;
 
   if (substring1->plusp == true) {
@@ -1179,16 +1145,13 @@ Substring_overlap_segment_trimmed (T substring1, T substring2) {
 
   if (high2 < low1) {
     debug3(printf(" => no because %u < %u\n",high2,low1));
-    return 0;
+    return false;
   } else if (low2 > high1) {
     debug3(printf(" => no because %u > %u\n",low2,high1));
-    return 0;
+    return false;
   } else {
-    maxlow = (low1 > low2) ? low1 : low2;
-    minhigh = (high1 < high2) ? high1 : high2;
-    debug3(printf(" => yes.  maxlow %llu, minhigh %llu.  returning %llu\n",
-		  maxlow,minhigh,maxlow + (minhigh - maxlow)/2));
-    return maxlow + (minhigh - maxlow)/2;
+    debug3(printf(" => yes\n"));
+    return true;
   }
 }
 
@@ -2217,24 +2180,19 @@ Substring_display_prep (char **deletion, T this, char *query, Compress_T query_c
 }
 
 
-Univcoord_T
-Substring_splicecoord (T this) {
-  return this->splicecoord;
+int
+Substring_splicesites_i (T this) {
+  return this->splicesites_i;
 }
 
 int
-Substring_splicesites_knowni (T this) {
-  return this->splicesites_knowni;
+Substring_splicesites_i_A (T this) {
+  return this->splicesites_i;
 }
 
-Univcoord_T
-Substring_splicecoord_A (T this) {
-  return this->splicecoord;
-}
-
-Univcoord_T
-Substring_splicecoord_D (T this) {
-  return this->splicecoord_2;
+int
+Substring_splicesites_i_D (T this) {
+  return this->splicesites_i_2;
 }
 
 bool
@@ -2435,22 +2393,6 @@ Substring_alignend_trim (T this) {
   return this->alignend_trim;
 }
 
-#if 0
-Univcoord_T
-Substring_alignmid_trim (T this) {
-  if (this->alignend_trim > this->alignstart_trim) {
-    return this->alignstart_trim + (this->alignend_trim - this->alignstart_trim)/2;
-  } else {
-    return this->alignend_trim + (this->alignstart_trim - this->alignend_trim)/2;
-  }
-}
-#endif
-
-
-Univcoord_T
-Substring_left_genomicseg (T this) {
-  return this->left_genomicseg;
-}
 
 Univcoord_T
 Substring_genomicstart (T this) {
@@ -2481,11 +2423,6 @@ Substring_chrend (T this) {
 double
 Substring_chimera_prob (T this) {
   return this->chimera_prob;
-}
-
-double
-Substring_chimera_prob_2 (T this) {
-  return this->chimera_prob_2;
 }
 
 int
@@ -2642,16 +2579,14 @@ Substring_copy (T old) {
 
     new->chimera_sensep = old->chimera_sensep;
 
-    new->splicecoord = old->splicecoord;
-    new->splicesites_knowni = old->splicesites_knowni;
+    new->splicesites_i = old->splicesites_i;
     new->chimera_knownp = old->chimera_knownp;
     new->chimera_novelp = old->chimera_novelp;
     new->chimera_modelpos = old->chimera_modelpos;
     new->chimera_pos = old->chimera_pos;
     new->chimera_prob = old->chimera_prob;
 
-    new->splicecoord_2 = old->splicecoord_2;
-    new->splicesites_knowni_2 = old->splicesites_knowni_2;
+    new->splicesites_i_2 = old->splicesites_i_2;
     new->chimera_knownp_2 = old->chimera_knownp_2;
     new->chimera_novelp_2 = old->chimera_novelp_2;
     new->chimera_modelpos_2 = old->chimera_modelpos_2;
@@ -2665,7 +2600,7 @@ Substring_copy (T old) {
 
 
 T
-Substring_new_donor (Univcoord_T donor_coord, int donor_knowni, int donor_pos, int donor_nmismatches,
+Substring_new_donor (int splicesites_i, int splicesites_offset, int donor_pos, int donor_nmismatches,
 		     double donor_prob, Univcoord_T left, Compress_T query_compress,
 		     int querylength, bool plusp, int genestrand, bool sensep,
 		     Chrnum_T chrnum, Univcoord_T chroffset, Univcoord_T chrhigh, Chrpos_T chrlength) {
@@ -2753,19 +2688,17 @@ Substring_new_donor (Univcoord_T donor_coord, int donor_knowni, int donor_pos, i
     return (T) NULL;
   }
 
-  debug2(printf("Making new donor with coord %u and left %u, plusp %d\n",donor_coord,left,plusp));
-  new->splicecoord = donor_coord;
-  new->splicesites_knowni = donor_knowni;
-
+  debug2(printf("Making new donor with splicesites_i %d and left %u, plusp %d\n",splicesites_i,left,plusp));
   new->chimera_modelpos = left + donor_pos;
-  assert(new->splicecoord == new->chimera_modelpos);
   new->chimera_sensep = sensep;
-  if (donor_knowni >= 0) {
+  if (splicesites_i >= 0) {
     new->chimera_knownp = true;
-    /* new->chimera_novelp = false */
+    /* new->chimera_novelp = false; */
+    new->splicesites_i = splicesites_offset + splicesites_i;
   } else {
     /* new->chimera_knownp = false; */
     new->chimera_novelp = true;
+    new->splicesites_i = -1;
   }
 
   if (plusp == true) {
@@ -2780,7 +2713,7 @@ Substring_new_donor (Univcoord_T donor_coord, int donor_knowni, int donor_pos, i
 
 
 T
-Substring_new_acceptor (Univcoord_T acceptor_coord, int acceptor_knowni, int acceptor_pos, int acceptor_nmismatches,
+Substring_new_acceptor (int splicesites_i, int splicesites_offset, int acceptor_pos, int acceptor_nmismatches,
 			double acceptor_prob, Univcoord_T left, Compress_T query_compress,
 			int querylength, bool plusp, int genestrand, bool sensep,
 			Chrnum_T chrnum, Univcoord_T chroffset, Univcoord_T chrhigh, Chrpos_T chrlength) {
@@ -2868,19 +2801,17 @@ Substring_new_acceptor (Univcoord_T acceptor_coord, int acceptor_knowni, int acc
     return (T) NULL;
   }
 
-  debug2(printf("Making new acceptor with coord %u and left %u, plusp %d\n",acceptor_coord,left,plusp));
-  new->splicecoord = acceptor_coord;
-  new->splicesites_knowni = acceptor_knowni;
-
+  debug2(printf("Making new acceptor with splicesites_i %d and left %u, plusp %d\n",splicesites_i,left,plusp));
   new->chimera_modelpos = left + acceptor_pos;
-  assert(new->splicecoord == new->chimera_modelpos);
   new->chimera_sensep = sensep;
-  if (acceptor_knowni >= 0) {
+  if (splicesites_i >= 0) {
     new->chimera_knownp = true;
     /* new->chimera_novelp = false */
+    new->splicesites_i = splicesites_i + splicesites_offset;
   } else {
     /* new->chimera_knownp = false; */
     new->chimera_novelp = true;
+    new->splicesites_i = -1;
   }
 
   if (plusp == true) {
@@ -2896,7 +2827,7 @@ Substring_new_acceptor (Univcoord_T acceptor_coord, int acceptor_knowni, int acc
 
 
 T
-Substring_new_shortexon (Univcoord_T acceptor_coord, int acceptor_knowni, Univcoord_T donor_coord, int donor_knowni,
+Substring_new_shortexon (int acceptor_splicesites_i, int donor_splicesites_i, int splicesites_offset,
 			 int acceptor_pos, int donor_pos, int nmismatches,
 			 double acceptor_prob, double donor_prob, Univcoord_T left,
 			 Compress_T query_compress, int querylength,
@@ -2958,29 +2889,28 @@ Substring_new_shortexon (Univcoord_T acceptor_coord, int acceptor_knowni, Univco
   }
 
   debug2(printf("Making new middle with left %u, plusp %d\n",left,plusp));
-  new->splicecoord = acceptor_coord;
-  new->splicesites_knowni = acceptor_knowni;
-  new->splicecoord_2 = donor_coord;
-  new->splicesites_knowni_2 = donor_knowni;
-
   new->chimera_modelpos = left + acceptor_pos;
   new->chimera_modelpos_2 = left + donor_pos;
   new->chimera_sensep = sensep;
 
-  if (acceptor_knowni >= 0) {
+  if (acceptor_splicesites_i >= 0) {
     new->chimera_knownp = true;
     /* new->chimera_novelp = false; */
+    new->splicesites_i = acceptor_splicesites_i + splicesites_offset;
   } else {
     /* new->chimera_knownp = false; */
     new->chimera_novelp = true;
+    new->splicesites_i = -1;
   }
 
-  if (donor_knowni >= 0) {
+  if (donor_splicesites_i >= 0) {
     new->chimera_knownp_2 = true;
     /* new->chimera_novelp_2 = false; */
+    new->splicesites_i_2 = donor_splicesites_i + splicesites_offset;
   } else {
     /* new->chimera_knownp_2 = false; */
     new->chimera_novelp_2 = true;
+    new->splicesites_i_2 = -1;
   }
 
   if (plusp == true) {
@@ -4338,351 +4268,5 @@ Substring_count_mismatches_region (T this, int trim_left, int trim_right,
 					       /*plusp*/false,this->genestrand);
     }
   }
-}
-
-
-/************************************************************************
- *   Conversion to Pair_T format
- ************************************************************************/
-
-List_T
-Substring_convert_to_pairs (List_T pairs, T substring, Shortread_T queryseq,
-			    int clipdir, int hardclip_low, int hardclip_high,
-			    bool first_read_p, int queryseq_offset) {
-  int querystart, queryend, querypos, i;
-  Chrpos_T chrpos;
-  char *seq1;
-  char genome;
-
-  if (substring == NULL) {
-    return pairs;
-  }
-
-
-  seq1 = Shortread_fullpointer_uc(queryseq);
-  if (substring->plusp == true) {
-    if (hardclip_low > substring->querystart) {
-      querystart = hardclip_low;
-    } else {
-      querystart = substring->querystart;
-    }
-
-    if (substring->querylength - hardclip_high < substring->queryend) {
-      queryend = substring->querylength - hardclip_high;
-    } else {
-      queryend = substring->queryend;
-    }
-    debug6(printf("querystart %d, queryend %d, plusp %d\n",querystart,queryend,substring->plusp));
-    debug6(printf("alignstart %u, alignend %u\n",substring->alignstart_trim - substring->chroffset,
-		  substring->alignend_trim - substring->chroffset));
-
-    chrpos = substring->genomicstart + querystart - substring->chroffset + 1U;
-    if (substring->genomic_bothdiff == NULL) {
-      /* Exact match */
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos++,
-							  seq1[i],/*comp*/MATCH_COMP,seq1[i]));
-      }
-    } else if (show_refdiff_p == true) {
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	if (isupper(genome = substring->genomic_refdiff[i])) {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos++,
-							    seq1[i],/*comp*/MATCH_COMP,genome));
-	} else {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos++,
-							    seq1[i],/*comp*/MISMATCH_COMP,toupper(genome)));
-	}
-      }
-    } else {
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	if (isupper(genome = substring->genomic_bothdiff[i])) {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos++,
-							    seq1[i],/*comp*/MATCH_COMP,genome));
-	} else {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos++,
-							    seq1[i],/*comp*/MISMATCH_COMP,toupper(genome)));
-	}
-      }
-    }
-
-  } else {
-    if (hardclip_high > substring->querystart) {
-      querystart = hardclip_high;
-    } else {
-      querystart = substring->querystart;
-    }
-
-    if (substring->querylength - hardclip_low < substring->queryend) {
-      queryend = substring->querylength - hardclip_low;
-    } else {
-      queryend = substring->queryend;
-    }
-    debug6(printf("querystart %d, queryend %d, plusp %d\n",querystart,queryend,substring->plusp));
-    debug6(printf("alignstart %u, alignend %u\n",substring->alignstart_trim - substring->chroffset,
-		  substring->alignend_trim - substring->chroffset));
-
-    chrpos = substring->genomicstart - querystart - substring->chroffset;
-    if (substring->genomic_bothdiff == NULL) {
-      /* Exact match */
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos--,
-							  seq1[i],/*comp*/MATCH_COMP,seq1[i]));
-      }
-    } else if (show_refdiff_p == true) {
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	if (isupper(genome = substring->genomic_refdiff[i])) {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos--,
-							    seq1[i],/*comp*/MATCH_COMP,genome));
-	} else {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos--,
-							    seq1[i],/*comp*/MISMATCH_COMP,toupper(genome)));
-	}
-      }
-    } else {
-      for (i = querystart, querypos = queryseq_offset + querystart; i < queryend; i++) {
-	if (isupper(genome = substring->genomic_bothdiff[i])) {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos--,
-							    seq1[i],/*comp*/MATCH_COMP,genome));
-	} else {
-	  pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrpos--,
-							    seq1[i],/*comp*/MISMATCH_COMP,toupper(genome)));
-	}
-      }
-    }
-  }
-
-  return pairs;
-}
-
-
-List_T
-Substring_add_insertion (List_T pairs, T substringA, T substringB, int insertionlength, Shortread_T queryseq,
-			 int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset) {
-  int querystartA, queryendA, querystartB, queryendB, querypos, i;
-  Chrpos_T chrendA;
-  char *seq1;
-
-
-  if (substringA->plusp == true) {
-    if (hardclip_low > substringA->querystart) {
-      querystartA = hardclip_low;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_high < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_high;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_low > substringB->querystart) {
-      querystartB = hardclip_low;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_high < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_high;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart + queryendA - substringA->chroffset + 1U;
-
-  } else {
-    if (hardclip_high > substringA->querystart) {
-      querystartA = hardclip_high;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_low < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_low;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_high > substringB->querystart) {
-      querystartB = hardclip_high;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_low < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_low;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart - queryendA - substringA->chroffset;
-  }
-
-  if (querystartA <= queryendA && querystartB <= queryendB) {
-    seq1 = Shortread_fullpointer_uc(queryseq);
-    querypos = queryseq_offset + queryendA;
-    i = queryendA;
-    while (--insertionlength >= 0) {
-      pairs = List_push_out(pairs,(void *) Pair_new_out(querypos++,/*genomepos*/chrendA,
-							seq1[i++],/*comp*/INDEL_COMP,' '));
-    }
-  }
-
-  return pairs;
-}
-
-
-List_T
-Substring_add_deletion (List_T pairs, T substringA, T substringB, char *deletion, int deletionlength,
-			int clipdir, int hardclip_low, int hardclip_high, bool first_read_p, int queryseq_offset) {
-  int querystartA, queryendA, querystartB, queryendB, k;
-  Chrpos_T chrendA;
-
-  if (substringA->plusp == true) {
-    if (hardclip_low > substringA->querystart) {
-      querystartA = hardclip_low;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_high < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_high;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_low > substringB->querystart) {
-      querystartB = hardclip_low;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_high < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_high;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart + queryendA - substringA->chroffset + 1U;
-
-    if (querystartA < queryendA && querystartB < queryendB) {
-      queryendA += queryseq_offset;
-      for (k = 0; k < deletionlength; k++) {
-	pairs = List_push_out(pairs,(void *) Pair_new_out(queryendA,/*genomepos*/chrendA++,
-							  ' ',/*comp*/INDEL_COMP,deletion[k]));
-      }
-    }
-
-  } else {
-    if (hardclip_high > substringA->querystart) {
-      querystartA = hardclip_high;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_low < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_low;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_high > substringB->querystart) {
-      querystartB = hardclip_high;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_low < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_low;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart - queryendA - substringA->chroffset;
-
-    if (querystartA <= queryendA && querystartB <= queryendB) {
-      queryendA += queryseq_offset;
-      for (k = 0; k < deletionlength; k++) {
-	pairs = List_push_out(pairs,(void *) Pair_new_out(queryendA,/*genomepos*/chrendA--,
-							  ' ',/*comp*/INDEL_COMP,deletion[k]));
-      }
-    }
-  }
-
-  return pairs;
-}
-
-
-
-List_T
-Substring_add_intron (List_T pairs, T substringA, T substringB,
-		      int clipdir, int hardclip_low, int hardclip_high,
-		      bool first_read_p, int queryseq_offset) {
-  int querystartA, queryendA, querystartB, queryendB;
-  Chrpos_T chrendA;
-
-  if (substringA->plusp == true) {
-    if (hardclip_low > substringA->querystart) {
-      querystartA = hardclip_low;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_high < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_high;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_low > substringB->querystart) {
-      querystartB = hardclip_low;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_high < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_high;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart + queryendA - substringA->chroffset + 1U;
-
-  } else {
-    if (hardclip_high > substringA->querystart) {
-      querystartA = hardclip_high;
-    } else {
-      querystartA = substringA->querystart;
-    }
-
-    if (substringA->querylength - hardclip_low < substringA->queryend) {
-      queryendA = substringA->querylength - hardclip_low;
-    } else {
-      queryendA = substringA->queryend;
-    }
-
-    if (hardclip_high > substringB->querystart) {
-      querystartB = hardclip_high;
-    } else {
-      querystartB = substringB->querystart;
-    }
-
-    if (substringB->querylength - hardclip_low < substringB->queryend) {
-      queryendB = substringB->querylength - hardclip_low;
-    } else {
-      queryendB = substringB->queryend;
-    }
-
-    chrendA = substringA->genomicstart - queryendA - substringA->chroffset;
-  }
-
-  if (querystartA <= queryendA && querystartB <= queryendB) {
-    /* Add gapholder */
-    /* All we really need for Pair_print_sam is to set gapp to be true */
-    pairs = List_push_out(pairs,(void *) Pair_new_out(queryseq_offset + queryendA,/*genomepos*/chrendA,
-						      ' ',/*comp*/FWD_CANONICAL_INTRON_COMP,' '));
-  }
-
-  return pairs;
 }
 

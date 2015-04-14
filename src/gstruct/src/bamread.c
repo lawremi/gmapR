@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 160725 2015-03-11 16:45:17Z twu $";
+static char rcsid[] = "$Id: bamread.c 143410 2014-08-05 17:23:27Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -370,8 +370,7 @@ static void
 parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 	    char **mate_chr, Genomicpos_T *mate_chrpos, int *insert_length,
 	    Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-	    int *readlength, char **read, char **quality_string, char **hardclip, char **hardclip_quality,
-	    char **read_group, bool *terminalp) {
+	    int *readlength, char **read, char **quality_string, char **read_group, bool *terminalp) {
   int type;
   int i;
   unsigned int length;
@@ -380,7 +379,6 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   BAM_Sequence_T seq;
   BAM_Cigar_T cigar;
   uint8_t *ptr;
-  char *string;
 
   *acc = bam1_qname(this->bam);
   *flag = this->core->flag;
@@ -410,7 +408,7 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   *insert_length = this->core->isize;
 
   *readlength = this->core->l_qseq;
-  *read = (char *) MALLOC(((*readlength)+1) * sizeof(char));
+  *read = (char *) CALLOC((*readlength)+1,sizeof(char));
   seq = bam1_seq(this->bam);
   for (i = 0; i < *readlength; i++) {
     switch (bam1_seqi(seq,i)) {
@@ -422,31 +420,12 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     default: (*read)[i] = '?'; break;
     }
   }
-  (*read)[*readlength] = '\0';
 
   ptr = bam1_qual(this->bam);
   if (ptr[0] == 0xff) {
     *quality_string = (char *) NULL;
   } else {
     *quality_string = (char *) ptr;
-  }
-
-  ptr = bam_aux_get(this->bam,"XH");
-  if (ptr == NULL) {
-    *hardclip = (char *) NULL;
-  } else {
-    string = bam_aux2Z(ptr);
-    *hardclip = (char *) MALLOC((strlen(string)+1) * sizeof(char));
-    strcpy(*hardclip,string);
-  }
-
-  ptr = bam_aux_get(this->bam,"XI");
-  if (ptr == NULL) {
-    *hardclip_quality = (char *) NULL;
-  } else {
-    string = bam_aux2Z(ptr);
-    *hardclip_quality = (char *) MALLOC((strlen(string)+1) * sizeof(char));
-    strcpy(*hardclip_quality,string);
   }
 
   ptr = bam_aux_get(this->bam,"RG");
@@ -456,16 +435,13 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     *read_group = bam_aux2Z(ptr);
   }
 
-  ptr = bam_aux_get(this->bam,"XG");
+  ptr = bam_aux_get(this->bam,"PG");
   if (ptr == NULL) {
     *terminalp = false;
+  } else if (strcmp((char *) ptr,"T")) {
+    *terminalp = false;
   } else {
-    string = bam_aux2Z(ptr);
-    if (strcmp((char *) string,"T")) {
-      *terminalp = false;
-    } else {
-      *terminalp = true;
-    }
+    *terminalp = true;
   }
 
   /* Cigar */
@@ -606,8 +582,8 @@ int
 Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 		   char **mate_chr, Genomicpos_T *mate_chrpos,
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-		   int *readlength, char **read, char **quality_string, char **hardclip, char **hardclip_quality,
-		   char **read_group, bool *terminalp) {
+		   int *readlength, char **read, char **quality_string, char **read_group,
+		   bool *terminalp) {
   int insert_length;
 
 #ifndef HAVE_SAMTOOLS_LIB
@@ -620,8 +596,8 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
       parse_line(this,&(*acc),&(*flag),&(*mapq),&(*chr),&(*chrpos),
 		 &(*mate_chr),&(*mate_chrpos),&insert_length,
 		 &(*cigartypes),&(*cigarlengths),&(*cigarlength),
-		 &(*readlength),&(*read),&(*quality_string),&(*hardclip),&(*hardclip_quality),
-		 &(*read_group),&(*terminalp));
+		 &(*readlength),&(*read),&(*quality_string),&(*read_group),
+		 &(*terminalp));
       return 1;
     }
   } else {
@@ -631,8 +607,8 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
       parse_line(this,&(*acc),&(*flag),&(*mapq),&(*chr),&(*chrpos),
 		 &(*mate_chr),&(*mate_chrpos),&insert_length,
 		 &(*cigartypes),&(*cigarlengths),&(*cigarlength),
-		 &(*readlength),&(*read),&(*quality_string),&(*hardclip),&(*hardclip_quality),
-		 &(*read_group),&(*terminalp));
+		 &(*readlength),&(*read),&(*quality_string),&(*read_group),
+		 &(*terminalp));
       return 1;
     }
   }
@@ -647,7 +623,6 @@ struct Bamline_T {
   int nhits;
   bool good_unique_p;			/* Good above good_unique_mapq.  Dependent on second_mapq. */
   int mapq;
-  int nm;
   char splice_strand;
   char *chr;
   Genomicpos_T chrpos_low;
@@ -660,8 +635,6 @@ struct Bamline_T {
   int readlength;
   char *read;
   char *quality_string;
-  char *hardclip;
-  char *hardclip_quality;
   bool terminalp;
 
   /* Can be used if we read one line at a time.  Points to bam->data, which is re-used upon each read */
@@ -876,28 +849,25 @@ Bamline_cigar_npositions (Bamline_T this) {
 }
 
 Intlist_T
-Bamline_diffcigar (int *min_overhang, Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this) {
+Bamline_diffcigar (Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this) {
   Intlist_T types = NULL;
   int type;
   Genomicpos_T chrpos;
   Intlist_T p;
   Uintlist_T q;
-  int querypos = 0;
 
   *npositions = (Uintlist_T) NULL;
   *chrpositions = (Uintlist_T) NULL;
-  *min_overhang = 0;
 
   chrpos = this->chrpos_low;
   for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
     if ((type = Intlist_head(p)) == 'S') {
-      querypos += Uintlist_head(q);
+      /* Ignore */
 
     } else if (type == 'H') {
       /* Ignore */
 
     } else if (type == 'M') {
-      querypos += Uintlist_head(q);
       chrpos += Uintlist_head(q);
 
     } else if (type == 'N') {
@@ -910,32 +880,11 @@ Bamline_diffcigar (int *min_overhang, Uintlist_T *npositions, Uintlist_T *chrpos
       /* Do nothing */
 
     } else if (type == 'I') {
-      if (querypos < this->readlength/2) {
-	if (querypos > *min_overhang) {
-	  *min_overhang = querypos;
-	}
-      } else {
-	if (this->readlength - querypos > *min_overhang) {
-	  *min_overhang = this->readlength - querypos;
-	}
-      }
-
       types = Intlist_push(types,type);
       *npositions = Uintlist_push(*npositions,Uintlist_head(q));
       *chrpositions = Uintlist_push(*chrpositions,chrpos);
-      querypos += Uintlist_head(q);
 
     } else if (type == 'D') {
-      if (querypos < this->readlength/2) {
-	if (querypos > *min_overhang) {
-	  *min_overhang = querypos;
-	}
-      } else {
-	if (this->readlength - querypos > *min_overhang) {
-	  *min_overhang = this->readlength - querypos;
-	}
-      }
-
       types = Intlist_push(types,type);
       *npositions = Uintlist_push(*npositions,Uintlist_head(q));
       *chrpositions = Uintlist_push(*chrpositions,chrpos);
@@ -1006,16 +955,6 @@ Bamline_read (Bamline_T this) {
 char *
 Bamline_quality_string (Bamline_T this) {
   return this->quality_string;
-}
-
-char *
-Bamline_hardclip (Bamline_T this) {
-  return this->hardclip;
-}
-
-char *
-Bamline_hardclip_quality (Bamline_T this) {
-  return this->hardclip_quality;
 }
 
 bool
@@ -1280,28 +1219,6 @@ Bamline_print_new_mate (FILE *fp, Bamline_T this, char *mate_chr, Genomicpos_T m
 
   fprintf(fp,"\n");
   return;
-}
-
-
-static int
-aux_nm (T this) {
-#ifndef HAVE_SAMTOOLS_LIB
-  return 0;
-#else
-  uint8_t *s;
-
-  s = bam_aux_get(this->bam,"NM");
-  if (s == NULL) {
-    return 0;
-  } else {
-    return bam_aux2i(s);
-  }
-#endif
-}
-
-int
-Bamline_nm (Bamline_T this) {
-  return this->nm;
 }
 
 
@@ -1650,7 +1567,7 @@ int
 Bamline_nmismatches (Bamline_T this) {
   int nmismatches = 0;
   unsigned char tag1, tag2, *s, *md_string = NULL;
-  /* unsigned char type; */
+  unsigned char type;
   Intlist_T p;
   Uintlist_T q;
 
@@ -1658,11 +1575,7 @@ Bamline_nmismatches (Bamline_T this) {
   while (s < this->aux_end && md_string == NULL) {
     tag1 = *s++;
     tag2 = *s++;
-#if 0
     type = *s++;
-#else
-    s++;
-#endif
     if (tag1 == 'M' && tag2 == 'D') {
       /* Start of MD string */
       md_string = s;
@@ -1803,12 +1716,6 @@ Bamline_free (Bamline_T *old) {
     if ((*old)->quality_string != NULL) {
       FREE((*old)->quality_string);
     }
-    if ((*old)->hardclip_quality != NULL) {
-      FREE((*old)->hardclip_quality);
-    }
-    if ((*old)->hardclip != NULL) {
-      FREE((*old)->hardclip);
-    }
     if ((*old)->aux_contents != NULL) {
       FREE((*old)->aux_contents);
     }
@@ -1821,10 +1728,10 @@ Bamline_free (Bamline_T *old) {
 
 static Bamline_T
 Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int mapq,
-	     int nm, char splice_strand, char *chr, Genomicpos_T chrpos_low,
+	     char splice_strand, char *chr, Genomicpos_T chrpos_low,
 	     char *mate_chr, Genomicpos_T mate_chrpos_low, int insert_length,
 	     Intlist_T cigar_types, Uintlist_T cigar_npositions, int cigar_querylength, int readlength,
-	     char *read, char *quality_string, char *hardclip, char *hardclip_quality, bool terminalp,
+	     char *read, char *quality_string, bool terminalp,
 	     unsigned char *aux_start, unsigned char *aux_end, bool copy_aux_contents_p) {
   Bamline_T new = (Bamline_T) MALLOC(sizeof(*new));
 
@@ -1837,7 +1744,6 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
 
   new->mapq = mapq;
   
-  new->nm = nm;
   new->splice_strand = splice_strand;
   if (chr == NULL) {
     new->chr = (char *) NULL;
@@ -1863,18 +1769,8 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
   new->cigar_querylength = cigar_querylength;
   new->readlength = readlength;
 
-  assert((int) strlen(read) == readlength);
-  /* read should already be allocated from parse_line */
-#if 0
-  if (read == NULL) {
-    new->read = NULL;
-  } else {
-    new->read = (char *) CALLOC(readlength+1,sizeof(char));
-    strcpy(new->read,read);
-  }
-#else
+  /* No need to copy, since it is allocated already */
   new->read = read;
-#endif
 
   if (quality_string == NULL) {
     new->quality_string = NULL;
@@ -1882,10 +1778,6 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
     new->quality_string = (char *) CALLOC(readlength+1,sizeof(char));
     strncpy(new->quality_string,quality_string,readlength);
   }
-
-  /* No need to copy, since they are allocated already */
-  new->hardclip = hardclip;
-  new->hardclip_quality = hardclip_quality;
 
   new->terminalp = terminalp;
 
@@ -1911,7 +1803,6 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 		      bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 		      bool need_concordant_p) {
   char *acc, *chr, *mate_chr, splice_strand;
-  int nm;
   unsigned int flag;
   int nhits;
   bool good_unique_p;
@@ -1923,8 +1814,6 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
   int cigar_querylength, readlength;
   char *read;
   char *quality_string;
-  char *hardclip;
-  char *hardclip_quality;
   char *read_group;
   bool terminalp;
 
@@ -1938,8 +1827,8 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
       parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		 &mate_chr,&mate_chrpos_low,&insert_length,
 		 &cigar_types,&cigarlengths,&cigar_querylength,
-		 &readlength,&read,&quality_string,&hardclip,&hardclip_quality,
-		 &read_group,&terminalp);
+		 &readlength,&read,&quality_string,&read_group,
+		 &terminalp);
       if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
 	Intlist_free(&cigar_types);
@@ -1977,13 +1866,12 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 	FREE(read);
       } else {
 	debug1(fprintf(stderr,"Success\n"));
-	nm = aux_nm(this);
 	splice_strand = aux_splice_strand(this);
 	good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
-			   readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			   readlength,read,quality_string,terminalp,
 			   /*aux_start*/bam1_aux(this->bam),
 			   /*aux_end*/this->bam->data + this->bam->data_len,
 			   /*copy_aux_contents_p*/false);
@@ -1996,20 +1884,19 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
       parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		 &mate_chr,&mate_chrpos_low,&insert_length,
 		 &cigar_types,&cigarlengths,&cigar_querylength,
-		 &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+		 &readlength,&read,&quality_string,&read_group,
 		 &terminalp);
       if (mapq >= minimum_mapq &&
 	  (nhits = aux_nhits(this)) <= maximum_nhits &&
 	  (need_unique_p == false || nhits == 1) &&
 	  (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	  (need_concordant_p == false || concordantp(flag) == true)) {
-	nm = aux_nm(this);
 	splice_strand = aux_splice_strand(this);
 	good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
-			   readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			   readlength,read,quality_string,terminalp,
 			   /*aux_start*/bam1_aux(this->bam),
 			   /*aux_end*/this->bam->data + this->bam->data_len,
 			   /*copy_aux_contents_p*/false);
@@ -2029,7 +1916,6 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 					 bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 					 bool need_concordant_p) {
   char *acc, *chr, *mate_chr, splice_strand;
-  int nm;
   unsigned int flag;
   int nhits;
   bool good_unique_p;
@@ -2041,8 +1927,6 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
   int cigar_querylength, readlength;
   char *read;
   char *quality_string;
-  char *hardclip;
-  char *hardclip_quality;
   char *read_group;
   bool terminalp;
 
@@ -2059,7 +1943,7 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
-		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+		   &readlength,&read,&quality_string,&read_group,
 		   &terminalp);
 	if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	  debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
@@ -2098,13 +1982,12 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 	  FREE(read);
 	} else {
 	  debug1(fprintf(stderr,"Success\n"));
-	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
-			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			     readlength,read,quality_string,terminalp,
 			     /*aux_start*/bam1_aux(this->bam),
 			     /*aux_end*/this->bam->data + this->bam->data_len,
 			     /*copy_aux_contents_p*/true);
@@ -2121,20 +2004,19 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
-		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+		   &readlength,&read,&quality_string,&read_group,
 		   &terminalp);
 	if (mapq >= minimum_mapq &&
 	    (nhits = aux_nhits(this)) <= maximum_nhits &&
 	    (need_unique_p == false || nhits == 1) &&
 	    (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	    (need_concordant_p == false || concordantp(flag) == true)) {
-	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
-			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			     readlength,read,quality_string,terminalp,
 			     /*aux_start*/bam1_aux(this->bam),
 			     /*aux_end*/this->bam->data + this->bam->data_len,
 			     /*copy_aux_contents_p*/true);
@@ -2158,7 +2040,6 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 			    bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 			    bool need_concordant_p) {
   char *acc, *chr, *mate_chr, splice_strand;
-  int nm;
   unsigned int flag;
   int nhits;
   bool good_unique_p;
@@ -2170,8 +2051,6 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
   int cigar_querylength, readlength;
   char *read;
   char *quality_string;
-  char *hardclip;
-  char *hardclip_quality;
   char *read_group;
   bool terminalp;
 
@@ -2188,7 +2067,7 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
-		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+		   &readlength,&read,&quality_string,&read_group,
 		   &terminalp);
 	if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	  debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
@@ -2227,13 +2106,12 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 	  FREE(read);
 	} else {
 	  debug1(fprintf(stderr,"Success\n"));
-	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
-			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			     readlength,read,quality_string,terminalp,
 			     /*aux_start*/bam1_aux(this->bam),
 			     /*aux_end*/this->bam->data + this->bam->data_len,
 			     /*copy_aux_contents_p*/false);
@@ -2251,20 +2129,19 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
-		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+		   &readlength,&read,&quality_string,&read_group,
 		   &terminalp);
 	if (mapq >= minimum_mapq &&
 	    (nhits = aux_nhits(this)) <= maximum_nhits &&
 	    (need_unique_p == false || nhits == 1) &&
 	    (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	    (need_concordant_p == false || concordantp(flag) == true)) {
-	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
-			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			     readlength,read,quality_string,terminalp,
 			     /*aux_start*/bam1_aux(this->bam),
 			     /*aux_end*/this->bam->data + this->bam->data_len,
 			     /*copy_aux_contents_p*/false);
@@ -2291,7 +2168,6 @@ bamline_read_cmp (const void *x, const void *y) {
   Bamline_T b = * (Bamline_T *) y;
   Genomicpos_T a_chrpos_low_noclip, b_chrpos_low_noclip;
 
-#if 0
   if (Intlist_head(a->cigar_types) != 'S') {
     a_chrpos_low_noclip = a->chrpos_low;
   } else {
@@ -2319,12 +2195,6 @@ bamline_read_cmp (const void *x, const void *y) {
   } else {
     return 0;
   }
-#else
-
-  return strcmp(a->read,b->read);
-
-#endif
-
 }
 
 
@@ -2386,62 +2256,9 @@ Bamread_next_bamline_set (int *nlines, Bamline_T *prev_bamline,
 }
 
 
-
-Bamline_T **
-Bamread_block (int **nlines, Genomicpos_T chrstart, Genomicpos_T chrend,
-	       T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-	       bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-	       bool need_concordant_p) {
-  Bamline_T **block;
-  List_T *block_lists;
-  Bamline_T *bamlines = NULL;
-  Bamline_T bamline = NULL;
-  Chrpos_T chrpos_low_noclip, chrpos;
-  int n;
-
-
-  block = (Bamline_T **) CALLOC(chrend - chrstart + 1,sizeof(Bamline_T *));
-  block_lists = (List_T *) CALLOC(chrend - chrstart + 1,sizeof(List_T));
-  *nlines = (int *) CALLOC(chrend - chrstart + 1,sizeof(int));
-
-  /* Excludes all perfect matches to the reference */
-  while ((bamline = Bamread_next_imperfect_bamline_copy_aux(this,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
-							    need_unique_p,need_primary_p,ignore_duplicates_p,
-							    need_concordant_p)) != NULL) {
-    if (Intlist_head(bamline->cigar_types) != 'S') {
-      chrpos_low_noclip = bamline->chrpos_low;
-    } else {
-      chrpos_low_noclip = bamline->chrpos_low - Uintlist_head(bamline->cigar_npositions);
-    }
-
-    if (chrpos_low_noclip < chrstart) {
-      abort();
-    } else {
-      block_lists[chrpos_low_noclip - chrstart] = List_push(block_lists[chrpos_low_noclip - chrstart],(void *) bamline);
-    }
-  }
-
-  for (chrpos = chrstart; chrpos <= chrend; chrpos++) {
-    if (block_lists[chrpos - chrstart] != NULL) {
-      bamlines = (Bamline_T *) List_to_array_n(&n,block_lists[chrpos - chrstart]);
-      qsort(bamlines,n,sizeof(Bamline_T),bamline_read_cmp);
-      block[chrpos - chrstart] = bamlines;
-      (*nlines)[chrpos - chrstart] = n;
-    }
-
-    List_free(&(block_lists[chrpos - chrstart]));
-  }
-
-  FREE(block_lists);
-  return block;
-}
-
-
-
 Bamline_T
 Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *desired_acc) {
   char *acc, *chr, *mate_chr, splice_strand;
-  int nm;
   unsigned int flag;
   int nhits;
   int mapq;
@@ -2452,8 +2269,6 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
   int cigar_querylength, readlength;
   char *read;
   char *quality_string;
-  char *hardclip;
-  char *hardclip_quality;
   char *read_group;
   bool terminalp;
 
@@ -2463,16 +2278,15 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
     parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 	       &mate_chr,&mate_chrpos_low,&insert_length,
 	       &cigar_types,&cigarlengths,&cigar_querylength,
-	       &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
+	       &readlength,&read,&quality_string,&read_group,
 	       &terminalp);
-    nm = aux_nm(this);
     splice_strand = aux_splice_strand(this);
     if (!strcmp(acc,desired_acc) && chrpos_low == desired_chrpos) {
       Bamread_unlimit_region(this);
-      return Bamline_new(acc,flag,nhits,/*good_unique_p*/true,mapq,nm,splice_strand,chr,chrpos_low,
+      return Bamline_new(acc,flag,nhits,/*good_unique_p*/true,mapq,splice_strand,chr,chrpos_low,
 			 mate_chr,mate_chrpos_low,insert_length,
 			 cigar_types,cigarlengths,cigar_querylength,
-			 readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
+			 readlength,read,quality_string,terminalp,
 			 /*aux_start*/bam1_aux(this->bam),
 			 /*aux_end*/this->bam->data + this->bam->data_len,
 			 /*copy_aux_contents_p*/false);
@@ -2633,17 +2447,6 @@ struct Bampair_T {
   Genomicpos_T chrpos_high;
   int level;
 };
-
-char *
-Bampair_acc (Bampair_T this) {
-  if (this->bamline_low != NULL) {
-    return this->bamline_low->acc;
-  } else if (this->bamline_high != NULL) {
-    return this->bamline_high->acc;
-  } else {
-    return (char *) NULL;
-  }
-}
 
 Bamline_T
 Bampair_bamline_low (Bampair_T this) {
@@ -2818,10 +2621,8 @@ Bamread_all_pairs (T bamreader, char *desired_read_group, int minimum_mapq, int 
       bamline_low = Bamstore_get(bamstore_chrtable,Bamline_chr(bamline),Bamline_mate_chrpos_low(bamline),
 				 Bamline_acc(bamline),Bamline_chrpos_low(bamline));
       if (bamline_low == NULL) {
-#if 0
 	fprintf(stderr,"Hmm...low end not found for %s at %s:%u\n",
 		Bamline_acc(bamline),Bamline_chr(bamline),Bamline_chrpos_low(bamline));
-#endif
 	lines = List_push(lines,Bampair_new(/*bamline_low*/NULL,/*bamline_high*/bamline));
       } else {
 	lines = List_push(lines,Bampair_new(bamline_low,/*bamline_high*/bamline));
@@ -2845,10 +2646,8 @@ Bamread_all_pairs (T bamreader, char *desired_read_group, int minimum_mapq, int 
 	} else {
 	  for (p = bamstore->bamlines; p != NULL; p = List_next(p)) {
 	    bamline = (Bamline_T) List_head(p);
-#if 0
 	    fprintf(stderr,"Hmm...high end not found for %s at %s:%u\n",
 		    Bamline_acc(bamline),Bamline_chr(bamline),Bamline_chrpos_low(bamline));
-#endif
 	    lines = List_push(lines,Bampair_new(/*bamline_low*/bamline,/*bamline_high*/NULL));
 	  }
 	  /* Bamstore_free(&bamstore); -- This causes errors */

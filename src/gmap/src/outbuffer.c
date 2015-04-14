@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: outbuffer.c 153689 2014-11-20 18:47:15Z twu $";
+static char rcsid[] = "$Id: outbuffer.c 109763 2013-10-02 17:12:58Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -207,8 +207,7 @@ struct T {
   Gobywriter_T gobywriter;
 
   bool fastq_format_p;
-  bool clip_overlap_p;		/* clip_overlap_p and merge_overlap_p cannot both be true */
-  bool merge_overlap_p;
+  bool clip_overlap_p;
   bool merge_samechr_p;
 
   bool invert_first_p;
@@ -808,7 +807,7 @@ Outbuffer_new (unsigned int output_buffer_size, unsigned int nread, char *sevenw
 	       char *sam_read_group_library, char *sam_read_group_platform,
 	       int nworkers, bool orderedp,
 	       Gobywriter_T gobywriter, bool nofailsp, bool failsonlyp, bool fails_as_input_p,
-	       bool fastq_format_p, bool clip_overlap_p, bool merge_overlap_p, bool merge_samechr_p,
+	       bool fastq_format_p, bool clip_overlap_p, bool merge_samechr_p,
 	       int maxpaths_report, bool quiet_if_excessive_p, int quality_shift,
 	       bool invert_first_p, bool invert_second_p, Chrpos_T pairmax,
 	       int argc, char **argv, int optind) {
@@ -860,7 +859,6 @@ Outbuffer_new (unsigned int output_buffer_size, unsigned int nread, char *sevenw
   new->fails_as_input_p = fails_as_input_p;
   new->fastq_format_p = fastq_format_p;
   new->clip_overlap_p = clip_overlap_p;
-  new->merge_overlap_p = merge_overlap_p;
   new->merge_samechr_p = merge_samechr_p;
 
   new->maxpaths_report = maxpaths_report;
@@ -1225,6 +1223,7 @@ print_result_sam (T this, Result_T result, Request_T request) {
   Shortread_T queryseq1;
   Stage3end_T *stage3array, stage3;
   Chrpos_T chrpos;
+  int ignore = 0;
   int npaths, pathnum, first_absmq, second_absmq;
   FILE *fp;
   char *abbrev;
@@ -1257,8 +1256,9 @@ print_result_sam (T this, Result_T result, Request_T request) {
       /* Stage3end_eval_and_sort(stage3array,npaths,this->maxpaths_report,queryseq1); */
 
       stage3 = stage3array[0];
-      chrpos = SAM_compute_chrpos(/*hardclip_low*/0,/*hardclip_high*/0,stage3,
-				  Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
+      chrpos = SAM_compute_chrpos(/*hardclip_low*/&ignore,/*hardclip_high*/&ignore,
+				  /*clipdir*/0,/*hardclip5*/0,/*hardclip3*/0,/*first_read_p*/true,
+				  stage3,Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
       if (Stage3end_circularpos(stage3) > 0) {
 	fp = this->fp_unpaired_circular;
 	abbrev = ABBREV_UNPAIRED_CIRCULAR;
@@ -1271,8 +1271,8 @@ print_result_sam (T this, Result_T result, Request_T request) {
 		Stage3end_mapq_score(stage3array[0]),
 		this->chromosome_iit,queryseq1,/*queryseq2*/NULL,
 		/*pairedlength*/0,chrpos,/*mate_chrpos*/0U,
-		/*clipdir*/0,/*hardclip5_low*/0,/*hardclip5_high*/0,/*hardclip3_low*/0,/*hardclip3_high*/0,
-		resulttype,/*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
+		/*clipdir*/0,/*hardclip_low*/0,/*hardclip_high*/0,resulttype,
+		/*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
 		this->sam_read_group_id,this->invert_first_p,this->invert_second_p,
 		this->merge_samechr_p);
     }
@@ -1298,8 +1298,9 @@ print_result_sam (T this, Result_T result, Request_T request) {
       for (pathnum = 1; pathnum <= npaths && pathnum <= this->maxpaths_report; pathnum++) {
 
 	stage3 = stage3array[pathnum-1];
-	chrpos = SAM_compute_chrpos(/*hardclip_low*/0,/*hardclip_high*/0,stage3,
-				    Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
+	chrpos = SAM_compute_chrpos(/*hardclip_low*/&ignore,/*hardclip_high*/&ignore,
+				    /*clipdir*/0,/*hardclip5*/0,/*hardclip3*/0,/*first_read_p*/true,
+				    stage3,Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
 	SAM_print(this->fp_unpaired_transloc,ABBREV_UNPAIRED_TRANSLOC,
 		  stage3,/*mate*/NULL,/*acc1*/Shortread_accession(queryseq1),
 		  /*acc2*/NULL,pathnum,npaths,
@@ -1307,8 +1308,8 @@ print_result_sam (T this, Result_T result, Request_T request) {
 		  Stage3end_mapq_score(stage3array[pathnum-1]),
 		  this->chromosome_iit,queryseq1,/*queryseq2*/NULL,
 		  /*pairedlength*/0,chrpos,/*mate_chrpos*/0U,
-		  /*clipdir*/0,/*hardclip5_low*/0,/*hardclip5_high*/0,/*hardclip3_low*/0,/*hardclip3_high*/0,
-		  resulttype,/*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
+		  /*clipdir*/0,/*hardclip_low*/0,/*hardclip_high*/0,resulttype,
+		  /*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
 		  this->sam_read_group_id,this->invert_first_p,this->invert_second_p,
 		  this->merge_samechr_p);
       }
@@ -1335,8 +1336,9 @@ print_result_sam (T this, Result_T result, Request_T request) {
       for (pathnum = 1; pathnum <= npaths && pathnum <= this->maxpaths_report; pathnum++) {
 
 	stage3 = stage3array[pathnum-1];
-	chrpos = SAM_compute_chrpos(/*hardclip_low*/0,/*hardclip_high*/0,stage3,
-				    Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
+	chrpos = SAM_compute_chrpos(/*hardclip_low*/&ignore,/*hardclip_high*/&ignore,
+				    /*clipdir*/0,/*hardclip5*/0,/*hardclip3*/0,/*first_read_p*/true,
+				    stage3,Stage3end_substring_low(stage3),Shortread_fulllength(queryseq1));
 	SAM_print(this->fp_unpaired_mult,ABBREV_UNPAIRED_MULT,
 		  stage3,/*mate*/NULL,/*acc1*/Shortread_accession(queryseq1),
 		  /*acc2*/NULL,pathnum,npaths,
@@ -1344,8 +1346,8 @@ print_result_sam (T this, Result_T result, Request_T request) {
 		  Stage3end_mapq_score(stage3array[pathnum-1]),
 		  this->chromosome_iit,queryseq1,/*queryseq2*/NULL,
 		  /*pairedlength*/0,chrpos,/*mate_chrpos*/0U,
-		  /*clipdir*/0,/*hardclip5_low*/0,/*hardclip5_high*/0,/*hardclip3_low*/0,/*hardclip3_high*/0,
-		  resulttype,/*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
+		  /*clipdir*/0,/*hardclip_low*/0,/*hardclip_high*/0,resulttype,
+		  /*first_read_p*/true,/*npaths_mate*/0,this->quality_shift,
 		  this->sam_read_group_id,this->invert_first_p,this->invert_second_p,
 		  this->merge_samechr_p);
       }
@@ -1359,8 +1361,7 @@ print_result_sam (T this, Result_T result, Request_T request) {
 		     Request_queryseq1(request),Request_queryseq2(request),
 		     this->invert_first_p,this->invert_second_p,
 		     this->nofailsp,this->failsonlyp,this->fails_as_input_p,this->fastq_format_p,
-		     this->clip_overlap_p,this->merge_overlap_p,this->merge_samechr_p,
-		     this->quality_shift,this->sam_read_group_id,
+		     this->clip_overlap_p,this->merge_samechr_p,this->quality_shift,this->sam_read_group_id,
 		     this->fp_nomapping_1,this->fp_nomapping_2,
 		     this->fp_unpaired_uniq,this->fp_unpaired_circular,
 		     this->fp_unpaired_transloc,this->fp_unpaired_mult,
@@ -1600,7 +1601,7 @@ Outbuffer_print_result (T this, Result_T result, Request_T request
 
 #ifdef MEMUSAGE
   printf("Memusage of IN: %ld.  Memusage of OUT: %ld.  Entries in outbuffer: %d = %d processed - %u output\n",
-	 Mem_usage_report_in(),Mem_usage_report_out(),this->nprocessed - noutput,this->nprocessed,noutput);
+	 Mem_usage_in_report(),Mem_usage_out_report(),this->nprocessed - noutput,this->nprocessed,noutput);
 #endif
 
   return;
@@ -2084,8 +2085,8 @@ Outbuffer_print_result (T this, Result_T result, Request_T request, Sequence_T h
   }
 
 #ifdef MEMUSAGE
-  comma1 = Genomicpos_commafmt(Mem_usage_report_std());
-  comma2 = Genomicpos_commafmt(Mem_max_usage_report_std());
+  comma1 = Genomicpos_commafmt(Mem_usage_report());
+  comma2 = Genomicpos_commafmt(Mem_max_usage_report());
   printf("Memusage: %s.  Peak: %s.\n",comma1,comma2);
   FREE(comma2);
   FREE(comma1);

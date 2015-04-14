@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: genome.c 136098 2014-05-14 00:34:14Z twu $";
+static char rcsid[] = "$Id: genome.c 111031 2013-10-11 23:32:24Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -10642,12 +10642,8 @@ Genome_get_segment_blocks_right (char **segmentalt, Univcoord_T left, Chrpos_T l
   char *segment;
   Chrpos_T out_of_bounds, i;
 
-  if (length == 0) {
-    *segmentalt = (char *) NULL;
-    return (char *) NULL;
-  } else if (left >= chrhigh) {
+  if (left >= chrhigh) {
     /* All out of bounds */
-    *segmentalt = (char *) NULL;
     return (char *) NULL;
   } else if (left + length >= chrhigh) {
     segment = (char *) MALLOC((length+1) * sizeof(char));
@@ -10691,11 +10687,7 @@ Genome_get_segment_blocks_left (char **segmentalt, Univcoord_T left, Chrpos_T le
   Chrpos_T out_of_bounds, i;
 
 
-  if (length == 0) {
-    *segmentalt = (char *) NULL;
-    return (char *) NULL;
-  } else if (left < chroffset) {
-    *segmentalt = (char *) NULL;
+  if (left < chroffset) {
     return (char *) NULL;
   } else if (left < chroffset + length) {
     segment = (char *) MALLOC((length+1) * sizeof(char));

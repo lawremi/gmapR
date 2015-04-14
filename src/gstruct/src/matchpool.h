@@ -1,4 +1,4 @@
-/* $Id: matchpool.h 159527 2015-02-25 21:26:07Z twu $ */
+/* $Id: matchpool.h 135603 2014-05-08 20:10:58Z twu $ */
 #ifndef MATCHPOOL_INCLUDED
 #define MATCHPOOL_INCLUDED
 
@@ -20,7 +20,7 @@ Matchpool_new (void);
 extern void
 Matchpool_reset (T this);
 extern List_T
-Matchpool_push (List_T list, T this, int shift, int nm, int xs, int ncounts);
+Matchpool_push (List_T list, T this, int shift, int mapq, char quality, int xs);
 extern List_T
 Matchpool_pop (List_T list, Match_T *x);
 

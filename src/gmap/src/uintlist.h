@@ -1,4 +1,4 @@
-/* $Id: uintlist.h 140158 2014-06-28 23:42:12Z twu $ */
+/* $Id: uintlist.h 99737 2013-06-27 19:33:03Z twu $ */
 #ifndef UINTLIST_INCLUDED
 #define UINTLIST_INCLUDED
 #include "types.h"
@@ -25,10 +25,6 @@ extern int
 Uintlist_length (T list);
 extern UINT4 *
 Uintlist_to_array (int *n, T list);
-extern UINT4 *
-Uintlist_to_array_out (int *n, T list);
-extern T
-Uintlist_from_array (UINT4 *array, int n);
 extern T 
 Uintlist_copy (T list);
 extern T 

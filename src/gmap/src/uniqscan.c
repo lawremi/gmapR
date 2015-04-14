@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: uniqscan.c 146906 2014-09-04 19:25:39Z twu $";
+static char rcsid[] = "$Id: uniqscan.c 124823 2014-01-28 20:18:20Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -32,13 +32,9 @@ static char rcsid[] = "$Id: uniqscan.c 146906 2014-09-04 19:25:39Z twu $";
 #include "substring.h"
 #include "stage3hr.h"
 #include "spanningelt.h"
-#include "splicestringpool.h"
 #include "splicetrie_build.h"
 #include "oligo.h"		/* For Oligo_setup */
 #include "oligoindex_hr.h"	/* For Oligoindex_hr_setup */
-#include "pairpool.h"
-#include "diagpool.h"
-#include "cellpool.h"
 #include "stage2.h"		/* For Stage2_setup */
 #include "indel.h"		/* For Indel_setup */
 #include "stage1hr.h"
@@ -53,10 +49,6 @@ static char rcsid[] = "$Id: uniqscan.c 146906 2014-09-04 19:25:39Z twu $";
 #include "stage3.h"		/* To get EXTRAQUERYGAP */
 
 #include "getopt.h"
-
-
-#define MAX_QUERYLENGTH_FOR_ALLOC    100000
-#define MAX_GENOMICLENGTH_FOR_ALLOC 1000000
 
 
 #ifdef DEBUG
@@ -404,24 +396,23 @@ uniqueness_scan (bool from_right_p) {
   int i;
 
   /* For GMAP */
-  Oligoindex_array_T oligoindices_major, oligoindices_minor;
+  Oligoindex_T *oligoindices_major, *oligoindices_minor;
+  int noligoindices_major, noligoindices_minor;
   Dynprog_T dynprogL, dynprogM, dynprogR;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
-  Cellpool_T cellpool;
 
 #ifdef MEMUSAGE
   long int memusage_constant = 0;
 #endif
 
-  oligoindices_major = Oligoindex_array_new_major(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
-  oligoindices_minor = Oligoindex_array_new_minor(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
+  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
+  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
-  cellpool = Cellpool_new();
 
   floors_array = (Floors_T *) CALLOC(MAX_READLENGTH+1,sizeof(Floors_T));
   /* Except_stack_create(); -- requires pthreads */
@@ -452,8 +443,10 @@ uniqueness_scan (bool from_right_p) {
 				     indel_penalty_middle,indel_penalty_end,
 				     allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
 				     localsplicing_penalty,/*distantsplicing_penalty*/100,min_shortend,
-				     oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
-				     dynprogL,dynprogM,dynprogR,/*keep_floors_p*/true);
+				     oligoindices_major,noligoindices_major,
+				     oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+				     dynprogL,dynprogM,dynprogR,
+				     /*keep_floors_p*/true);
 
     /* printf("%d: %d\n",sublength,npaths); */
     if (from_right_p == true) {
@@ -496,8 +489,10 @@ uniqueness_scan (bool from_right_p) {
 					 indel_penalty_middle,indel_penalty_end,
 					 allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
 					 localsplicing_penalty,/*distantsplicing_penalty*/100,min_shortend,
-					 oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
-					 dynprogL,dynprogM,dynprogR,/*keep_floors_p*/true);
+					 oligoindices_major,noligoindices_major,
+					 oligoindices_minor,noligoindices_minor,pairpool,diagpool,
+					 dynprogL,dynprogM,dynprogR,
+					 /*keep_floors_p*/true);
 
 	/* printf("%d: %d\n",sublength,npaths); */
 	if (from_right_p == true) {
@@ -538,14 +533,13 @@ uniqueness_scan (bool from_right_p) {
   }
   FREE(floors_array);
 
-  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_array_free(&oligoindices_minor);
-  Oligoindex_array_free(&oligoindices_major);
+  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
+  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
 
   return;
 }
@@ -1130,7 +1124,7 @@ main (int argc, char *argv[]) {
 		   /*snpp*/snps_iit ? true : false,amb_closest_p,/*amb_clip_p*/true,min_shortend);
   spansize = Spanningelt_setup(index1part,index1interval);
   Indel_setup(min_indel_end_matches,indel_penalty_middle);
-  Stage1hr_setup(/*use_sarray_p*/false,/*use_only_sarray_p*/false,index1part,index1interval,
+  Stage1hr_setup(/*use_sarray_p*/false,index1part,index1interval,
 		 spansize,chromosome_iit,nchromosomes,
 		 genomealt,mode,/*maxpaths_search*/10,/*terminal_threshold*/5,/*terminal_output_minlength*/0,
 		 splicesites,splicetypes,splicedists,nsplicesites,
@@ -1204,8 +1198,7 @@ main (int argc, char *argv[]) {
       FREE(nsplicepartners_max);
       FREE(nsplicepartners_obs);
       FREE(nsplicepartners_skip);
-      /* Splicestring_gc(splicestrings,nsplicesites); */
-      FREE(splicestrings);
+      Splicestring_gc(splicestrings,nsplicesites);
     }
     FREE(splicefrags_ref);
     FREE(splicedists);

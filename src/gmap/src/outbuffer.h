@@ -1,4 +1,4 @@
-/* $Id: outbuffer.h 148558 2014-09-22 21:55:09Z twu $ */
+/* $Id: outbuffer.h 103696 2013-08-02 22:32:38Z twu $ */
 #ifndef OUTBUFFER_INCLUDED
 #define OUTBUFFER_INCLUDED
 
@@ -36,7 +36,7 @@ Outbuffer_new (unsigned int output_buffer_size, unsigned int nread, char *sevenw
 	       char *sam_read_group_library, char *sam_read_group_platform,
 	       int nworkers, bool orderedp,
 	       Gobywriter_T gobywriter, bool nofailsp, bool failsonlyp, bool fails_as_input_p,
-	       bool fastq_format_p, bool clip_overlap_p, bool merge_overlap_p, bool merge_samechr_p,
+	       bool fastq_format_p, bool clip_overlap_p, bool merge_samechr_p,
 	       int maxpaths_report, bool quiet_if_excessive_p, int quality_shift,
 	       bool invert_first_p, bool invert_second_p, Chrpos_T pairmax,
 	       int argc, char **argv, int optind);

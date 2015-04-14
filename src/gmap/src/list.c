@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: list.c 148558 2014-09-22 21:55:09Z twu $";
+static char rcsid[] = "$Id: list.c 50911 2011-10-27 22:15:37Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -24,15 +24,6 @@ List_push (T list, void *x) {
 T
 List_push_keep (T list, void *x) {
   T new = (T) MALLOC_KEEP(sizeof(*new));
-  
-  new->first = x;
-  new->rest = list;
-  return new;
-}
-
-T
-List_push_out (T list, void *x) {
-  T new = (T) MALLOC_OUT(sizeof(*new));
   
   new->first = x;
   new->rest = list;
@@ -96,16 +87,6 @@ List_free_keep (T *list) {
   while ((prev = *list) != NULL) {
     *list = (*list)->rest;
     FREE_KEEP(prev);
-  }
-}
-
-void
-List_free_out (T *list) {
-  T prev;
-
-  while ((prev = *list) != NULL) {
-    *list = (*list)->rest;
-    FREE_OUT(prev);
   }
 }
 

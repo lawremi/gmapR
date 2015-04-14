@@ -19,6 +19,11 @@ Dynprog_simd_8 (Direction8_T ***directions_nogap, Direction8_T ***directions_Ega
 		Mismatchtype_T mismatchtype, int open, int extend,
 		int lband, int uband, bool jump_late_p, bool revp);
 
+extern Score8_T **
+Dynprog_simd_nogap_8 (T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		      int rlength, int glength,
+		      Mismatchtype_T mismatchtype, int lband, int uband, bool revp);
+
 extern Score16_T **
 Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_Egap,
 		 Direction16_T ***directions_Fgap,
@@ -29,6 +34,11 @@ Dynprog_simd_16 (Direction16_T ***directions_nogap, Direction16_T ***directions_
 #endif
 		 Mismatchtype_T mismatchtype, int open, int extend,
 		 int lband, int uband, bool jump_late_p, bool revp);
+
+extern Score16_T **
+Dynprog_simd_nogap_16 (T this, char *rsequence, char *gsequence, char *gsequence_alt,
+		       int rlength, int glength,
+		       Mismatchtype_T mismatchtype, int lband, int uband, bool revp);
 
 #undef T
 #endif

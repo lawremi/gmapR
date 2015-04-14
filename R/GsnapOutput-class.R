@@ -7,6 +7,7 @@
 ### unique directory.
 ###
 
+setOldClass("POSIXlt")
 setClassUnion("POSIXltORNULL", c("POSIXlt", "NULL"))
 
 setClassUnion("GsnapParamORNULL", c("GsnapParam", "NULL"))

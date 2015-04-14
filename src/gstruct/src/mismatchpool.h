@@ -1,4 +1,4 @@
-/* $Id: mismatchpool.h 159527 2015-02-25 21:26:07Z twu $ */
+/* $Id: mismatchpool.h 135603 2014-05-08 20:10:58Z twu $ */
 #ifndef MISMATCHPOOL_INCLUDED
 #define MISMATCHPOOL_INCLUDED
 
@@ -20,7 +20,7 @@ Mismatchpool_new (void);
 extern void
 Mismatchpool_reset (T this);
 extern List_T
-Mismatchpool_push (List_T list, T this, char nt, int shift, int nm, int xs, int ncounts);
+Mismatchpool_push (List_T list, T this, char nt, int shift, int mapq, char quality, int xs);
 extern List_T
 Mismatchpool_pop (List_T list, Mismatch_T *x);
 

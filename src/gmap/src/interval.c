@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: interval.c 135366 2014-05-07 17:10:15Z twu $";
+static char rcsid[] = "$Id: interval.c 99737 2013-06-27 19:33:03Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -48,15 +48,6 @@ Interval_copy (T old) {
   new->sign = old->sign;
   new->type = old->type;
   return new;
-}
-
-void
-Interval_copy_existing (T dest, T src) {
-  dest->low = src->low;
-  dest->high = src->high;
-  dest->sign = src->sign;
-  dest->type = src->type;
-  return;
 }
   
 void
@@ -290,30 +281,6 @@ Interval_cmp_high (const void *a, const void *b) {
   }
 }
 
-
-int
-Interval_cmp_low_struct (const void *a, const void *b) {
-  struct T x = * (struct T *) a;
-  struct T y = * (struct T *) b;
-
-  debug(printf("Comparing %u..%u with %u..%u => ",x.low,x.high,y.low,y.high));
-  if (x.low < y.low) {
-    debug(printf("-1\n"));
-    return -1;
-  } else if (x.low > y.low) {
-    debug(printf("+1\n"));
-    return +1;
-  } else if (x.type < y.type) {
-    debug(printf("-1\n"));
-    return -1;
-  } else if (x.type > y.type) {
-    debug(printf("-1\n"));
-    return +1;
-  } else {
-    debug(printf("0\n"));
-    return 0;
-  }
-}
 
 int
 Interval_windex_cmp (const void *a, const void *b) {

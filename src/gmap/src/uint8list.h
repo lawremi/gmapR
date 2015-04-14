@@ -1,4 +1,4 @@
-/* $Id: uint8list.h 140158 2014-06-28 23:42:12Z twu $ */
+/* $Id: uint8list.h 99737 2013-06-27 19:33:03Z twu $ */
 #ifndef UINT8LIST_INCLUDED
 #define UINT8LIST_INCLUDED
 #include "types.h"
@@ -25,10 +25,6 @@ extern int
 Uint8list_length (T list);
 extern UINT8 *
 Uint8list_to_array (int *n, T list);
-extern UINT8 *
-Uint8list_to_array_out (int *n, T list);
-extern T
-Uint8list_from_array (UINT8 *array, int n);
 extern T 
 Uint8list_copy (T list);
 extern T 

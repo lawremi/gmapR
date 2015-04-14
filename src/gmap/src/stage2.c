@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: stage2.c 135441 2014-05-07 22:15:13Z twu $";
+static char rcsid[] = "$Id: stage2.c 110867 2013-10-10 23:46:25Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -28,7 +28,6 @@ static char rcsid[] = "$Id: stage2.c 135441 2014-05-07 22:15:13Z twu $";
    whether oligoindex_hr gives same results as oligoindex */
 /* #define EXTRACT_GENOMICSEG 1 */
 
-#define USE_DIAGPOOL 1
 
 /* #define SQUARE 1 */
 
@@ -215,12 +214,6 @@ Stage2_setup (bool splicingp_in, bool cross_species_p,
 #define debug11(x)
 #endif
 
-/* Grand winner */
-#ifdef DEBUG12
-#define debug12(x) x
-#else 
-#define debug12(x)
-#endif
 
 
 #define T Stage2_T
@@ -2109,7 +2102,6 @@ intmatrix_2d_free (int ***matrix, int length1) {
  *   Cells used for ranking hits
  ************************************************************************/
 
-#if 0
 typedef struct Cell_T *Cell_T;
 struct Cell_T {
   int rootposition;
@@ -2119,7 +2111,7 @@ struct Cell_T {
   int score;
 };
 
-/* Replaced by Cellpool_T routines */
+
 static void
 Cell_free (Cell_T *old) {
   FREE(*old);
@@ -2138,7 +2130,6 @@ Cell_new (int rootposition, int querypos, int hit, bool fwdp, int score) {
   new->score = score;
   return new;
 }
-#endif
 
 
 static int
@@ -2233,7 +2224,7 @@ Cell_score_cmp (const void *a, const void *b) {
 /* Doesn't work well for short dynamic programming at the ends of a read */
 static Cell_T *
 Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, int queryend, int *npositions,
-			  int indexsize, int bestscore, bool favor_right_p, Cellpool_T cellpool) {
+			  int indexsize, int bestscore, bool favor_right_p) {
   Cell_T *sorted, *cells;
   List_T celllist = NULL;
   int querypos, hit;
@@ -2265,8 +2256,8 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
 	if (links[querypos][hit].fwd_score >= threshold_score) {
 	  rootposition = links[querypos][hit].fwd_rootposition;
 	  /* tracei = links[querypos][hit].fwd_tracei; */
-	  celllist = Cellpool_push(celllist,cellpool,rootposition,querypos,hit,/*fwdp*/true,
-				   links[querypos][hit].fwd_score);
+	  celllist = List_push(celllist,(void *) Cell_new(rootposition,querypos,hit,/*fwdp*/true,
+							  links[querypos][hit].fwd_score));
 	  ncells++;
 	}
       }
@@ -2280,7 +2271,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
   } else {
     /* Take best result for each tracei */
     cells = (Cell_T *) List_to_array(celllist,NULL);
-    /* List_free(&celllist); -- No need with cellpool */
+    List_free(&celllist);
 
     if (favor_right_p == true) {
       qsort(cells,ncells,sizeof(Cell_T),Cell_rootposition_right_cmp);
@@ -2294,7 +2285,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
     last_rootposition = -1;
     for (i = 0; i < ncells; i++) {
       if (cells[i]->rootposition == last_rootposition) {
-	/* Cell_free(&(cells[i])); -- no need with cellpool */
+	Cell_free(&(cells[i]));
       } else {
 	debug11(printf("Pushing rootposition %d, trace #%d, score %d, pos %d, hit %d\n",
 		       cells[i]->rootposition,cells[i]->tracei,cells[i]->score,cells[i]->querypos,cells[i]->hit));
@@ -2316,7 +2307,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
 
 static Cell_T *
 Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, int queryend, int *npositions,
-			  int indexsize, int bestscore, bool favor_right_p, Cellpool_T cellpool) {
+			  int indexsize, int bestscore, bool favor_right_p) {
   Cell_T *sorted, *cells;
   List_T celllist = NULL;
   int querypos, hit;
@@ -2329,8 +2320,8 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
       if (links[querypos][hit].fwd_score > 0) {
 	rootposition = links[querypos][hit].fwd_rootposition;
 	/* tracei = links[querypos][hit].fwd_tracei; */
-	celllist = Cellpool_push(celllist,cellpool,rootposition,querypos,hit,/*fwdp*/true,
-				 links[querypos][hit].fwd_score);
+	celllist = List_push(celllist,(void *) Cell_new(rootposition,querypos,hit,/*fwdp*/true,
+							links[querypos][hit].fwd_score));
 	ncells++;
       }
     }
@@ -2343,7 +2334,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
   } else {
     /* Take best result for each tracei */
     cells = (Cell_T *) List_to_array(celllist,NULL);
-    /* List_free(&celllist); -- No need with cellpool */
+    List_free(&celllist);
 
     if (favor_right_p == true) {
       qsort(cells,ncells,sizeof(Cell_T),Cell_rootposition_right_cmp);
@@ -2357,7 +2348,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
     last_rootposition = -1;
     for (i = 0; i < ncells; i++) {
       if (cells[i]->rootposition == last_rootposition) {
-	/* Cell_free(&(cells[i])); -- no need with cellpool */
+	Cell_free(&(cells[i]));
       } else {
 	debug11(printf("Pushing rootposition %d, score %d, pos %d, hit %d\n",
 		       cells[i]->rootposition,cells[i]->score,cells[i]->querypos,cells[i]->hit));
@@ -2379,7 +2370,7 @@ Linkmatrix_get_cells_fwd (int *nunique, struct Link_T **links, int querystart, i
 
 static Cell_T *
 Linkmatrix_get_cells_both (int *nunique, struct Link_T **links, int querystart, int queryend, int *npositions,
-			   int indexsize, int bestscore, bool favor_right_p, Cellpool_T cellpool) {
+			   int indexsize, int bestscore, bool favor_right_p) {
   Cell_T *sorted, *cells;
   List_T celllist = NULL;
   int querypos, hit;
@@ -2417,16 +2408,16 @@ Linkmatrix_get_cells_both (int *nunique, struct Link_T **links, int querystart, 
 	if (links[querypos][hit].fwd_score >= threshold_score) {
 	  rootposition = links[querypos][hit].fwd_rootposition;
 	  /* tracei = links[querypos][hit].fwd_tracei; */
-	  celllist = Cellpool_push(celllist,cellpool,rootposition,querypos,hit,/*fwdp*/true,
-				   links[querypos][hit].fwd_score);
+	  celllist = List_push(celllist,(void *) Cell_new(rootposition,querypos,hit,/*fwdp*/true,
+							  links[querypos][hit].fwd_score));
 	  ncells++;
 	}
 #ifdef SEPARATE_FWD_REV
 	if (links[querypos][hit].rev_score >= threshold_score) {
 	  rootposition = links[querypos][hit].rev_rootposition;
 	  /* tracei = links[querypos][hit].rev_tracei; */
-	  celllist = Cellpool_push(celllist,cellpool,rootposition,querypos,hit,/*fwdp*/false,
-				   links[querypos][hit].rev_score);
+	  celllist = List_push(celllist,(void *) Cell_new(rootposition,querypos,hit,/*fwdp*/false,
+							  links[querypos][hit].rev_score));
 	  ncells++;
 	}
 #endif
@@ -2441,7 +2432,7 @@ Linkmatrix_get_cells_both (int *nunique, struct Link_T **links, int querystart, 
   } else {
     /* Take best result for each tracei */
     cells = (Cell_T *) List_to_array(celllist,NULL);
-    /* List_free(&celllist); -- no need with cellpool */
+    List_free(&celllist);
 
     if (favor_right_p == true) {
       qsort(cells,ncells,sizeof(Cell_T),Cell_rootposition_right_cmp);
@@ -2455,7 +2446,7 @@ Linkmatrix_get_cells_both (int *nunique, struct Link_T **links, int querystart, 
     last_rootposition = -1;
     for (i = 0; i < ncells; i++) {
       if (cells[i]->rootposition == last_rootposition) {
-	/* Cell_free(&(cells[i])); -- no need with cellpool */
+	Cell_free(&(cells[i]));
       } else {
 	debug11(printf("rootposition %d, score %d, pos %d, hit %d\n",
 		       cells[i]->rootposition,cells[i]->score,cells[i]->querypos,cells[i]->hit));
@@ -2508,7 +2499,7 @@ binary_search (int lowi, int highi, Chrpos_T *mappings, Chrpos_T goal) {
 /* For PMAP, indexsize is in aa. */
 static Cell_T *
 align_compute_scores_lookback (int *ncells, struct Link_T **links, Chrpos_T **mappings, int *npositions, int totalpositions,
-			       bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive, Cellpool_T cellpool,
+			       bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive,
 			       int querystart, int queryend, int querylength,
 
 			       Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp,
@@ -2751,29 +2742,24 @@ align_compute_scores_lookback (int *ncells, struct Link_T **links, Chrpos_T **ma
 	prevlink = &(links[grand_fwd_querypos][grand_fwd_hit]);
 	if ((best_fwd_score = prevlink->fwd_score - (querypos - grand_fwd_querypos)) > 0) {
 	  prevposition = mappings[grand_fwd_querypos][grand_fwd_hit];
-	  debug12(printf("Considering prevposition %u to position %u as a grand fwd lookback\n",prevposition,position));
-	  if (position > prevposition + maxintronlen) {
-	    debug12(printf("  => Too long\n"));
-	  } else {
-	    for (hit = low_hit; hit < high_hit; hit++) {
-	      currlink = &(links[querypos][hit]);
-	      if ((position = mappings[querypos][hit]) >= prevposition + indexsize_nt) {
-		currlink->fwd_consecutive = indexsize_nt;
-		/* currlink->fwd_rootnlinks = 1; */
-		currlink->fwd_pos = grand_fwd_querypos;
-		currlink->fwd_hit = grand_fwd_hit;
-		currlink->fwd_score = best_fwd_score;
+	  for (hit = low_hit; hit < high_hit; hit++) {
+	    currlink = &(links[querypos][hit]);
+	    if ((position = mappings[querypos][hit]) >= prevposition + indexsize_nt) {
+	      currlink->fwd_consecutive = indexsize_nt;
+	      /* currlink->fwd_rootnlinks = 1; */
+	      currlink->fwd_pos = grand_fwd_querypos;
+	      currlink->fwd_hit = grand_fwd_hit;
+	      currlink->fwd_score = best_fwd_score;
 #ifdef DEBUG9
-		currlink->fwd_tracei = ++fwd_tracei;
-		currlink->fwd_intronnfwd = prevlink->fwd_intronnfwd;
-		currlink->fwd_intronnrev = prevlink->fwd_intronnrev;
-		currlink->fwd_intronnunk = prevlink->fwd_intronnunk + 1;
+	      currlink->fwd_tracei = ++fwd_tracei;
+	      currlink->fwd_intronnfwd = prevlink->fwd_intronnfwd;
+	      currlink->fwd_intronnrev = prevlink->fwd_intronnrev;
+	      currlink->fwd_intronnunk = prevlink->fwd_intronnunk + 1;
 #endif
-	      }
 	    }
-	    debug12(printf("At querypos %d, setting all fwd hits to point back to grand_fwd %d,%d with a score of %d\n",
-			 querypos,grand_fwd_querypos,grand_fwd_hit,prevlink->fwd_score));
 	  }
+	  debug10(printf("At querypos %d, setting all fwd hits to point back to grand_fwd %d,%d with a score of %d\n",
+			 querypos,grand_fwd_querypos,grand_fwd_hit,prevlink->fwd_score));
 	}
       }
 
@@ -2783,8 +2769,8 @@ align_compute_scores_lookback (int *ncells, struct Link_T **links, Chrpos_T **ma
 	grand_fwd_score = best_fwd_score;
 	grand_fwd_querypos = querypos;
 	grand_fwd_hit = best_fwd_hit;
-	debug12(termlink = &(links[querypos][best_fwd_hit]));
-	debug12(printf("At querypos %d, revising grand fwd to be hit %d with score of %d (pointing back to %d,%d)\n",
+	debug10(termlink = &(links[querypos][best_fwd_hit]));
+	debug10(printf("At querypos %d, revising grand fwd to be hit %d with score of %d (pointing back to %d,%d)\n",
 		       querypos,best_fwd_hit,best_fwd_score,termlink->fwd_pos,termlink->fwd_hit));
       }
 
@@ -2801,29 +2787,24 @@ align_compute_scores_lookback (int *ncells, struct Link_T **links, Chrpos_T **ma
 	  prevlink = &(links[grand_rev_querypos][grand_rev_hit]);
 	  if ((best_rev_score = prevlink->rev_score - (querypos - grand_rev_querypos)) > 0) {
 	    prevposition = mappings[grand_rev_querypos][grand_rev_hit];
-	    debug12(printf("Considering prevposition %u to position %u as a grand rev lookback\n",prevposition,position));
-	    if (position > prevposition + maxintronlen) {
-	      debug12(printf("  => Too long\n"));
-	    } else {
-	      for (hit = low_hit; hit < high_hit; hit++) {
-		currlink = &(links[querypos][hit]);
-		if ((position = mappings[querypos][hit]) >= prevposition + indexsize_nt) {
-		  currlink->rev_consecutive = indexsize_nt;
-		  /* currlink->rev_rootnlinks = 1; */
-		  currlink->rev_pos = grand_rev_querypos;
-		  currlink->rev_hit = grand_rev_hit;
-		  currlink->rev_score = best_rev_score;
+	    for (hit = low_hit; hit < high_hit; hit++) {
+	      currlink = &(links[querypos][hit]);
+	      if ((position = mappings[querypos][hit]) >= prevposition + indexsize_nt) {
+		currlink->rev_consecutive = indexsize_nt;
+		/* currlink->rev_rootnlinks = 1; */
+		currlink->rev_pos = grand_rev_querypos;
+		currlink->rev_hit = grand_rev_hit;
+		currlink->rev_score = best_rev_score;
 #ifdef DEBUG9
-		  currlink->rev_tracei = ++rev_tracei;
-		  currlink->rev_intronnrev = prevlink->rev_intronnfwd;
-		  currlink->rev_intronnrev = prevlink->rev_intronnrev;
-		  currlink->rev_intronnunk = prevlink->rev_intronnunk + 1;
+		currlink->rev_tracei = ++rev_tracei;
+		currlink->rev_intronnrev = prevlink->rev_intronnfwd;
+		currlink->rev_intronnrev = prevlink->rev_intronnrev;
+		currlink->rev_intronnunk = prevlink->rev_intronnunk + 1;
 #endif
-		}
 	      }
-	      debug12(printf("At querypos %d, setting all rev hits to point back to grand_rev %d,%d with a score of %d\n",
-			     querypos,grand_rev_querypos,grand_rev_hit,prevlink->rev_score));
 	    }
+	    debug10(printf("At querypos %d, setting all rev hits to point back to grand_rev %d,%d with a score of %d\n",
+			   querypos,grand_rev_querypos,grand_rev_hit,prevlink->rev_score));
 	  }
 	}
 
@@ -2863,18 +2844,18 @@ align_compute_scores_lookback (int *ncells, struct Link_T **links, Chrpos_T **ma
 
 
   /* Grand winners */
-  debug12(printf("Finding grand winners, using root position method\n"));
+  debug10(printf("Finding grand winners, using root position method\n"));
 #ifdef SEPARATE_FWD_REV
   if (splicingp == false || use_canonical_p == false) {
     cells = Linkmatrix_get_cells_fwd(&(*ncells),links,querystart,queryend,npositions,
-				     indexsize,best_overall_score,favor_right_p,cellpool);
+				     indexsize,best_overall_score,favor_right_p);
   } else {
     cells = Linkmatrix_get_cells_both(&(*ncells),links,querystart,queryend,npositions,
-				      indexsize,best_overall_score,favor_right_p,cellpool);
+				      indexsize,best_overall_score,favor_right_p);
   }
 #else
   cells = Linkmatrix_get_cells_fwd(&(*ncells),links,querystart,queryend,npositions,
-				   indexsize,best_overall_score,favor_right_p,cellpool);
+				   indexsize,best_overall_score,favor_right_p);
 #endif
 
   debug9(FREE(oligo));
@@ -3083,7 +3064,7 @@ traceback_one_snps (int querypos, int hit, struct Link_T **links, Chrpos_T **map
 /* Performs dynamic programming.  For PMAP, indexsize is in aa. */
 static List_T
 align_compute_lookback (Chrpos_T **mappings, int *npositions, int totalpositions,
-			bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive, Cellpool_T cellpool,
+			bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive,
 			char *queryseq_ptr, char *queryuc_ptr, int querylength, int querystart, int queryend,
 			Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp,
 			int indexsize, int sufflookback, int nsufflookback, int maxintronlen, Pairpool_T pairpool,
@@ -3113,7 +3094,7 @@ align_compute_lookback (Chrpos_T **mappings, int *npositions, int totalpositions
   }
   
   cells = align_compute_scores_lookback(&ncells,links,mappings,npositions,totalpositions,
-					oned_matrix_p,minactive,maxactive,cellpool,
+					oned_matrix_p,minactive,maxactive,
 					querystart,queryend,querylength,
 			       
 					chroffset,chrhigh,plusp,
@@ -3181,13 +3162,10 @@ align_compute_lookback (Chrpos_T **mappings, int *npositions, int totalpositions
     }
     debug11(printf("\n"));
 
-#if 0
-    /* No need with cellpool */
     for (i = 0; i < ncells; i++) {
       cell = cells[i];
       Cell_free(&cell);
     }
-#endif
     FREE(cells);
   }
 
@@ -3214,9 +3192,11 @@ align_compute_lookback (Chrpos_T **mappings, int *npositions, int totalpositions
 /* For PMAP, indexsize is in aa. */
 static Cell_T *
 align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T **mappings, int *npositions, int totalpositions,
-				  bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive, Cellpool_T cellpool,
+				  bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive,
 				  int querystart, int queryend, int querylength,
+
 				  Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp,
+
 				  int indexsize, int sufflookback, int nsufflookback, int maxintronlen,
 #ifdef DEBUG9
 				  char *queryseq_ptr,
@@ -3456,29 +3436,24 @@ align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T *
 	prevlink = &(links[grand_fwd_querypos][grand_fwd_hit]);
 	if ((best_fwd_score = prevlink->fwd_score - (grand_fwd_querypos - querypos)) > 0) {
 	  prevposition = mappings[grand_fwd_querypos][grand_fwd_hit];
-	  debug12(printf("Considering prevposition %u to position %u as a grand fwd lookback\n",prevposition,position));
-	  if (position > prevposition + maxintronlen) {
-	    debug12(printf("  => Too long\n"));
-	  } else {
-	    for (hit = high_hit - 1; hit >= low_hit; --hit) {
-	      currlink = &(links[querypos][hit]);
-	      if ((position = mappings[querypos][hit]) + indexsize_nt <= prevposition) {
-		currlink->fwd_consecutive = indexsize_nt;
-		/* currlink->fwd_rootnlinks = 1; */
-		currlink->fwd_pos = grand_fwd_querypos;
-		currlink->fwd_hit = grand_fwd_hit;
-		currlink->fwd_score = best_fwd_score;
+	  for (hit = high_hit - 1; hit >= low_hit; --hit) {
+	    currlink = &(links[querypos][hit]);
+	    if ((position = mappings[querypos][hit]) + indexsize_nt <= prevposition) {
+	      currlink->fwd_consecutive = indexsize_nt;
+	      /* currlink->fwd_rootnlinks = 1; */
+	      currlink->fwd_pos = grand_fwd_querypos;
+	      currlink->fwd_hit = grand_fwd_hit;
+	      currlink->fwd_score = best_fwd_score;
 #ifdef DEBUG9
-		currlink->fwd_tracei = ++fwd_tracei;
-		currlink->fwd_intronnfwd = prevlink->fwd_intronnfwd;
-		currlink->fwd_intronnrev = prevlink->fwd_intronnrev;
-		currlink->fwd_intronnunk = prevlink->fwd_intronnunk + 1;
+	      currlink->fwd_tracei = ++fwd_tracei;
+	      currlink->fwd_intronnfwd = prevlink->fwd_intronnfwd;
+	      currlink->fwd_intronnrev = prevlink->fwd_intronnrev;
+	      currlink->fwd_intronnunk = prevlink->fwd_intronnunk + 1;
 #endif
-	      }
 	    }
-	    debug12(printf("At querypos %d, setting all fwd hits to point back to grand_fwd %d,%d with a score of %d\n",
-			   querypos,grand_fwd_querypos,grand_fwd_hit,prevlink->fwd_score));
 	  }
+	  debug10(printf("At querypos %d, setting all fwd hits to point back to grand_fwd %d,%d with a score of %d\n",
+		       querypos,grand_fwd_querypos,grand_fwd_hit,prevlink->fwd_score));
 	}
       }
 
@@ -3488,8 +3463,8 @@ align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T *
 	grand_fwd_score = best_fwd_score;
 	grand_fwd_querypos = querypos;
 	grand_fwd_hit = best_fwd_hit;
-	debug12(termlink = &(links[querypos][best_fwd_hit]));
-	debug12(printf("At querypos %d, revising grand fwd to be hit %d with score of %d (pointing back to %d,%d)\n",
+	debug10(termlink = &(links[querypos][best_fwd_hit]));
+	debug10(printf("At querypos %d, revising grand fwd to be hit %d with score of %d (pointing back to %d,%d)\n",
 		     querypos,best_fwd_hit,best_fwd_score,termlink->fwd_pos,termlink->fwd_hit));
       }
 
@@ -3506,29 +3481,24 @@ align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T *
 	  prevlink = &(links[grand_rev_querypos][grand_rev_hit]);
 	  if ((best_rev_score = prevlink->rev_score - (grand_rev_querypos - querypos)) > 0) {
 	    prevposition = mappings[grand_rev_querypos][grand_rev_hit];
-	    debug12(printf("Considering prevposition %u to position %u as a grand rev lookback\n",prevposition,position));
-	    if (position > prevposition + maxintronlen) {
-	      debug12(printf("  => Too long\n"));
-	    } else {
-	      for (hit = high_hit - 1; hit >= low_hit; --hit) {
-		currlink = &(links[querypos][hit]);
-		if ((position = mappings[querypos][hit]) + indexsize_nt <= prevposition) {
-		  currlink->rev_consecutive = indexsize_nt;
-		  /* currlink->rev_rootnlinks = 1; */
-		  currlink->rev_pos = grand_rev_querypos;
-		  currlink->rev_hit = grand_rev_hit;
-		  currlink->rev_score = best_rev_score;
+	    for (hit = high_hit - 1; hit >= low_hit; --hit) {
+	      currlink = &(links[querypos][hit]);
+	      if ((position = mappings[querypos][hit]) + indexsize_nt <= prevposition) {
+		currlink->rev_consecutive = indexsize_nt;
+		/* currlink->rev_rootnlinks = 1; */
+		currlink->rev_pos = grand_rev_querypos;
+		currlink->rev_hit = grand_rev_hit;
+		currlink->rev_score = best_rev_score;
 #ifdef DEBUG9
-		  currlink->rev_tracei = ++rev_tracei;
-		  currlink->rev_intronnrev = prevlink->rev_intronnfwd;
-		  currlink->rev_intronnrev = prevlink->rev_intronnrev;
-		  currlink->rev_intronnunk = prevlink->rev_intronnunk + 1;
+		currlink->rev_tracei = ++rev_tracei;
+		currlink->rev_intronnrev = prevlink->rev_intronnfwd;
+		currlink->rev_intronnrev = prevlink->rev_intronnrev;
+		currlink->rev_intronnunk = prevlink->rev_intronnunk + 1;
 #endif
-		}
 	      }
-	      debug12(printf("At querypos %d, setting all rev hits to point back to grand_rev %d,%d with a score of %d\n",
-			     querypos,grand_rev_querypos,grand_rev_hit,prevlink->rev_score));
 	    }
+	    debug10(printf("At querypos %d, setting all rev hits to point back to grand_rev %d,%d with a score of %d\n",
+			  querypos,grand_rev_querypos,grand_rev_hit,prevlink->rev_score));
 	  }
 	}
 
@@ -3568,18 +3538,18 @@ align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T *
 
 
   /* Grand winners */
-  debug12(printf("Finding grand winners, using root position method\n"));
+  debug10(printf("Finding grand winners, using root position method\n"));
 #ifdef SEPARATE_FWD_REV
   if (splicingp == false || use_canonical_p == false) {
     cells = Linkmatrix_get_cells_fwd(&(*ncells),links,querystart,queryend,npositions,
-				     indexsize,best_overall_score,favor_right_p,cellpool);
+				     indexsize,best_overall_score,favor_right_p);
   } else {
     cells = Linkmatrix_get_cells_both(&(*ncells),links,querystart,queryend,npositions,
-				      indexsize,best_overall_score,favor_right_p,cellpool);
+				      indexsize,best_overall_score,favor_right_p);
   }
 #else
   cells = Linkmatrix_get_cells_fwd(&(*ncells),links,querystart,queryend,npositions,
-				   indexsize,best_overall_score,favor_right_p,cellpool);
+				   indexsize,best_overall_score,favor_right_p);
 #endif
 
   debug9(FREE(oligo));
@@ -3591,7 +3561,7 @@ align_compute_scores_lookforward (int *ncells, struct Link_T **links, Chrpos_T *
 /* Performs dynamic programming.  For PMAP, indexsize is in aa. */
 static List_T
 align_compute_lookforward (Chrpos_T **mappings, int *npositions, int totalpositions,
-			   bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive, Cellpool_T cellpool,
+			   bool oned_matrix_p, Chrpos_T *minactive, Chrpos_T *maxactive,
 			   char *queryseq_ptr, char *queryuc_ptr, int querylength, int querystart, int queryend,
 
 			   Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp,
@@ -3621,7 +3591,7 @@ align_compute_lookforward (Chrpos_T **mappings, int *npositions, int totalpositi
   }
   
   cells = align_compute_scores_lookforward(&ncells,links,mappings,npositions,totalpositions,
-					   oned_matrix_p,minactive,maxactive,cellpool,
+					   oned_matrix_p,minactive,maxactive,
 					   querystart,queryend,querylength,
 					   
 					   chroffset,chrhigh,plusp,
@@ -3689,13 +3659,10 @@ align_compute_lookforward (Chrpos_T **mappings, int *npositions, int totalpositi
     }
     debug11(printf("\n"));
 
-#if 0
-    /* No need with cellpool */
     for (i = 0; i < ncells; i++) {
       cell = cells[i];
       Cell_free(&cell);
     }
-#endif
     FREE(cells);
   }
 
@@ -4307,7 +4274,7 @@ Stage2_scan (int *stage2_source, char *queryuc_ptr, int querylength,
 #endif
 	     Chrpos_T chrstart, Chrpos_T chrend,
 	     Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp,
-	     int genestrand, Oligoindex_array_T oligoindices,
+	     int genestrand, Oligoindex_T *oligoindices, int noligoindices,
 	     Diagpool_T diagpool, bool debug_graphic_p, bool diagnosticp) {
   int ncovered;
   int source;
@@ -4344,8 +4311,8 @@ Stage2_scan (int *stage2_source, char *queryuc_ptr, int querylength,
   pct_coverage = 0.0;
   Diagpool_reset(diagpool);
   diagonals = (List_T) NULL;
-  while (source < Oligoindex_array_length(oligoindices) && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  while (source < noligoindices && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
+    oligoindex = oligoindices[source];
     indexsize = Oligoindex_indexsize(oligoindex); /* Different sources can have different indexsizes */
 #ifdef PMAP
     Oligoindex_tally(oligoindex,genomicuc_ptr,/*genomiclength*/chrend-chrstart,queryuc_ptr,querylength,
@@ -4378,7 +4345,7 @@ Stage2_scan (int *stage2_source, char *queryuc_ptr, int querylength,
 #endif
 
     diagonals = Oligoindex_get_mappings(diagonals,coveredp,mappings,npositions,&totalpositions,
-					&oned_matrix_p,&maxnconsecutive,oligoindices,oligoindex,queryuc_ptr,
+					&oned_matrix_p,&maxnconsecutive,oligoindex,queryuc_ptr,
 					querylength,chrstart,chrend,chroffset,chrhigh,plusp,diagpool);
     pct_coverage = Diag_update_coverage(coveredp,&ncovered,diagonals,querylength);
     debug(printf("Stage2_scan: source = %d, ncovered = %d, pct_coverage = %f\n",source,ncovered,pct_coverage));
@@ -4402,8 +4369,8 @@ Stage2_scan (int *stage2_source, char *queryuc_ptr, int querylength,
   FREE(mappings);		/* Don't need to free contents of mappings */
 
 #if 1
-  for (source = 0; source < Oligoindex_array_length(oligoindices); source++) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  for (source = 0; source < noligoindices; source++) {
+    oligoindex = oligoindices[source];
     Oligoindex_untally(oligoindex,queryuc_ptr,querylength);
   }
 #endif
@@ -4420,9 +4387,9 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
 #endif
 		Chrpos_T chrstart, Chrpos_T chrend,
 		Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp, int genestrand,
-		Oligoindex_array_T oligoindices, double proceed_pctcoverage,
-		Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
-		int sufflookback, int nsufflookback, int maxintronlen, bool localp, bool skip_repetitive_p,
+		Oligoindex_T *oligoindices, int noligoindices, double proceed_pctcoverage,
+		Pairpool_T pairpool, Diagpool_T diagpool, int sufflookback, int nsufflookback,
+		int maxintronlen, bool localp, bool skip_repetitive_p,
 		bool favor_right_p, int max_nalignments, bool debug_graphic_p, bool diagnosticp,
 		Stopwatch_T stopwatch, bool diag_debug) {
   List_T all_stage2results = NULL, all_paths, all_ends, all_starts, end_paths, start_paths, path, pairs, p, q;
@@ -4480,10 +4447,9 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
 #ifdef USE_DIAGPOOL
   Diagpool_reset(diagpool);
 #endif
-  Cellpool_reset(cellpool);
   diagonals = (List_T) NULL;
-  while (source < Oligoindex_array_length(oligoindices) && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  while (source < noligoindices && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
+    oligoindex = oligoindices[source];
     indexsize = Oligoindex_indexsize(oligoindex); /* Different sources can have different indexsizes */
 
 #ifdef PMAP
@@ -4530,7 +4496,7 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
 #endif
 
     diagonals = Oligoindex_get_mappings(diagonals,coveredp,mappings,npositions,&totalpositions,
-					&oned_matrix_p,&maxnconsecutive,oligoindices,oligoindex,queryuc_ptr,
+					&oned_matrix_p,&maxnconsecutive,oligoindex,queryuc_ptr,
 					querylength,chrstart,chrend,chroffset,chrhigh,plusp,diagpool);
     pct_coverage = Diag_update_coverage(coveredp,&ncovered,diagonals,querylength);
     debug(printf("Stage2_compute: source = %d, ncovered = %d, pct_coverage = %f\n",source,ncovered,pct_coverage));
@@ -4588,7 +4554,7 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
     }
 
     all_paths = align_compute_lookback(mappings,npositions,totalpositions,
-				       oned_matrix_p,minactive,maxactive,cellpool,
+				       oned_matrix_p,minactive,maxactive,
 				       queryseq_ptr,queryuc_ptr,querylength,
 				       /*querystart*/diag_querystart,/*queryend*/diag_queryend,
 				       chroffset,chrhigh,plusp,
@@ -4628,7 +4594,7 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
 
       all_ends = (List_T) NULL;
       end_paths = align_compute_lookback(mappings,npositions,totalpositions,
-					 oned_matrix_p,minactive,maxactive,cellpool,
+					 oned_matrix_p,minactive,maxactive,
 					 queryseq_ptr,queryuc_ptr,querylength,querystart,queryend,
 					 chroffset,chrhigh,plusp,
 					 indexsize,sufflookback,nsufflookback,maxintronlen,pairpool,
@@ -4694,7 +4660,7 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
 
       all_starts = (List_T) NULL;
       start_paths = align_compute_lookforward(mappings,npositions,totalpositions,
-					      oned_matrix_p,minactive,maxactive,cellpool,
+					      oned_matrix_p,minactive,maxactive,
 					      queryseq_ptr,queryuc_ptr,querylength,querystart,queryend,
 					      chroffset,chrhigh,plusp,
 					      indexsize,sufflookback,nsufflookback,maxintronlen,pairpool,
@@ -4765,8 +4731,8 @@ Stage2_compute (int *stage2_source, int *stage2_indexsize,
   FREE(mappings);		/* Don't need to free contents of mappings */
 
 #if 1
-  for (source = 0; source < Oligoindex_array_length(oligoindices); source++) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  for (source = 0; source < noligoindices; source++) {
+    oligoindex = oligoindices[source];
     Oligoindex_untally(oligoindex,queryuc_ptr,querylength);
   }
 #endif
@@ -4802,10 +4768,9 @@ Stage2_compute_one (int *stage2_source, int *stage2_indexsize,
 		    Chrpos_T chrstart, Chrpos_T chrend,
 		    Univcoord_T chroffset, Univcoord_T chrhigh, bool plusp, int genestrand,
 
-		    Oligoindex_array_T oligoindices, double proceed_pctcoverage,
-		    Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
-		    int sufflookback, int nsufflookback,  int maxintronlen, bool localp,
-		    bool skip_repetitive_p, bool use_shifted_canonical_p,
+		    Oligoindex_T *oligoindices, int noligoindices, double proceed_pctcoverage,
+		    Pairpool_T pairpool, Diagpool_T diagpool, int sufflookback, int nsufflookback,
+		    int maxintronlen, bool localp, bool skip_repetitive_p, bool use_shifted_canonical_p,
 		    bool favor_right_p, bool debug_graphic_p, bool diagnosticp) {
   List_T pairs, all_paths;
   List_T middle, path;
@@ -4836,10 +4801,9 @@ Stage2_compute_one (int *stage2_source, int *stage2_indexsize,
 #ifdef USE_DIAGPOOL
   Diagpool_reset(diagpool);
 #endif
-  Cellpool_reset(cellpool);
   diagonals = (List_T) NULL;
-  while (source < Oligoindex_array_length(oligoindices) && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  while (source < noligoindices && pct_coverage < SUFF_PCTCOVERAGE_OLIGOINDEX) {
+    oligoindex = oligoindices[source];
     indexsize = Oligoindex_indexsize(oligoindex); /* Different sources can have different indexsizes */
 
 #ifdef PMAP
@@ -4860,7 +4824,7 @@ Stage2_compute_one (int *stage2_source, int *stage2_indexsize,
 #endif
 
     diagonals = Oligoindex_get_mappings(diagonals,coveredp,mappings,npositions,&totalpositions,
-					&oned_matrix_p,&maxnconsecutive,oligoindices,oligoindex,queryuc_ptr,
+					&oned_matrix_p,&maxnconsecutive,oligoindex,queryuc_ptr,
 					querylength,chrstart,chrend,chroffset,chrhigh,plusp,diagpool);
     pct_coverage = Diag_update_coverage(coveredp,&ncovered,diagonals,querylength);
     debug(printf("Stage2_compute: source = %d, ncovered = %d, pct_coverage = %f\n",source,ncovered,pct_coverage));
@@ -4891,7 +4855,7 @@ Stage2_compute_one (int *stage2_source, int *stage2_indexsize,
     Diag_max_bounds(minactive,maxactive,querylength,chrstart,chrend,chroffset,chrhigh,plusp);
     
     if ((all_paths = align_compute_lookback(mappings,npositions,totalpositions,
-					    oned_matrix_p,minactive,maxactive,cellpool,
+					    oned_matrix_p,minactive,maxactive,
 					    queryseq_ptr,queryuc_ptr,querylength,
 					    /*querystart*/0,/*queryend*/querylength-1,
 					    chroffset,chrhigh,plusp,
@@ -4931,8 +4895,8 @@ Stage2_compute_one (int *stage2_source, int *stage2_indexsize,
   FREE(mappings);		/* Don't need to free contents of mappings */
 
 #if 1
-  for (source = 0; source < Oligoindex_array_length(oligoindices); source++) {
-    oligoindex = Oligoindex_array_elt(oligoindices,source);
+  for (source = 0; source < noligoindices; source++) {
+    oligoindex = oligoindices[source];
     Oligoindex_untally(oligoindex,queryuc_ptr,querylength);
   }
 #endif

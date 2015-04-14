@@ -38,7 +38,7 @@ updateGMAPSrc <- function() {
 }
 updateGSTRUCTSrc <- function() {
   #gstructSVNProj <- "http://resscm/bioinfo/projects/gstruct/releases/internal-2014-04-09"
-    gstructSVNProj <- "http://resscm/bioinfo/projects/gstruct/trunk"
+    gstructSVNProj <- "http://resscm/bioinfo/projects/gstruct/branches/2014-07-10-amino-acid-tally"
   extractDirGstruct <- file.path(getwd(), "src/gstruct")
   .bootstrapAndExtract(projectSVNURL=gstructSVNProj,
                        extractDir=extractDirGstruct,
