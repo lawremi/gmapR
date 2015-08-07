@@ -155,7 +155,7 @@ setMethod("as.list", "BamTallyParam", function(x) as(x, "list"))
 ###
 
 showSlot <- function(name, value, ...) {
-  BiocGenerics:::labeledLine(name, showAsCell(value), ...)
+  S4Vectors:::labeledLine(name, showAsCell(value), ...)
 }
 
 showSlots <- function(object, exclude = character(), ...) {
