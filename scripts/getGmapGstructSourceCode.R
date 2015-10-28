@@ -11,20 +11,19 @@
 # through svn).
 ##########################################################
 
-fixMakefile = function() {
+enableMaintainerMode = function() {
     mkfile = file.path("src/Makefile")
     txt = readLines(mkfile)
     txt2 = gsub("(--disable-maintainer-mode.*)", "\\\\ # \\1;", txt)
     writeLines(txt2, con = mkfile)
 }
 
-unfixMakefile = function() {
+disableMaintainerMode = function() {
     mkfile = file.path("src/Makefile")
     txt = readLines(mkfile)
     txt2 = gsub("\\\\ # (.*);", "\\1", txt)
     writeLines(txt2, con = mkfile)
 }
-    
 
 updateGMAPSrc <- function() {
 
@@ -60,13 +59,14 @@ updateGSTRUCTSrc <- function() {
   if (file.exists(extractDir)) {
     unlink(extractDir, recursive=TRUE)
   }
-  dir.create(extractDir)
+  dir.create(extractDir, recursive=TRUE)
   
   svnCheckoutDir <- .getSVNProj(projectSVNURL, extractDir)
   on.exit(unlink(svnCheckoutDir, recursive=TRUE), add=TRUE)
   setwd(svnCheckoutDir)
-  .bootstrapSVNCheckout(bootstrap.script)  
-  .configureSrc(program)
+  .bootstrapSVNCheckout(bootstrap.script)
+  samtoolsPath <- file.path(startingDir, "src", "samtools")
+  .configureSrc(program, samtoolsPath)
   .makeDist()
   .extractDistTarballIntoSrcDirectory(extractDir)
   invisible(TRUE)
@@ -107,12 +107,17 @@ updateGSTRUCTSrc <- function() {
   }
 }
 
-.configureSrc <- function(program) {
+.configureSrc <- function(program, samtoolsPath = NULL) {
   ##--with-gmapdb=${GMAPDB} --prefix=${PREFIX}
   ##configure. Set
   ##run a "make dist" to build a tarball
   command <- "./configure --disable-fulldist"
-  ##if (program == "gstruct") command <- paste(command, "--disable-binaries")
+  if (!is.null(samtoolsPath)) {
+      command <- paste0(command, " --with-samtools-lib=", samtoolsPath)
+  }
+  if (program == "gstruct") {
+      command <- paste(command, "--disable-binaries")
+  }
   if (!system(command) == 0) {
     stop("unable to configure")
   }
@@ -127,10 +132,7 @@ updateGSTRUCTSrc <- function() {
 }
 
 .makeDist <- function() {
-  ##run a "make dist" to build a tarball
-  if (!system("make distcheck") == 0) {
-    stop("unable to 'make dist'")
-  }  
+    system("make && make dist") ## possibly more robust than direct "make dist"
 }
 
 .extractDistTarballIntoSrcDirectory <- function(extractDir) {
