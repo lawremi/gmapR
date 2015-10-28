@@ -1,5 +1,4 @@
-#define DEBUG2 1
-static char rcsid[] = "$Id: bamtally.c 161991 2015-03-25 23:24:46Z twu $";
+static char rcsid[] = "$Id: bamtally.c 172388 2015-08-21 20:10:50Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1584,7 +1583,7 @@ static Ucharlist_T
 push_string (int *nbytes, Ucharlist_T list, char *string) {
   int length, i;
 
-  debug2(printf("%d: Pushing char %s\n",*nbytes,string));
+  debug2(printf("%d: Pushing string %s\n",*nbytes,string));
   length = strlen(string);
   for (i = 0; i < length; i++) {
     list = Ucharlist_push(list,string[i]);
@@ -2287,7 +2286,7 @@ process_codons_plus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T tal
 
 	    Codon_free(&(array[i]));
 	  }
-
+	  
 	  FREE(array);
 	  List_free(&alt_codons);
 	}
@@ -2330,10 +2329,10 @@ process_codons_plus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T tal
 	    }
 	    Codon_free(&(array[i]));
 	  }
-	}
 
-	FREE(array);
-	List_free(&alt_codons);
+	  FREE(array);
+	  List_free(&alt_codons);
+	}
       }
     }
   }
@@ -2577,10 +2576,10 @@ process_codons_minus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T ta
 	    }
 	    Codon_free(&(array[i]));
 	  }
-	}
 
-	FREE(array);
-	List_free(&alt_codons);
+	  FREE(array);
+	  List_free(&alt_codons);
+	}
       }
     }
   }
@@ -4366,10 +4365,13 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	for (i = 0; i < ndeletions; i++) {
 	  del0 = del_array_byshift[i];
 	  /* Counts and segment for deletion i */
+	  debug2(printf("plus and minus counts for deletion\n"));
 	  bytes = push_int(&nbytes,bytes,del0->count_plus);
 	  bytes = push_int(&nbytes,bytes,del0->count_minus);
+	  debug2(printf("plus and minus counts for reference\n"));
 	  bytes = push_int(&nbytes,bytes,this->n_fromleft_plus); /* ref count */
 	  bytes = push_int(&nbytes,bytes,this->n_fromleft_minus); /* ref count */
+	  debug2(printf("Deletion string:\n"));
 	  bytes = push_string(&nbytes,bytes,del0->segment);
 
 	  /* Cycles for deletion i */
@@ -5766,11 +5768,10 @@ best_mapping_p (Tableuint_T resolve_low_table, Tableuint_T resolve_high_table, c
 
 
 static void
-get_passing_counts (__m128i *counts, int readlength, Bamline_T *bamlines, int nreps, int minimum_quality_score) {
+get_passing_counts (__m128i *counts, int ncounts, int readlength, Bamline_T *bamlines, int nreps, int minimum_quality_score) {
   int i, r, b;
   char *quality_string, buffer[16];
   int x;
-
 
   __m128i block, cmp16, cmp8, threshold, ones;
   __m128i foo;
@@ -5792,23 +5793,35 @@ get_passing_counts (__m128i *counts, int readlength, Bamline_T *bamlines, int nr
       counts[b] = _mm_set1_epi16(0);
     }
   }
+  if (b > ncounts) {
+    fprintf(stderr,"Allocated only %d vectors, but need %d\n",ncounts,b);
+    abort();
+  }
 
   for (i = 0; i < nreps; i++) {
     quality_string = Bamline_quality_string(bamlines[0]);
     /* printf("quality string: %s\n",quality_string); */
     b = 0; r = 0;
     while (r + 16 < readlength) {
-      block = _mm_loadu_si128((__m128i *) &(quality_string[r]));
+      block = _mm_loadu_si128((__m128i *) &(quality_string[r])); /* Put 16 bytes of quality string into block */
+
+      /* Count bytes where (threshold > quality).  "true": 0xFF => 0.
+	 "false": 0x00 => 1.  Equivalently, cmp8 contains a 1 whenever
+	 quality >= threshold. */
       cmp8 = _mm_add_epi8(_mm_cmpgt_epi8(threshold,block),ones);
+
+      /* Tally the lower 8 bytes */
       cmp16 = _mm_cvtepi8_epi16(cmp8);
       counts[b] = _mm_add_epi16(counts[b],cmp16); b++;
 
+      /* Tally the upper 8 bytes */
       cmp16 = _mm_cvtepi8_epi16(_mm_srli_si128(cmp8,8));
       counts[b] = _mm_add_epi16(counts[b],cmp16); b++;
 
       r += 16;
     }
     if (r < readlength) {
+      /* Handle the last 8 bytes */
       strncpy(buffer,&(quality_string[r]),readlength-r);
       block = _mm_loadu_si128((__m128i *) buffer);
       cmp8 = _mm_add_epi8(_mm_cmpgt_epi8(threshold,block),ones);
@@ -5898,7 +5911,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   unsigned int linei = 0, linei_start, linei_end;
   int nlines;
   int nreps;
-  __m128i counts[50], foo;
+  __m128i *counts, foo;
+  int ncounts;
   int i;
 
 
@@ -6013,13 +6027,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
 			max_softclip,linei+linei_start,/*counts*/NULL,nreps);
 	  } else {
-	    get_passing_counts(counts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
+	    ncounts = (readlength + 7)/8;
+	    counts = (__m128i *) _mm_malloc(ncounts * sizeof(__m128i),16);
+	    get_passing_counts(counts,ncounts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
 	    revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline_rep),
 			Bamline_cigar_types(bamline_rep),Bamline_cigar_npositions(bamline_rep),
 			Bamline_cigar_querylength(bamline_rep),rsequence,Bamline_nm(bamline_rep),
 			Bamline_splice_strand(bamline_rep),Bamline_terminalp(bamline_rep),alloc_low,
 			genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
 			max_softclip,linei+linei_start,counts,nreps);
+	    _mm_free(counts);
 	  }
 	  goodp = true;
 	}
@@ -6167,7 +6184,9 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			max_softclip,linei + linei_start,/*counts*/NULL,nreps);
 	  } else {
 	    readlength = Bamline_readlength(bamline_rep);
-	    get_passing_counts(counts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
+	    ncounts = (readlength + 7)/8;
+	    counts = (__m128i *) _mm_malloc(ncounts * sizeof(__m128i),16);
+	    get_passing_counts(counts,ncounts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
 	    revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline_rep),
 			Bamline_cigar_types(bamline_rep),Bamline_cigar_npositions(bamline_rep),
 			Bamline_cigar_querylength(bamline_rep),Bamline_read(bamline_rep),

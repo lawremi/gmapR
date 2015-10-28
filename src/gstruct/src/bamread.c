@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 160725 2015-03-11 16:45:17Z twu $";
+static char rcsid[] = "$Id: bamread.c 163197 2015-04-13 21:57:42Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1891,10 +1891,16 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
 
   if (copy_aux_contents_p == true) {
     new->aux_length = aux_end - aux_start;
-    new->aux_contents = (uint8_t *) MALLOC(new->aux_length * sizeof(unsigned char));
-    memcpy(new->aux_contents,aux_start,new->aux_length);
-    new->aux_start = (unsigned char *) new->aux_contents;
-    new->aux_end = new->aux_start + new->aux_length;
+    if (new->aux_length == 0) {
+      new->aux_contents = (uint8_t *) NULL;
+      new->aux_start = (uint8_t *) NULL;
+      new->aux_end = (uint8_t *) NULL;
+    } else {
+      new->aux_contents = (uint8_t *) MALLOC(new->aux_length * sizeof(unsigned char));
+      memcpy(new->aux_contents,aux_start,new->aux_length);
+      new->aux_start = (unsigned char *) new->aux_contents;
+      new->aux_end = new->aux_start + new->aux_length;
+    }
   } else {
     /* Point to bam->data */
     new->aux_contents = (uint8_t *) NULL;
