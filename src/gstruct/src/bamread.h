@@ -1,4 +1,4 @@
-/* $Id: bamread.h 141010 2014-07-09 16:34:11Z twu $ */
+/* $Id: bamread.h 160725 2015-03-11 16:45:17Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -43,8 +43,8 @@ extern int
 Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genomicpos_T *chrpos,
 		   char **mate_chr, Genomicpos_T *mate_chrpos,
 		   Intlist_T *cigartypes, Uintlist_T *cigarlengths, int *cigarlength,
-		   int *readlength, char **read, char **quality_string, char **read_group,
-		   bool *terminalp);
+		   int *readlength, char **read, char **quality_string, char **hardclip, char **hardclip_quality,
+		   char **read_group, bool *terminalp);
 
 typedef struct Bamline_T *Bamline_T;
 
@@ -85,7 +85,7 @@ Bamline_cigar_types (Bamline_T this);
 extern Uintlist_T
 Bamline_cigar_npositions (Bamline_T this);
 extern Intlist_T
-Bamline_diffcigar (Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this);
+Bamline_diffcigar (int *min_overhang, Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this);
 extern int
 Bamline_cigar_querylength (Bamline_T this);
 extern void
@@ -98,6 +98,10 @@ extern char *
 Bamline_read (Bamline_T this);
 extern char *
 Bamline_quality_string (Bamline_T this);
+extern char *
+Bamline_hardclip (Bamline_T this);
+extern char *
+Bamline_hardclip_quality (Bamline_T this);
 extern bool
 Bamline_terminalp (Bamline_T this);
 extern char *
@@ -111,6 +115,8 @@ extern void
 Bamline_print_new_mate (FILE *fp, Bamline_T this, char *mate_chr, Genomicpos_T mate_chrpos_low,
 			int insert_length);
 
+extern int
+Bamline_nm (Bamline_T this);
 extern char
 Bamline_splice_strand (Bamline_T this);
 
@@ -143,6 +149,12 @@ Bamread_next_bamline_set (int *nlines, Bamline_T *prev_bamline,
 			  bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 			  bool need_concordant_p);
 
+extern Bamline_T **
+Bamread_block (int **nlines, Genomicpos_T chrstart, Genomicpos_T chrend,
+	       T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+	       bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+	       bool need_concordant_p);
+
 extern Bamline_T
 Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *desired_acc);
 
@@ -169,6 +181,8 @@ Bamstore_table_free (Uinttable_T *bamstore_table);
 
 typedef struct Bampair_T *Bampair_T;
 
+extern char *
+Bampair_acc (Bampair_T this);
 extern Bamline_T
 Bampair_bamline_low (Bampair_T this);
 extern Bamline_T

@@ -1,4 +1,4 @@
-/* $Id: stage3.h 110292 2013-10-07 23:11:30Z twu $ */
+/* $Id: stage3.h 135441 2014-05-07 22:15:13Z twu $ */
 #ifndef STAGE3_INCLUDED
 #define STAGE3_INCLUDED
 
@@ -15,6 +15,8 @@ typedef struct Stage3_T *Stage3_T;
 #include "stage2.h"
 #include "pairdef.h"
 #include "pairpool.h"
+#include "diagpool.h"
+#include "cellpool.h"
 #include "splicetrie.h"
 #include "splicetrie_build.h"	/* For Splicetype_T */
 #include "dynprog.h"
@@ -23,6 +25,7 @@ typedef struct Stage3_T *Stage3_T;
 #include "reader.h"		/* For cDNAEnd_T */
 #include "chimera.h"
 #include "stopwatch.h"
+#include "oligoindex_hr.h"
 
 #ifndef GSNAP
 #include "gregion.h"
@@ -292,7 +295,7 @@ Stage3_compute (List_T *pairs, int *npairs, int *cdna_direction, int *sensedir, 
 		Pairpool_T pairpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		int ngap, bool diagnosticp, bool checkp,
 		bool do_final_p, int sense_try, int sense_filter,
-		Oligoindex_T *oligoindices_minor, int noligoindices_minor, Diagpool_T diagpool,
+		Oligoindex_array_T oligoindices_minor, Diagpool_T diagpool, Cellpool_T cellpool,
 		int sufflookback, int nsufflookback, int maxintronlen, int close_indels_mode,
 		int paired_favor_mode, int zero_offset);
 
@@ -350,7 +353,7 @@ Stage3_merge_local (T this_left, T this_right,
 		    Pairpool_T pairpool, Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		    Genome_T genome, Genome_T genomealt,
 		    int maxpeelback, int maxpeelback_distalmedial, int nullgap,
-		    Oligoindex_T *oligoindices_minor, int noligoindices_minor, Diagpool_T diagpool,
+		    Oligoindex_array_T oligoindices_minor, Diagpool_T diagpool, Cellpool_T cellpool,
 		    int sufflookback, int nsufflookback, int maxintronlen_bound,
 		    int extramaterial_paired, int extramaterial_end,
 		    int extraband_paired, int extraband_single, int extraband_end, int ngap,

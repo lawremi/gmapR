@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: gsnap.c 124823 2014-01-28 20:18:20Z twu $";
+static char rcsid[] = "$Id: gsnap.c 148558 2014-09-22 21:55:09Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -56,9 +56,13 @@ static char rcsid[] = "$Id: gsnap.c 124823 2014-01-28 20:18:20Z twu $";
 #include "stage3hr.h"
 #include "goby.h"
 #include "spanningelt.h"
+#include "splicestringpool.h"
 #include "splicetrie_build.h"
 #include "oligo.h"		/* For Oligo_setup */
 #include "oligoindex_hr.h"	/* For Oligoindex_hr_setup */
+#include "pairpool.h"
+#include "diagpool.h"
+#include "cellpool.h"
 #include "stage2.h"		/* For Stage2_setup */
 #include "sarray-read.h"
 #include "indel.h"		/* For Indel_setup */
@@ -81,6 +85,9 @@ static char rcsid[] = "$Id: gsnap.c 124823 2014-01-28 20:18:20Z twu $";
 
 
 #define MIN_INDEXDB_SIZE_THRESHOLD 100
+
+#define MAX_QUERYLENGTH_FOR_ALLOC    100000
+#define MAX_GENOMICLENGTH_FOR_ALLOC 1000000
 
 
 #ifdef DEBUG
@@ -132,6 +139,7 @@ static Genome_T genomebits = NULL;
 static Genome_T genomebits_alt = NULL;
 
 static bool use_sarray_p = true; /* if present */
+static bool use_only_sarray_p = false;
 static Sarray_T sarray = NULL;
 
 static bool fastq_format_p = false;
@@ -334,6 +342,7 @@ static bool print_snplabels_p = false;
 
 static bool show_refdiff_p = false;
 static bool clip_overlap_p = false;
+static bool merge_overlap_p = false;
 static bool merge_samechr_p = false;
 
 /* SAM */
@@ -377,7 +386,7 @@ static struct option long_options[] = {
   /* Input options */
   {"dir", required_argument, 0, 'D'},	/* user_genomedir */
   {"db", required_argument, 0, 'd'}, /* dbroot */
-  {"use-sarray", required_argument, 0, 0}, /* use_sarray_p */
+  {"use-sarray", required_argument, 0, 0}, /* use_sarray_p, use_only_sarray_p */
   {"basesize", required_argument, 0, 0}, /* required_basesize, basesize */
   {"kmer", required_argument, 0, 'k'}, /* required_index1part, index1part */
   {"sampling", required_argument, 0, 0}, /* required_index1interval, index1interval */
@@ -503,6 +512,7 @@ static struct option long_options[] = {
   {"quiet-if-excessive", no_argument, 0, 'Q'}, /* quiet_if_excessive_p */
   {"ordered", no_argument, 0, 'O'}, /* orderedp */
   {"clip-overlap", no_argument, 0, 0},	     /* clip_overlap_p */
+  {"merge-overlap", no_argument, 0, 0},	     /* merge_overlap_p */
   {"show-refdiff", no_argument, 0, 0},	       /* show_refdiff_p */
   {"print-snps", no_argument, 0, 0}, /* print_snplabels_p */
   {"failsonly", no_argument, 0, 0}, /* failsonlyp */
@@ -684,9 +694,8 @@ check_compiler_assumptions () {
 
 static Result_T
 process_request (Request_T request, Floors_T *floors_array,
-		 Oligoindex_T *oligoindices_major, int noligoindices_major,
-		 Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		 Pairpool_T pairpool, Diagpool_T diagpool,
+		 Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		 Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
 		 Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		 Stopwatch_T worker_stopwatch) {
   int jobid;
@@ -703,6 +712,10 @@ process_request (Request_T request, Floors_T *floors_array,
   queryseq1 = Request_queryseq1(request);
   queryseq2 = Request_queryseq2(request);
 
+  Pairpool_reset(pairpool);
+  Diagpool_reset(diagpool);
+  Cellpool_reset(cellpool);
+
   /* printf("%s\n",Shortread_accession(queryseq1)); */
 
   if (worker_stopwatch != NULL) {
@@ -716,10 +729,8 @@ process_request (Request_T request, Floors_T *floors_array,
 				     indel_penalty_middle,indel_penalty_end,
 				     allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
 				     localsplicing_penalty,distantsplicing_penalty,min_shortend,
-				     oligoindices_major,noligoindices_major,
-				     oligoindices_minor,noligoindices_minor,pairpool,diagpool,
-				     dynprogL,dynprogM,dynprogR,
-				     /*keep_floors_p*/true);
+				     oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
+				     dynprogL,dynprogM,dynprogR,/*keep_floors_p*/true);
 
     worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
     return Result_single_read_new(jobid,(void **) stage3array,npaths,first_absmq,second_absmq,worker_runtime);
@@ -732,10 +743,8 @@ process_request (Request_T request, Floors_T *floors_array,
 						   indel_penalty_middle,indel_penalty_end,
 						   allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
 						   localsplicing_penalty,distantsplicing_penalty,min_shortend,
-						   oligoindices_major,noligoindices_major,
-						   oligoindices_minor,noligoindices_minor,pairpool,diagpool,
-						   dynprogL,dynprogM,dynprogR,
-						   pairmax,/*keep_floors_p*/true)) != NULL) {
+						   oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
+						   dynprogL,dynprogM,dynprogR,pairmax,/*keep_floors_p*/true)) != NULL) {
     /* Paired or concordant hits found */
     worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
     return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,first_absmq,second_absmq,
@@ -768,10 +777,8 @@ process_request (Request_T request, Floors_T *floors_array,
 					      indel_penalty_middle,indel_penalty_end,
 					      allow_end_indels_p,max_end_insertions,max_end_deletions,min_indel_end_matches,
 					      localsplicing_penalty,distantsplicing_penalty,min_shortend,
-					      oligoindices_major,noligoindices_major,
-					      oligoindices_minor,noligoindices_minor,pairpool,diagpool,
-					      dynprogL,dynprogM,dynprogR,
-					      pairmax,/*keep_floors_p*/false)) != NULL) {
+					      oligoindices_major,oligoindices_minor,pairpool,diagpool,cellpool,
+					      dynprogL,dynprogM,dynprogR,pairmax,/*keep_floors_p*/false)) != NULL) {
       /* Paired or concordant hits found, after chopping adapters */
       worker_runtime = worker_stopwatch == NULL ? 0.00 : Stopwatch_stop(worker_stopwatch);
       return Result_paired_read_new(jobid,(void **) stage3pairarray,npaths,first_absmq,second_absmq,
@@ -862,7 +869,9 @@ signal_handler (int sig) {
 #endif
 
 
-#define POOL_FREE_INTERVAL 200
+/* #define POOL_FREE_INTERVAL 200 */
+#define POOL_FREE_INTERVAL 1
+
 
 static void
 single_thread () {
@@ -875,41 +884,43 @@ single_thread () {
   Stopwatch_T worker_stopwatch;
 
   /* For GMAP */
-  Oligoindex_T *oligoindices_major, *oligoindices_minor;
-  int noligoindices_major, noligoindices_minor;
+  Oligoindex_array_T oligoindices_major, oligoindices_minor;
   Dynprog_T dynprogL, dynprogM, dynprogR;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
+  Cellpool_T cellpool;
   int jobid = 0;
 
 #ifdef MEMUSAGE
   long int memusage_constant = 0;
+  char *comma1, *comma2, *comma3, *comma4, *comma5;
 #endif
 
-  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
-  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
+  oligoindices_major = Oligoindex_array_new_major(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
+  oligoindices_minor = Oligoindex_array_new_minor(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
+  cellpool = Cellpool_new();
   worker_stopwatch = (timingp == true) ? Stopwatch_new() : (Stopwatch_T) NULL;
 
   floors_array = (Floors_T *) CALLOC(MAX_READLENGTH+1,sizeof(Floors_T));
   /* Except_stack_create(); -- requires pthreads */
 
 #ifdef MEMUSAGE
-  memusage_constant += Mem_usage_report();
+  memusage_constant += Mem_usage_report_std();
   Mem_usage_reset(0);
+  printf("Initial memusage of single thread: %ld\n",Mem_usage_report_std());
 #endif
 
   while ((request = Inbuffer_get_request(inbuffer)) != NULL) {
     debug(printf("single_thread got request %d\n",Request_id(request)));
 
     TRY
-      result = process_request(request,floors_array,oligoindices_major,noligoindices_major,
-			       oligoindices_minor,noligoindices_minor,
-			       pairpool,diagpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
+      result = process_request(request,floors_array,oligoindices_major,oligoindices_minor,
+			       pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
     ELSE
       queryseq1 = Request_queryseq1(request);
       if (queryseq1 == NULL) {
@@ -937,12 +948,36 @@ single_thread () {
 
 #ifdef MEMUSAGE
     Outbuffer_print_result(outbuffer,result,request,noutput+1);
-    printf("***%s\n",Shortread_accession(Request_queryseq1(request)));
 #else
     Outbuffer_print_result(outbuffer,result,request);
 #endif
 
     Result_free(&result);
+
+#ifdef MEMUSAGE
+    /* Run with a single thread (-t 0), which should bring usage back down to 0 after each read */
+#if 0
+    printf("Memusage of single thread: standard %ld, keep %ld\n",Mem_usage_report_std(),Mem_usage_report_keep());
+    printf("Memusage of OUT: %ld\n",Mem_usage_report_out());
+    assert(Mem_usage_report_std() == 0);
+    assert(Mem_usage_report_out() == 0);
+#endif
+
+    queryseq1 = Request_queryseq1(request);
+    comma1 = Genomicpos_commafmt(Mem_max_usage_report_std());
+    comma2 = Genomicpos_commafmt(Mem_usage_report_std());
+    comma3 = Genomicpos_commafmt(Mem_usage_report_keep());
+    comma4 = Genomicpos_commafmt(Mem_usage_report_in());
+    comma5 = Genomicpos_commafmt(Mem_usage_report_out());
+
+    fprintf(stderr,"Acc %s: max %s  std %s  keep %s  in %s  out %s\n",
+	    Shortread_accession(queryseq1),comma1,comma2,comma3,comma4,comma5);
+    FREE(comma5);
+    FREE(comma4);
+    FREE(comma3);
+    FREE(comma2);
+    FREE(comma1);
+#endif
 
     /* Allocated by fill_buffer in Inbuffer_get_request */
     Request_free(&request);
@@ -951,14 +986,8 @@ single_thread () {
     if (jobid % POOL_FREE_INTERVAL == 0) {
       Pairpool_free_memory(pairpool);
       Diagpool_free_memory(diagpool);
+      Cellpool_free_memory(cellpool);
     }
-
-#ifdef MEMUSAGE
-    printf("Memusage of single thread: %ld\n",Mem_usage_report());
-    printf("Memusage of OUT: %ld\n",Mem_usage_out_report());
-    assert(Mem_usage_report() == 0);
-    assert(Mem_usage_out_report() == 0);
-#endif
 
   }
 
@@ -978,13 +1007,14 @@ single_thread () {
   if (worker_stopwatch != NULL) {
     Stopwatch_free(&worker_stopwatch);
   }
+  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
-  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
+  Oligoindex_array_free(&oligoindices_minor);
+  Oligoindex_array_free(&oligoindices_major);
 
   return;
 }
@@ -1002,60 +1032,67 @@ worker_thread (void *data) {
   Stopwatch_T worker_stopwatch;
 
   /* For GMAP */
-  Oligoindex_T *oligoindices_major, *oligoindices_minor;
-  int noligoindices_major, noligoindices_minor;
+  Oligoindex_array_T oligoindices_major, oligoindices_minor;
   Dynprog_T dynprogL, dynprogM, dynprogR;
   Pairpool_T pairpool;
   Diagpool_T diagpool;
+  Cellpool_T cellpool;
   int worker_jobid = 0;
 
 #ifdef MEMUSAGE
-  long int memusage_constant = 0, memusage;
+  long int memusage_constant = 0, memusage, max_memusage;
   char threadname[12];
+  char *comma1, *comma2, *comma3, *comma4, *comma5;
   sprintf(threadname,"thread-%ld",worker_id);
   Mem_usage_set_threadname(threadname);
 #endif
 
   /* Thread-specific data and storage */
-  oligoindices_major = Oligoindex_new_major(&noligoindices_major);
-  oligoindices_minor = Oligoindex_new_minor(&noligoindices_minor);
+  oligoindices_major = Oligoindex_array_new_major(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
+  oligoindices_minor = Oligoindex_array_new_minor(MAX_QUERYLENGTH_FOR_ALLOC,MAX_GENOMICLENGTH_FOR_ALLOC);
   dynprogL = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogM = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   dynprogR = Dynprog_new(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired);
   pairpool = Pairpool_new();
   diagpool = Diagpool_new();
+  cellpool = Cellpool_new();
   worker_stopwatch = (timingp == true) ? Stopwatch_new() : (Stopwatch_T) NULL;
 
   floors_array = (Floors_T *) CALLOC(MAX_READLENGTH+1,sizeof(Floors_T));
   Except_stack_create();
 
 #ifdef MEMUSAGE
-  memusage_constant += Mem_usage_report();
+  memusage_constant += Mem_usage_report_std();
   Mem_usage_reset(0);
 #endif
 
   while ((request = Inbuffer_get_request(inbuffer)) != NULL) {
     debug(printf("worker_thread %ld got request %d\n",worker_id,Request_id(request)));
     pthread_setspecific(global_request_key,(void *) request);
+
     if (worker_jobid % POOL_FREE_INTERVAL == 0) {
       Pairpool_free_memory(pairpool);
       Diagpool_free_memory(diagpool);
+      Cellpool_free_memory(cellpool);
     }
 
 #ifdef MEMUSAGE
-    memusage = Mem_usage_report();
-    /* printf("Memusage of worker thread %ld: %ld\n",worker_id,memusage); */
+    memusage = Mem_usage_report_std();
     if (memusage != 0) {
       fprintf(stderr,"Memusage of worker thread %ld: %ld\n",worker_id,memusage);
       fflush(stdout);
       exit(9);
     }
+    Mem_usage_reset_max();
 #endif
 
     TRY
-      result = process_request(request,floors_array,oligoindices_major,noligoindices_major,
-			       oligoindices_minor,noligoindices_minor,
-			       pairpool,diagpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
+#ifdef MEMUSAGE
+      queryseq1 = Request_queryseq1(request);
+      fprintf(stderr,"Thread %d starting %s\n",worker_id,Shortread_accession(queryseq1));
+#endif
+      result = process_request(request,floors_array,oligoindices_major,oligoindices_minor,
+			       pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR,worker_stopwatch);
     ELSE
       queryseq1 = Request_queryseq1(request);
       if (queryseq1 == NULL) {
@@ -1081,6 +1118,23 @@ worker_thread (void *data) {
     RERAISE;
     END_TRY;
 
+#ifdef MEMUSAGE
+    queryseq1 = Request_queryseq1(request);
+    comma1 = Genomicpos_commafmt(Mem_max_usage_report_std());
+    comma2 = Genomicpos_commafmt(Mem_usage_report_std());
+    comma3 = Genomicpos_commafmt(Mem_usage_report_keep());
+    comma4 = Genomicpos_commafmt(Mem_usage_report_in());
+    comma5 = Genomicpos_commafmt(Mem_usage_report_out());
+
+    fprintf(stderr,"Acc %s, thread %d: max %s  std %s  keep %s  in %s  out %s\n",
+	    Shortread_accession(queryseq1),worker_id,comma1,comma2,comma3,comma4,comma5);
+    FREE(comma5);
+    FREE(comma4);
+    FREE(comma3);
+    FREE(comma2);
+    FREE(comma1);
+#endif
+
     debug(printf("worker_thread putting result %d\n",Result_id(result)));
 
     Outbuffer_put_result(outbuffer,result,request);
@@ -1104,13 +1158,14 @@ worker_thread (void *data) {
   if (worker_stopwatch != NULL) {
     Stopwatch_free(&worker_stopwatch);
   }
+  Cellpool_free(&cellpool);
   Diagpool_free(&diagpool);
   Pairpool_free(&pairpool);
   Dynprog_free(&dynprogR);
   Dynprog_free(&dynprogM);
   Dynprog_free(&dynprogL);
-  Oligoindex_free_array(&oligoindices_minor,noligoindices_minor);
-  Oligoindex_free_array(&oligoindices_major,noligoindices_major);
+  Oligoindex_array_free(&oligoindices_minor);
+  Oligoindex_array_free(&oligoindices_major);
 
   return (void *) NULL;
 }
@@ -1291,6 +1346,8 @@ main (int argc, char *argv[]) {
   unsigned int nread;
   double runtime;
 
+  Splicestringpool_T splicestringpool;
+
 #ifdef HAVE_PTHREAD
   int ret;
   pthread_attr_t thread_attr_join;
@@ -1339,12 +1396,17 @@ main (int argc, char *argv[]) {
 	exit(0);
 	
       } else if (!strcmp(long_name,"use-sarray")) {
-	if (!strcmp(optarg,"1")) {
+	if (!strcmp(optarg,"2")) {
 	  use_sarray_p = true;
+	  use_only_sarray_p = true;
+	} else if (!strcmp(optarg,"1")) {
+	  use_sarray_p = true;
+	  use_only_sarray_p = false;
 	} else if (!strcmp(optarg,"0")) {
 	  use_sarray_p = false;
+	  use_only_sarray_p = false;
 	} else {
-	  fprintf(stderr,"--use-sarray flag must be 0 or 1\n");
+	  fprintf(stderr,"--use-sarray flag must be 0, 1, or 2\n");
 	  exit(9);
 	}
 
@@ -1550,6 +1612,8 @@ main (int argc, char *argv[]) {
 	show_refdiff_p = true;
       } else if (!strcmp(long_name,"clip-overlap")) {
 	clip_overlap_p = true;
+      } else if (!strcmp(long_name,"merge-overlap")) {
+	merge_overlap_p = true;
       } else if (!strcmp(long_name,"no-sam-headers")) {
 	sam_headers_p = false;
       } else if (!strcmp(long_name,"sam-headers-batch")) {
@@ -1860,6 +1924,11 @@ main (int argc, char *argv[]) {
   } else {
     Shortread_setup(acc_fieldi_start,acc_fieldi_end,force_single_end_p,filter_chastity_p,
 		    allow_paired_end_mismatch_p);
+  }
+
+  if (clip_overlap_p == true && merge_overlap_p == true) {
+    fprintf(stderr,"Cannot specify both --clip-overlap and --merge-overlap.  Please choose one.\n");
+    exit(9);
   }
 
   if (novelsplicingp == true && knownsplicingp == true) {
@@ -2173,7 +2242,10 @@ main (int argc, char *argv[]) {
       }
     }
 
-    if (dibasep == true) {
+    if (use_only_sarray_p == true) {
+      indexdb = indexdb2 = NULL;
+
+    } else if (dibasep == true) {
       fprintf(stderr,"No longer supporting 2-base encoding\n");
       exit(9);
       if ((indexdb = Indexdb_new_genome(&basesize,&index1part,&index1interval,
@@ -2270,7 +2342,10 @@ main (int argc, char *argv[]) {
       }
     }
 
-    if (dibasep == true) {
+    if (use_only_sarray_p == true) {
+      indexdb = indexdb2 = NULL;
+
+    } else if (dibasep == true) {
       fprintf(stderr,"Currently cannot combine SNPs with 2-base encoding\n");
       exit(9);
       print_ncolordiffs_p = true;
@@ -2362,15 +2437,17 @@ main (int argc, char *argv[]) {
     exit(9);
   }
 
-  Dynprog_init(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired,mode);
-  Compoundpos_init_positions_free(Indexdb_positions_fileio_p(indexdb));
-  Spanningelt_init_positions_free(Indexdb_positions_fileio_p(indexdb));
-  Stage1_init_positions_free(Indexdb_positions_fileio_p(indexdb));
+  if (use_only_sarray_p == false) {
+    Dynprog_init(nullgap,EXTRAQUERYGAP,maxpeelback,extramaterial_end,extramaterial_paired,mode);
+    Compoundpos_init_positions_free(Indexdb_positions_fileio_p(indexdb));
+    Spanningelt_init_positions_free(Indexdb_positions_fileio_p(indexdb));
+    Stage1_init_positions_free(Indexdb_positions_fileio_p(indexdb));
 
-  indexdb_size_threshold = (int) (10*Indexdb_mean_size(indexdb,mode,index1part));
-  debug(printf("Size threshold is %d\n",indexdb_size_threshold));
-  if (indexdb_size_threshold < MIN_INDEXDB_SIZE_THRESHOLD) {
-    indexdb_size_threshold = MIN_INDEXDB_SIZE_THRESHOLD;
+    indexdb_size_threshold = (int) (10*Indexdb_mean_size(indexdb,mode,index1part));
+    debug(printf("Size threshold is %d\n",indexdb_size_threshold));
+    if (indexdb_size_threshold < MIN_INDEXDB_SIZE_THRESHOLD) {
+      indexdb_size_threshold = MIN_INDEXDB_SIZE_THRESHOLD;
+    }
   }
 
   if (genes_file != NULL) {
@@ -2436,11 +2513,13 @@ main (int argc, char *argv[]) {
     if ((donor_typeint = IIT_typeint(splicing_iit,"donor")) >= 0 && 
 	(acceptor_typeint = IIT_typeint(splicing_iit,"acceptor")) >= 0) {
       fprintf(stderr,"found donor and acceptor tags, so treating as splicesites file\n");
+      splicestringpool = Splicestringpool_new();
       splicesites = Splicetrie_retrieve_via_splicesites(&distances_observed_p,&splicecomp,&splicetypes,&splicedists,
 							&splicestrings,&splicefrags_ref,&splicefrags_alt,
 							&nsplicesites,splicing_iit,splicing_divint_crosstable,
 							donor_typeint,acceptor_typeint,chromosome_iit,
-							genomecomp,genomecomp_alt,shortsplicedist);
+							genomecomp,genomecomp_alt,shortsplicedist,
+							splicestringpool);
       if (nsplicesites == 0) {
 	fprintf(stderr,"\nWarning: No splicesites observed for genome %s.  Are you sure this splicesite file was built for this genome?  Please compare chromosomes below:\n",
 		dbroot);
@@ -2453,27 +2532,24 @@ main (int argc, char *argv[]) {
       } else {
 	Splicetrie_npartners(&nsplicepartners_skip,&nsplicepartners_obs,&nsplicepartners_max,splicesites,splicetypes,splicedists,
 			     splicestrings,nsplicesites,chromosome_iit,shortsplicedist,distances_observed_p);
-#if 0
-	if (multiple_sequences_p == true && splicetrie_precompute_p == true) {
-#endif
-	  Splicetrie_build_via_splicesites(&triecontents_obs,&trieoffsets_obs,&triecontents_max,&trieoffsets_max,
-					   nsplicepartners_skip,nsplicepartners_obs,nsplicepartners_max,splicetypes,
-					   splicestrings,nsplicesites);
-	  FREE(nsplicepartners_max);
-	  FREE(nsplicepartners_obs);
-	  FREE(nsplicepartners_skip);
-	  Splicestring_gc(splicestrings,nsplicesites);
-#if 0
-	}
-#endif
+	Splicetrie_build_via_splicesites(&triecontents_obs,&trieoffsets_obs,&triecontents_max,&trieoffsets_max,
+					 nsplicepartners_skip,nsplicepartners_obs,nsplicepartners_max,splicetypes,
+					 splicestrings,nsplicesites);
+	FREE(nsplicepartners_max);
+	FREE(nsplicepartners_obs);
+	FREE(nsplicepartners_skip);
+	/* Splicestring_gc(splicestrings,nsplicesites); */
+	FREE(splicestrings);
       }
+      Splicestringpool_free(&splicestringpool);
 
     } else {
       fprintf(stderr,"no donor or acceptor tags found, so treating as introns file\n");
+      splicestringpool = Splicestringpool_new();
       splicesites = Splicetrie_retrieve_via_introns(&splicecomp,&splicetypes,&splicedists,
 						    &splicestrings,&splicefrags_ref,&splicefrags_alt,
 						    &nsplicesites,splicing_iit,splicing_divint_crosstable,
-						    chromosome_iit,genomecomp,genomecomp_alt);
+						    chromosome_iit,genomecomp,genomecomp_alt,splicestringpool);
       if (nsplicesites == 0) {
 	fprintf(stderr,"\nWarning: No splicesites observed for genome %s.  Are you sure this splicesite file was built for this genome?  Please compare chromosomes below:\n",
 		dbroot);
@@ -2483,19 +2559,14 @@ main (int argc, char *argv[]) {
 	IIT_dump_divstrings(stderr,splicing_iit);
 	exit(9);
       } else {
-#if 0
-	if (multiple_sequences_p == true && splicetrie_precompute_p == true) {
-#endif
-	  Splicetrie_build_via_introns(&triecontents_obs,&trieoffsets_obs,splicesites,splicetypes,
-				       splicestrings,nsplicesites,chromosome_iit,splicing_iit,splicing_divint_crosstable);
-	  triecontents_max = (Triecontent_T *) NULL;
-	  trieoffsets_max =  (Trieoffset_T *) NULL;
-	  Splicestring_gc(splicestrings,nsplicesites);
-#if 0
-	}
-#endif
+	Splicetrie_build_via_introns(&triecontents_obs,&trieoffsets_obs,splicesites,splicetypes,
+				     splicestrings,nsplicesites,chromosome_iit,splicing_iit,splicing_divint_crosstable);
+	triecontents_max = (Triecontent_T *) NULL;
+	trieoffsets_max =  (Trieoffset_T *) NULL;
+	/* Splicestring_gc(splicestrings,nsplicesites); */
+	FREE(splicestrings);
       }
-
+      Splicestringpool_free(&splicestringpool);
     }
 
     /* For benchmarking purposes.  Can spend time/memory to load
@@ -2513,7 +2584,8 @@ main (int argc, char *argv[]) {
 	  FREE(nsplicepartners_max);
 	  FREE(nsplicepartners_obs);
 	  FREE(nsplicepartners_skip);
-	  Splicestring_gc(splicestrings,nsplicesites);
+	  /* Splicestring_gc(splicestrings,nsplicesites); */
+	  FREE(splicestrings);
 	}
 	FREE(splicefrags_ref);
 	FREE(splicedists);
@@ -2630,15 +2702,39 @@ main (int argc, char *argv[]) {
   }
   Genome_sites_setup(Genome_blocks(genomecomp),/*snp_blocks*/genomecomp_alt ? Genome_blocks(genomecomp_alt) : NULL);
   Maxent_hr_setup(Genome_blocks(genomecomp),/*snp_blocks*/genomecomp_alt ? Genome_blocks(genomecomp_alt) : NULL);
-  Indexdb_setup(index1part);
-  Indexdb_hr_setup(index1part);
-  Oligo_setup(index1part);
+  if (use_only_sarray_p == true) {
+    spansize = 1;
+  } else {
+    Indexdb_setup(index1part);
+    Indexdb_hr_setup(index1part);
+    Oligo_setup(index1part);
+    spansize = Spanningelt_setup(index1part,index1interval);
+
+    Dynprog_setup(novelsplicingp,splicing_iit,splicing_divint_crosstable,
+		  donor_typeint,acceptor_typeint,
+		  splicesites,splicetypes,splicedists,nsplicesites,
+		  trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
+		  /*homopolymerp*/false);
+    Oligoindex_hr_setup(Genome_blocks(genomecomp),mode);
+    Stage2_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,/*cross_species_p*/false,
+		 suboptimal_score_start,suboptimal_score_end,min_intronlength,
+		 mode,/*snps_p*/snps_iit ? true : false);
+    Pair_setup(trim_mismatch_score,trim_indel_score,sam_insert_0M_p,
+	       force_xs_direction_p,md_lowercase_variant_p,
+	       /*snps_p*/snps_iit ? true : false);
+    Stage3_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,novelsplicingp,
+		 /*require_splicedir_p*/true,splicing_iit,splicing_divint_crosstable,
+		 donor_typeint,acceptor_typeint,
+		 splicesites,min_intronlength,max_deletionlength,output_sam_p,
+		 /*homopolymerp*/false,/*stage3debug*/NO_STAGE3DEBUG);
+  }
+
   Splicetrie_setup(splicecomp,splicesites,splicefrags_ref,splicefrags_alt,
 		   trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
 		   /*snpp*/snps_iit ? true : false,amb_closest_p,amb_clip_p,min_shortend);
-  spansize = Spanningelt_setup(index1part,index1interval);
   Indel_setup(min_indel_end_matches,indel_penalty_middle);
-  Stage1hr_setup(use_sarray_p,index1part,index1interval,spansize,chromosome_iit,nchromosomes,
+  Stage1hr_setup(use_sarray_p,use_only_sarray_p,index1part,index1interval,
+		 spansize,chromosome_iit,nchromosomes,
 		 genomecomp_alt,mode,maxpaths_search,terminal_threshold,terminal_output_minlength,
 		 splicesites,splicetypes,splicedists,nsplicesites,
 		 novelsplicingp,knownsplicingp,distances_observed_p,
@@ -2655,23 +2751,6 @@ main (int argc, char *argv[]) {
 		  splicing_iit,splicing_divint_crosstable,
 		  donor_typeint,acceptor_typeint,trim_mismatch_score,
 		  novelsplicingp,knownsplicingp,output_sam_p,mode);
-  Dynprog_setup(novelsplicingp,splicing_iit,splicing_divint_crosstable,
-		donor_typeint,acceptor_typeint,
-		splicesites,splicetypes,splicedists,nsplicesites,
-		trieoffsets_obs,triecontents_obs,trieoffsets_max,triecontents_max,
-		/*homopolymerp*/false);
-  Oligoindex_hr_setup(Genome_blocks(genomecomp),mode);
-  Stage2_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,/*cross_species_p*/false,
-	       suboptimal_score_start,suboptimal_score_end,min_intronlength,
-	       mode,/*snps_p*/snps_iit ? true : false);
-  Pair_setup(trim_mismatch_score,trim_indel_score,sam_insert_0M_p,
-	     force_xs_direction_p,md_lowercase_variant_p,
-	     /*snps_p*/snps_iit ? true : false);
-  Stage3_setup(/*splicingp*/novelsplicingp == true || knownsplicingp == true,novelsplicingp,
-	       /*require_splicedir_p*/true,splicing_iit,splicing_divint_crosstable,
-	       donor_typeint,acceptor_typeint,
-	       splicesites,min_intronlength,max_deletionlength,output_sam_p,
-	       /*homopolymerp*/false,/*stage3debug*/NO_STAGE3DEBUG);
   Stage3hr_setup(invert_first_p,invert_second_p,genes_iit,genes_divint_crosstable,
 		 tally_iit,tally_divint_crosstable,runlength_iit,runlength_divint_crosstable,
 		 terminal_output_minlength,distances_observed_p,pairmax,
@@ -2716,7 +2795,7 @@ main (int argc, char *argv[]) {
 			    sam_read_group_library,sam_read_group_platform,
 			    nworkers,orderedp,
 			    gobywriter,nofailsp,failsonlyp,fails_as_input_p,
-			    fastq_format_p,clip_overlap_p,merge_samechr_p,
+			    fastq_format_p,clip_overlap_p,merge_overlap_p,merge_samechr_p,
 			    maxpaths_report,quiet_if_excessive_p,quality_shift,
 			    invert_first_p,invert_second_p,pairmax,argc,argv,optind);
 
@@ -2807,8 +2886,10 @@ main (int argc, char *argv[]) {
   Goby_shutdown();
 #endif
 
-  Dynprog_term();
-  Stage1hr_cleanup();
+  if (use_only_sarray_p == false) {
+    Dynprog_term();
+    Stage1hr_cleanup();
+  }
 
   if (indexdb2 != indexdb) {
     Indexdb_free(&indexdb2);
@@ -2844,7 +2925,8 @@ main (int argc, char *argv[]) {
       FREE(nsplicepartners_max);
       FREE(nsplicepartners_obs);
       FREE(nsplicepartners_skip);
-      Splicestring_gc(splicestrings,nsplicesites);
+      /* Splicestring_gc(splicestrings,nsplicesites); */
+      FREE(splicestrings);
     }
     FREE(splicefrags_ref);
     FREE(splicedists);
@@ -2904,7 +2986,8 @@ Usage: gsnap [OPTIONS...] <FASTA file>, or\n\
   -D, --dir=directory            Genome directory\n\
   -d, --db=STRING                Genome database\n\
   --use-sarray=INT               Whether to use a suffix array, which will give increased speed.\n\
-                                   Allowed values: 0 (no) or 1 (yes, if available, default).\n\
+                                   Allowed values: 0 (no), 1 (yes, plus GSNAP/GMAP algorithm, default),\n\
+                                   or 2 (yes, and use only suffix array algorithm).\n\
                                    Note that suffix arrays will bias against SNP alleles in\n\
                                    SNP-tolerant alignment.\n\
   -k, --kmer=INT                 kmer size to use in genome database (allowed values: 16 or less)\n\
@@ -3251,6 +3334,7 @@ is still designed to be fast.\n\
                                    relative to the reference genome as lower case (otherwise, it shows\n\
                                    all differences relative to both the reference and alternate genome)\n\
   --clip-overlap                 For paired-end reads whose alignments overlap, clip the overlapping region.\n\
+  --merge-overlap                For paired-end reads whose alignments overlap, merge the two ends into a single end.\n\
   --print-snps                   Print detailed information about SNPs in reads (works only if -v also selected)\n\
                                    (not fully implemented yet)\n\
   --failsonly                    Print only failed alignments, those with no results\n\

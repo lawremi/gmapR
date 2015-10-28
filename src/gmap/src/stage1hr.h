@@ -1,4 +1,4 @@
-/* $Id: stage1hr.h 109396 2013-09-27 15:14:11Z twu $ */
+/* $Id: stage1hr.h 146906 2014-09-04 19:25:39Z twu $ */
 #ifndef STAGE1HR_INCLUDED
 #define STAGE1HR_INCLUDED
 #include "bool.h"
@@ -13,7 +13,6 @@
 #include "resulthr.h"		/* For Pairtype_T */
 #include "stage3hr.h"
 
-#include "oligoindex.h"
 #include "pairpool.h"
 #include "diagpool.h"
 #include "dynprog.h"
@@ -55,9 +54,8 @@ Stage1_single_read (int *npaths, int *first_absmq, int *second_absmq,
 		    int indel_penalty_middle, int indel_penalty_end,
 		    bool allow_end_indels_p, int max_end_insertions, int max_end_deletions, int min_indel_end_matches,
 		    int localsplicing_penalty, int distantsplicing_penalty, int min_shortend,
-		    Oligoindex_T *oligoindices_major, int noligoindices_major,
-		    Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		    Pairpool_T pairpool, Diagpool_T diagpool,
+		    Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		    Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
 		    Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		    bool keep_floors_p);
 
@@ -72,9 +70,8 @@ Stage1_paired_read (int *npaths, int *first_absmq, int *second_absmq, Pairtype_T
 		    int indel_penalty_middle, int indel_penalty_end,
 		    bool allow_end_indels_p, int max_end_insertions, int max_end_deletions, int min_indel_end_matches,
 		    int localsplicing_penalty, int distantsplicing_penalty, int min_shortend,
-		    Oligoindex_T *oligoindices_major, int noligoindices_major,
-		    Oligoindex_T *oligoindices_minor, int noligoindices_minor,
-		    Pairpool_T pairpool, Diagpool_T diagpool,
+		    Oligoindex_array_T oligoindices_major, Oligoindex_array_T oligoindices_minor,
+		    Pairpool_T pairpool, Diagpool_T diagpool, Cellpool_T cellpool,
 		    Dynprog_T dynprogL, Dynprog_T dynprogM, Dynprog_T dynprogR,
 		    Chrpos_T pairmax, bool keep_floors_p);
 
@@ -82,7 +79,7 @@ extern void
 Stage1hr_cleanup ();
 
 extern void
-Stage1hr_setup (bool use_sarray_p_in, int index1part_in, int index1interval_in,
+Stage1hr_setup (bool use_sarray_p_in, bool use_only_sarray_p_in, int index1part_in, int index1interval_in,
 		int spansize_in, Univ_IIT_T chromosome_iit_in, int nchromosomes_in,
 		Genome_T genomealt, Mode_T mode_in, int maxpaths_search_in,
 		int terminal_threshold_in, int terminal_output_minlength_in,

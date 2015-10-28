@@ -13,20 +13,18 @@
 /* Define to 1 if bsr command is available in assembly */
 #undef HAVE_ASM_BSR
 
+/* Define to 1 if you support AVX (Advanced Vector Extensions) instructions */
+#undef HAVE_AVX
+
+/* Define to 1 if you support AVX2 (Advanced Vector Extensions 2) instructions
+   */
+#undef HAVE_AVX2
+
 /* Define to 1 if you support BMI1 (Bit Manipulation Instruction set 1) */
 #undef HAVE_BMI1
 
 /* Define to 1 if you support BMI2 (Bit Manipulation Instruction set 2) */
 #undef HAVE_BMI2
-
-/* Define to 1 if __builtin_clz works. */
-#undef HAVE_BUILTIN_CLZ
-
-/* Define to 1 if __builtin_ctz works. */
-#undef HAVE_BUILTIN_CTZ
-
-/* Define to 1 if __builtin_popcount works. */
-#undef HAVE_BUILTIN_POPCOUNT
 
 /* Define to 1 if the system has the type `caddr_t'. */
 #undef HAVE_CADDR_T
@@ -110,8 +108,12 @@
 /* Define to 1 if MAP_VARIABLE available for mmap. */
 #undef HAVE_MMAP_MAP_VARIABLE
 
-/* Define to 1 if you support mmx instructions */
+/* Define to 1 if you support MMX instructions */
 #undef HAVE_MMX
+
+/* Define to 1 if you support Intel intrinsic _mm_popcnt_u32/64 instructions
+   */
+#undef HAVE_MM_POPCNT
 
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
@@ -124,6 +126,9 @@
 
 /* Define to 1 if you have the `pow' function. */
 #undef HAVE_POW
+
+/* Define if you have POSIX threads libraries and header files. */
+#undef HAVE_PTHREAD
 
 /* Define to 1 if you have the `rint' function. */
 #undef HAVE_RINT
@@ -217,9 +222,6 @@
 /* Define MAP_FAILED here if not available otherwise. */
 #undef MAP_FAILED
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
-
 /* Name of package */
 #undef PACKAGE
 
@@ -235,6 +237,9 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -243,6 +248,13 @@
 
 /* pagesize is available via sysctl */
 #undef PAGESIZE_VIA_SYSCTL
+
+/* Define to necessary symbol if this constant uses a non-standard name on
+   your system. */
+#undef PTHREAD_CREATE_JOINABLE
+
+/* The size of `off_t', as computed by sizeof. */
+#undef SIZEOF_OFF_T
 
 /* The size of `unsigned long', as computed by sizeof. */
 #undef SIZEOF_UNSIGNED_LONG
@@ -272,6 +284,14 @@
 # ifndef WORDS_BIGENDIAN
 #  undef WORDS_BIGENDIAN
 # endif
+#endif
+
+/* Define to 1 if the X Window System is missing or not being used. */
+#undef X_DISPLAY_MISSING
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

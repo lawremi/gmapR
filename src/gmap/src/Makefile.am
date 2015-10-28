@@ -30,11 +30,11 @@ GMAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  diagnostic.c diagnostic.h stage1.c stage1.h \
  diagdef.h diag.c diag.h diagpool.c diagpool.h \
  cmet.c cmet.h atoi.c atoi.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h \
  scores.h intron.c intron.h maxent.c maxent.h maxent_hr.c maxent_hr.h samflags.h pairdef.h pair.c pair.h \
- pairpool.c pairpool.h stage2.c stage2.h \
+ pairpool.c pairpool.h cellpool.c cellpool.h stage2.c stage2.h \
  doublelist.c doublelist.h smooth.c smooth.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  boyer-moore.c boyer-moore.h dynprog.c dynprog.h \
  translation.c translation.h \
  pbinom.c pbinom.h changepoint.c changepoint.h sense.h fastlog.h stage3.c stage3.h \
@@ -74,11 +74,11 @@ GMAPL_FILES = fopen.h bool.h types.h separator.h comp.h \
  diagnostic.c diagnostic.h stage1.c stage1.h \
  diagdef.h diag.c diag.h diagpool.c diagpool.h \
  cmet.c cmet.h atoi.c atoi.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h \
  scores.h intron.c intron.h maxent.c maxent.h maxent_hr.c maxent_hr.h samflags.h pairdef.h pair.c pair.h \
- pairpool.c pairpool.h stage2.c stage2.h \
+ pairpool.c pairpool.h cellpool.c cellpool.h stage2.c stage2.h \
  doublelist.c doublelist.h smooth.c smooth.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  boyer-moore.c boyer-moore.h dynprog.c dynprog.h \
  translation.c translation.h \
  pbinom.c pbinom.h changepoint.c changepoint.h sense.h fastlog.h stage3.c stage3.h \
@@ -120,12 +120,12 @@ GSNAP_FILES = fopen.h bool.h types.h separator.h comp.h \
  goby.c goby.h \
  spanningelt.c spanningelt.h cmet.c cmet.h atoi.c atoi.h \
  comp.h maxent.c maxent.h pairdef.h pair.c pair.h pairpool.c pairpool.h diag.c diag.h diagpool.c diagpool.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h stage2.c stage2.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h cellpool.c cellpool.h stage2.c stage2.h \
  intron.c intron.h boyer-moore.c boyer-moore.h changepoint.c changepoint.h pbinom.c pbinom.h \
  dynprog.c dynprog.h gbuffer.c gbuffer.h translation.c translation.h \
  doublelist.c doublelist.h smooth.c smooth.h \
  chimera.c chimera.h sense.h fastlog.h stage3.c stage3.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  splice.c splice.h indel.c indel.h \
  bitpack64-access.c bitpack64-access.h sarray-read.c sarray-read.h \
  stage1hr.c stage1hr.h \
@@ -166,12 +166,12 @@ GSNAPL_FILES = fopen.h bool.h types.h separator.h comp.h \
  goby.c goby.h \
  spanningelt.c spanningelt.h cmet.c cmet.h atoi.c atoi.h \
  comp.h maxent.c maxent.h pairdef.h pair.c pair.h pairpool.c pairpool.h diag.c diag.h diagpool.c diagpool.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h stage2.c stage2.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h cellpool.c cellpool.h stage2.c stage2.h \
  intron.c intron.h boyer-moore.c boyer-moore.h changepoint.c changepoint.h pbinom.c pbinom.h \
  dynprog.c dynprog.h gbuffer.c gbuffer.h translation.c translation.h \
  doublelist.c doublelist.h smooth.c smooth.h \
  chimera.c chimera.h sense.h fastlog.h stage3.c stage3.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  splice.c splice.h indel.c indel.h \
  bitpack64-access.c bitpack64-access.h sarray-read.c sarray-read.h \
  stage1hr.c stage1hr.h \
@@ -210,12 +210,12 @@ UNIQSCAN_FILES = fopen.h bool.h types.h separator.h comp.h \
  mapq.c mapq.h shortread.c shortread.h substring.c substring.h stage3hr.c stage3hr.h \
  spanningelt.c spanningelt.h cmet.c cmet.h atoi.c atoi.h \
  comp.h maxent.c maxent.h pairdef.h pair.c pair.h pairpool.c pairpool.h diag.c diag.h diagpool.c diagpool.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h stage2.c stage2.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h cellpool.c cellpool.h stage2.c stage2.h \
  intron.c intron.h boyer-moore.c boyer-moore.h changepoint.c changepoint.h pbinom.c pbinom.h \
  dynprog.c dynprog.h translation.c translation.h \
  doublelist.c doublelist.h smooth.c smooth.h \
  chimera.c chimera.h sense.h fastlog.h stage3.c stage3.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  splice.c splice.h indel.c indel.h \
  bitpack64-access.c bitpack64-access.h sarray-read.c sarray-read.h \
  stage1hr.c stage1hr.h resulthr.c resulthr.h \
@@ -234,7 +234,8 @@ UNIQSCANL_FILES = fopen.h bool.h types.h separator.h comp.h \
  except.c except.h assert.c assert.h mem.c mem.h \
  intlistdef.h intlist.c intlist.h listdef.h list.c list.h \
  littleendian.c littleendian.h bigendian.c bigendian.h \
- univinterval.c univinterval.h interval.c interval.h uintlist.c uintlist.h \
+ univinterval.c univinterval.h interval.c interval.h \
+ uintlist.c uintlist.h uint8list.c uint8list.h \
  stopwatch.c stopwatch.h access.c access.h \
  iit-read-univ.c iit-read-univ.h iitdef.h iit-read.c iit-read.h \
  md5.c md5.h complement.h bzip2.c bzip2.h sequence.c sequence.h reader.c reader.h \
@@ -249,12 +250,12 @@ UNIQSCANL_FILES = fopen.h bool.h types.h separator.h comp.h \
  mapq.c mapq.h shortread.c shortread.h substring.c substring.h stage3hr.c stage3hr.h \
  spanningelt.c spanningelt.h cmet.c cmet.h atoi.c atoi.h \
  comp.h maxent.c maxent.h pairdef.h pair.c pair.h pairpool.c pairpool.h diag.c diag.h diagpool.c diagpool.h \
- orderstat.c orderstat.h oligoindex.c oligoindex.h oligoindex_hr.c oligoindex_hr.h stage2.c stage2.h \
+ orderstat.c orderstat.h oligoindex_hr.c oligoindex_hr.h cellpool.c cellpool.h stage2.c stage2.h \
  intron.c intron.h boyer-moore.c boyer-moore.h changepoint.c changepoint.h pbinom.c pbinom.h \
  dynprog.c dynprog.h translation.c translation.h \
  doublelist.c doublelist.h smooth.c smooth.h \
  chimera.c chimera.h sense.h fastlog.h stage3.c stage3.h \
- splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
+ splicestringpool.c splicestringpool.h splicetrie_build.c splicetrie_build.h splicetrie.c splicetrie.h \
  splice.c splice.h indel.c indel.h \
  bitpack64-access.c bitpack64-access.h sarray-read.c sarray-read.h \
  stage1hr.c stage1hr.h resulthr.c resulthr.h \

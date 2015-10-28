@@ -1,4 +1,4 @@
-/* $Id: stage3hr.h 131715 2014-03-28 00:14:18Z twu $ */
+/* $Id: stage3hr.h 153689 2014-11-20 18:47:15Z twu $ */
 #ifndef STAGE3HR_INCLUDED
 #define STAGE3HR_INCLUDED
 
@@ -156,9 +156,26 @@ Stage3end_npairs (T this);
 extern Chrpos_T
 Stage3end_distance (T this);
 extern Chrpos_T
-Stage3end_shortexon_acceptor_distance (T this);
+Stage3end_shortexonA_distance (T this);
 extern Chrpos_T
-Stage3end_shortexon_donor_distance (T this);
+Stage3end_shortexonD_distance (T this);
+extern double
+Stage3end_chimera_prob (T this);
+extern double
+Stage3end_shortexon_prob (T this);
+extern Univcoord_T
+Stage3end_chimera_segmenti_left (T this);
+extern Univcoord_T
+Stage3end_chimera_segmentj_left (T this);
+extern int
+Stage3end_chimera_segmenti_cmp (const void *a, const void *b);
+extern int
+Stage3end_chimera_segmentj_cmp (const void *a, const void *b);
+extern int
+Stage3end_shortexon_substringD_cmp (const void *a, const void *b);
+extern int
+Stage3end_shortexon_substringA_cmp (const void *a, const void *b);
+
 extern int
 Stage3end_sensedir (T this);
 extern int
@@ -167,6 +184,15 @@ extern int
 Stage3end_cdna_direction (T this);
 extern int
 Stage3end_nintrons (T this);
+extern bool
+Stage3end_start_ambiguous_p (T this);
+extern bool
+Stage3end_end_ambiguous_p (T this);
+extern int
+Stage3end_amb_nmatches_start (T this);
+extern int
+Stage3end_amb_nmatches_end (T this);
+
 extern bool
 Stage3end_gmap_triedp (T this);
 extern void
@@ -220,7 +246,7 @@ Stage3pair_concordantp (List_T hitpairs);
 extern List_T
 Stage3pair_filter_nonconcordant (List_T hitpairs);
 extern int
-Stage3pair_overlap (int *hardclip5, int *hardclip3, Stage3pair_T this);
+Stage3pair_overlap (int *hardclip5_low, int *hardclip5_high, int *hardclip3_low, int *hardclip3_high, Stage3pair_T this);
 extern void
 Stage3pair_set_private5p (Stage3pair_T this);
 extern void
@@ -265,17 +291,26 @@ Stage3end_new_terminal (int querystart, int queryend, Univcoord_T left, Compress
 extern T
 Stage3end_new_splice (int *found_score, int donor_nmismatches, int acceptor_nmismatches,
 		      Substring_T donor, Substring_T acceptor, Chrpos_T distance,
-		      bool shortdistancep, int splicing_penalty, int querylength,
-		      int amb_nmatches, Intlist_T ambi_left, Intlist_T ambi_right,
-		      Intlist_T amb_nmismatches_left, Intlist_T amb_nmismatches_right,
+		      bool shortdistancep, int splicing_penalty, int querylength, int amb_nmatches,
+#ifdef LARGE_GENOMES
+		      Uint8list_T ambcoords_donor, Uint8list_T ambcoords_acceptor,
+#else
+		      Uintlist_T ambcoords_donor, Uintlist_T ambcoords_acceptor,
+#endif
+		      Intlist_T amb_knowni_donor, Intlist_T amb_knowni_acceptor,
+		      Intlist_T amb_nmismatches_donor, Intlist_T amb_nmismatches_acceptor,
 		      bool copy_donor_p, bool copy_acceptor_p,
 		      bool first_read_p, int sensedir, bool sarrayp);
 extern T
 Stage3end_new_shortexon (int *found_score, Substring_T donor, Substring_T acceptor, Substring_T shortexon,
-			 Chrpos_T acceptor_distance, Chrpos_T donor_distance,
 			 int amb_nmatches_donor, int amb_nmatches_acceptor,
-			 Intlist_T ambi_left, Intlist_T ambi_right,
-			 Intlist_T amb_nmismatches_left, Intlist_T amb_nmismatches_right,
+#ifdef LARGE_GENOMES
+			 Uint8list_T ambcoords_donor, Uint8list_T ambcoords_acceptor,
+#else
+			 Uintlist_T ambcoords_donor, Uintlist_T ambcoords_acceptor,
+#endif
+			 Intlist_T amb_knowni_donor, Intlist_T amb_knowni_acceptor,
+			 Intlist_T amb_nmismatches_donor, Intlist_T amb_nmismatches_acceptor,
 			 bool copy_donor_p, bool copy_acceptor_p, bool copy_shortexon_p,
 			 int splicing_penalty, int querylength, int sensedir, bool sarrayp);
 
@@ -321,7 +356,7 @@ Stage3end_remove_circular_alias (List_T hitlist);
 extern int
 Stage3end_noptimal (List_T hitlist);
 extern List_T
-Stage3end_remove_duplicates (List_T hitlist, Shortread_T queryseq1, Shortread_T queryseq2);
+Stage3end_remove_duplicates (List_T hitlist);
 extern List_T
 Stage3end_filter_terminals (List_T hits);
 extern List_T
@@ -367,6 +402,13 @@ Stage3pair_new (T hit5, T hit3, Univcoord_T *splicesites,
 		Compress_T query3_compress_fwd, Compress_T query3_compress_rev,
 		int genestrand, Pairtype_T pairtype, int splicing_penalty,
 		bool private5p, bool private3p, bool expect_concordant_p);
+
+struct Pair_T *
+Stage3pair_merge (int *npairs, int *querylength_merged, char **queryseq_merged, char **quality_merged,
+		  Stage3pair_T this, Shortread_T queryseq5, Shortread_T queryseq3,
+		  int querylength5, int querylength3, int clipdir,
+		  int hardclip5_low, int hardclip5_high, int hardclip3_low, int hardclip3_high);
+
 extern void
 Stage3pair_privatize (Stage3pair_T *array, int npairs);
 

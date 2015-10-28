@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit-read.c 114329 2013-11-07 19:53:52Z twu $";
+static char rcsid[] = "$Id: iit-read.c 160316 2015-03-05 23:15:56Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -2317,7 +2317,7 @@ IIT_read_divint (char *filename, char *divstring, bool add_iit_p) {
       newfile = (char *) CALLOC(strlen(filename)+strlen(".iit")+1,sizeof(char));
       sprintf(newfile,"%s.iit",filename);
       if ((fp = FOPEN_READ_BINARY(newfile)) == NULL) {
-	/* fprintf(stderr,"Cannot open IIT file %s or %s\n",filename,newfile); */
+	fprintf(stderr,"Cannot open IIT file %s or %s\n",filename,newfile);
 	return -1;
       } else {
 	filename = newfile;
