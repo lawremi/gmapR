@@ -82,9 +82,9 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
   if (length(read_length) != 1L) {
     stop("'read_length' must be a single integer")
   }
-  if (!is.null(read_pos_breaks)) {
+  if (length(read_pos_breaks) > 0L) {
     if (!x@read_pos) {
-      stop("'read_pos_breaks' non-NULL, but read positions were not tallied")
+      stop("'read_pos_breaks' non-empty, but read positions were not tallied")
     }
     read_pos_breaks <- as.integer(read_pos_breaks)
     if (any(is.na(read_pos_breaks)))
