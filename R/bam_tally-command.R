@@ -71,7 +71,8 @@ setMethod("bam_tally", "GmapBamReader",
             param_list$genome <- NULL
             
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome,
-                     as(x, "BamFile"), param_list[c("xs", "read_pos")])
+                     as(x, "BamFile"), xs=param_list$xs,
+                     read_pos=param_list$read_pos)
           })
 
 variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
