@@ -16,9 +16,9 @@ enum { SEQNAMES, POS, REF, READ, N_CYCLES, N_CYCLES_REF, COUNT, COUNT_REF,
        COUNT_XS_MINUS, COUNT_XS_MINUS_REF,
        COUNT_HIGH_NM, COUNT_HIGH_NM_REF, N_BASE_COLS };
 
-enum { CODON_PLUS = 1,
-       CODON_MINUS,
-       NON_CODON };
+enum { STRAND_PLUS = 1,
+       STRAND_MINUS,
+       STRAND_NONE };
 
 static char *codon_table[64] = 
   {"AAA", "AAC", "AAG", "AAT", "ACA", "ACC", "ACG", "ACT",
@@ -287,7 +287,7 @@ parse_indels(unsigned char *bytes, int row,
     tally->count_ref[row] = tally->count_plus_ref[row] +
 	tally->count_minus_ref[row];
     tally->count_total[row] = tally->count_ref[row] + tally->count[row];
-    tally->strand[row] = NON_CODON;
+    tally->strand[row] = STRAND_NONE;
     SEXP seq_R = mkChar(read_string(&bytes));
     if (insertion) {
       SET_STRING_ELT(tally->read_R, row, seq_R);
@@ -328,7 +328,7 @@ read_allele_counts(unsigned char **bytes, int row, SEXP read_R,
 {
   int n_alleles = 0;
   char allele;
-  char stop = strand == 0 ? '\0' : (char) 255;
+  char stop = strand == STRAND_NONE ? '\0' : (char) 255;
   
   while((allele = (char)read_char(bytes)) != stop) {
     if (allele == '_') {
@@ -336,7 +336,7 @@ read_allele_counts(unsigned char **bytes, int row, SEXP read_R,
         *delcount_minus = read_int(bytes);
         continue;
     }
-    if(strand == 0)
+    if(strand == STRAND_NONE)
        SET_STRING_ELT(read_R, row, mkCharLen(&allele, 1));
     else
        SET_STRING_ELT(read_R, row, mkCharLen(codon_table[(int)allele], 3));
@@ -504,7 +504,7 @@ static int parse_interval(IIT_T tally_iit, int index,
     bytes -= 4; /* rewind from read-ahead */
     if (codon_plus_offset - allele_offset > 0)
       row += parse_alleles(base + allele_offset, row, ref_row,
-                           param, tally, NON_CODON);
+                           param, tally, STRAND_NONE);
     if (deletion_offset - insertion_offset > 0) 
       row += parse_indels(base + insertion_offset, row,
                           param, tally, true);
@@ -514,11 +514,11 @@ static int parse_interval(IIT_T tally_iit, int index,
 
     if (codon_minus_offset - codon_plus_offset > 0) {
       row += parse_alleles(base + codon_plus_offset, row, row,
-                           param, tally, CODON_PLUS);
+                           param, tally, STRAND_PLUS);
     }
     if (next_offset - codon_minus_offset > 0) { 
       row += parse_alleles(base + codon_minus_offset, row, row,
-                           param, tally, CODON_MINUS);
+                           param, tally, STRAND_MINUS);
     }
     /* fill in position information */
     for (int r = ref_row; r < row; r++) {

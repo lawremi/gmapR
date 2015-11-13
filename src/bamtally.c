@@ -24,7 +24,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP print_indels_p_R,
                 SEXP blocksize_R, 
                 SEXP verbosep_R, SEXP max_softclip_R,
-                SEXP genome_iit_file_R,
+                SEXP exon_iit_file_R,
                 SEXP print_xs_scores_p_R, SEXP print_cycles_p_R,
                 SEXP minimum_quality_score_R, SEXP noncovered_R,
                 SEXP print_nm_scores_p_R)
@@ -59,8 +59,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
 
   Genome_T genome = createGenome(genome_dir, db);
   IIT_T chromosome_iit = readChromosomeIIT(genome_dir, db);
-  IIT_T map_iit = genome_iit_file_R == R_NilValue ? NULL :
-    IIT_read((char*)CHAR(asChar(genome_iit_file_R)), /*name*/ NULL,
+  IIT_T map_iit = exon_iit_file_R == R_NilValue ? NULL :
+    IIT_read((char*)CHAR(asChar(exon_iit_file_R)), /*name*/ NULL,
              /*readonlyp*/true, /*divread*/READ_ALL, /*divstring*/NULL,
              /*add_iit_p*/false, /*labels_read_p*/true);
   const char *chr = NULL;
