@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 172388 2015-08-21 20:10:50Z twu $";
+static char rcsid[] = "$Id: bamtally.c 178481 2015-11-09 20:55:28Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -859,13 +859,18 @@ pass_variant_filter_p (long int nmatches, long int delcounts_plus, long int delc
   if (variant_strands == 0) {
     return true;
   } else if (variant_strands == 1) {
-    if (mismatches_by_shift == NULL) {
+    /* Not sure if we should look at insertions_byshift also */
+    if (mismatches_by_shift == NULL && delcounts_plus == 0 && delcounts_minus == 0) {
       return false;
     } else {
       return true;
     }
 
   } else {
+    if (delcounts_plus > 0 && delcounts_minus > 0) {
+      return true;
+    }
+
     plus_strand_p[0] = plus_strand_p[1] = plus_strand_p[2] = plus_strand_p[3] = false;
     minus_strand_p[0] = minus_strand_p[1] = minus_strand_p[2] = minus_strand_p[3] = false;
 
@@ -873,64 +878,71 @@ pass_variant_filter_p (long int nmatches, long int delcounts_plus, long int delc
     for (ptr = mismatches_by_shift; ptr != NULL; ptr = List_next(ptr)) {
       mismatch = (Mismatch_T) List_head(ptr);
       if (mismatch->shift > 0) {
+	if (delcounts_minus > 0) {
+	  return true;
+	}
 	switch (mismatch->nt) {
 	case 'A':
-	  if (minus_strand_p[0] == true) {
+	  if (minus_strand_p[/*A*/0] == true) {
 	    return true;
 	  } else {
-	    plus_strand_p[0] = true;
+	    plus_strand_p[/*A*/0] = true;
 	  }
 	  break;
 	case 'C':
-	  if (minus_strand_p[1] == true) {
+	  if (minus_strand_p[/*C*/1] == true) {
 	    return true;
 	  } else {
-	    plus_strand_p[1] = true;
+	    plus_strand_p[/*C*/1] = true;
 	  }
 	  break;
 	case 'G': 
-	  if (minus_strand_p[2] == true) {
+	  if (minus_strand_p[/*G*/2] == true) {
 	    return true;
 	  } else {
-	    plus_strand_p[2] = true;
+	    plus_strand_p[/*G*/2] = true;
 	  }
 	  break;
 	case 'T':
-	  if (minus_strand_p[3] == true) {
+	  if (minus_strand_p[/*T*/3] == true) {
 	    return true;
 	  } else {
-	    plus_strand_p[3] = true;
+	    plus_strand_p[/*T*/3] = true;
 	  }
 	  break;
 	}
+
       } else if (mismatch->shift < 0) {
+	if (delcounts_plus > 0) {
+	  return true;
+	}
 	switch (mismatch->nt) {
 	case 'A':
-	  if (plus_strand_p[0] == true) {
+	  if (plus_strand_p[/*A*/0] == true) {
 	    return true;
 	  } else {
-	    minus_strand_p[0] = true;
+	    minus_strand_p[/*A*/0] = true;
 	  }
 	  break;
 	case 'C':
-	  if (plus_strand_p[1] == true) {
+	  if (plus_strand_p[/*C*/1] == true) {
 	    return true;
 	  } else {
-	    minus_strand_p[1] = true;
+	    minus_strand_p[/*C*/1] = true;
 	  }
 	  break;
 	case 'G':
-	  if (plus_strand_p[2] == true) {
+	  if (plus_strand_p[/*G*/2] == true) {
 	    return true;
 	  } else {
-	    minus_strand_p[2] = true;
+	    minus_strand_p[/*G*/2] = true;
 	  }
 	  break;
 	case 'T':
-	  if (plus_strand_p[3] == true) {
+	  if (plus_strand_p[/*T*/3] == true) {
 	    return true;
 	  } else {
-	    minus_strand_p[3] = true;
+	    minus_strand_p[/*T*/3] = true;
 	  }
 	  break;
 	}
@@ -5929,6 +5941,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   print_indels_p = true;
   ignore_duplicates_p = true;
 #endif
+
+  /*
+  fprintf(stderr,"Called with alloclength %d, minimum_mapq %d, good_unique_mapq %d, minimum_quality_score %d, maximum_nhits %d, need_concordant_p %d, need_unique_p %d, need_primary_p %d, ignore_duplicates_p %d, min_depth %d, variant_strands %d, ignore_query_Ns_p %d, blocksize %d, verbosep %d, readlevel_p %d, max_softclip %d\n",
+	  alloclength,minimum_mapq,good_unique_mapq,minimum_quality_score,maximum_nhits,need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,min_depth,variant_strands,ignore_query_Ns_p,blocksize,verbosep,readlevel_p,max_softclip);
+  */
 
 
   /* Create tally at position N to store n_fromleft */

@@ -11,11 +11,12 @@ setClass("TallyIIT", representation(ptr = "externalptr",
                                     genome = "GmapGenome",
                                     bam = "BamFile",
                                     xs = "logical",
-                                    read_pos = "logical"))
+                                    read_pos = "logical",
+                                    nm = "logical"))
 
-TallyIIT <- function(ptr, genome, bam, xs, read_pos) {
+TallyIIT <- function(ptr, genome, bam, xs, read_pos, nm) {
   new("TallyIIT", ptr = ptr, genome = genome, bam = bam, xs = xs,
-      read_pos = read_pos)
+      read_pos = read_pos, nm = nm)
 }
 
 setMethod("genome", "TallyIIT", function(x) x@genome)
@@ -72,15 +73,21 @@ setMethod("bam_tally", "GmapBamReader",
             
             TallyIIT(do.call(.bam_tally_C, c(list(x), param_list)), genome,
                      as(x, "BamFile"), xs=param_list$xs,
-                     read_pos=param_list$read_pos)
+                     read_pos=param_list$read_pos, nm=param_list$nm)
           })
 
-variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
-                           keep_ref_rows = FALSE, read_length = NA_integer_)
+variantSummary <- function(x, read_pos_breaks = NULL,
+                           keep_ref_rows = FALSE, read_length = NA_integer_,
+                           high_nm_score = NA_integer_)
 {
   read_length <- as.integer(read_length)
   if (length(read_length) != 1L) {
     stop("'read_length' must be a single integer")
+  }
+  high_nm_score <- as.integer(high_nm_score)
+  stopifnot(length(high_nm_score) == 1L)
+  if (!is.na(high_nm_score) && !x@nm) {
+      stop("'high_nm_score is not NA but NM scores were not tallied")
   }
   if (length(read_pos_breaks) > 0L) {
     if (!x@read_pos) {
@@ -97,25 +104,23 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
 
   tally <- .Call(R_tally_iit_parse, x@ptr,
                  read_pos_breaks,
-                 normArgSingleInteger(high_base_quality),
-                 NULL, read_length, x@xs)
+                 NULL, read_length, x@xs, high_nm_score)
   
   tally_names <- c("seqnames", "pos", "ref", "alt",
                    "n.read.pos", "n.read.pos.ref",
-                   "raw.count", "raw.count.ref",
-                   "raw.count.total",
-                   "high.quality", "high.quality.ref",
-                   "high.quality.total", "mean.quality",
-                   "mean.quality.ref",
+                   "count", "count.ref", "count.total",
                    "count.plus", "count.plus.ref",
                    "count.minus", "count.minus.ref",
                    "del.count.plus", "del.count.minus",
                    "read.pos.mean", "read.pos.mean.ref",
                    "read.pos.var", "read.pos.var.ref",
-                   "mdfne", "mdfne.ref", "codon.dir",
+                   "mdfne", "mdfne.ref", "codon.strand",
                    "count.xs.plus", "count.xs.plus.ref",
-                   "count.xs.minus", "count.xs.minus.ref")
-  
+                   "count.xs.minus", "count.xs.minus.ref",
+                   "count.high.nm", "count.high.nm.ref")
+
+  tally$codon.strand <- structure(tally$codon.strand, class="factor",
+                                  levels=strand())
   break_names <- character()
   if (length(read_pos_breaks) > 0L) {
     read_pos_breaks <- as.integer(read_pos_breaks)
@@ -124,6 +129,7 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
     tally_names <- c(tally_names, break_names)
   }
   names(tally) <- tally_names
+  tally <- Filter(Negate(is.null), tally)  
 
   if (!keep_ref_rows) {
     variant_rows <- !is.na(tally$alt)
@@ -131,23 +137,20 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
       tally <- lapply(tally, `[`, variant_rows)
   }
   
-  meta_names <- setdiff(tally_names,
-                        c("seqnames", "pos", "ref", "alt", "high.quality",
-                          "high.quality.ref", "high.quality.total"))
+  meta_names <- setdiff(names(tally),
+                        c("seqnames", "pos", "ref", "alt", "count",
+                          "count.ref", "count.total"))
   genome <- genome(x)
   indel <- nchar(tally$ref) == 0L | nchar(tally$alt) == 0L
   metacols <- DataFrame(tally[meta_names])
   mcols(metacols) <- variantSummaryColumnDescriptions(read_pos_breaks)
 
-  samecols = tally[["ref"]] != tally[["alt"]]
   gr <- with(tally,
              VRanges(seqnames,
                      IRanges(pos,
                              width = ifelse(nchar(alt) == 0, nchar(ref), 1L)),
                      ref, alt,
-                     ifelse(indel, raw.count.total, high.quality.total),
-                     ifelse(indel, raw.count.ref, high.quality.ref),
-                     ifelse(indel, raw.count, high.quality),
+                     count.total, count.ref, count,
                      seqlengths = seqlengths(genome)))
   mcols(gr) <- metacols
   checkTallyConsistency(gr)
@@ -160,11 +163,8 @@ variantSummary <- function(x, read_pos_breaks = NULL, high_base_quality = 0L,
 
 checkTallyConsistency <- function(x) {
   with(mcols(x), {
-    stopifnot(all(raw.count + raw.count.ref <= raw.count.total, na.rm=TRUE))
-    stopifnot(all(altDepth(x) <= raw.count, na.rm=TRUE))
-    stopifnot(all(refDepth(x) <= raw.count.ref, na.rm=TRUE))
-    stopifnot(all(count.plus + count.minus == raw.count, na.rm=TRUE))
-    stopifnot(all(count.plus.ref + count.minus.ref == raw.count.ref))
+    stopifnot(all(count.plus + count.minus == altDepth(x), na.rm=TRUE))
+    stopifnot(all(count.plus.ref + count.minus.ref == refDepth(x)))
   })
 }
 
@@ -228,7 +228,7 @@ normArgSingleCharacterOrNULL <- function(x) {
                          blocksize = 1000L, verbosep = FALSE,
                          include_soft_clips = 0L,
                          exon_iit = NULL, xs = FALSE, read_pos = FALSE,
-                         min_base_quality = 0L, noncovered = FALSE)
+                         min_base_quality = 0L, noncovered = FALSE, nm = FALSE)
 {
   if (!is(bamreader, "GmapBamReader"))
     stop("'bamreader' must be a GmapBamReader")
@@ -262,7 +262,8 @@ normArgSingleCharacterOrNULL <- function(x) {
         normArgTRUEorFALSE(xs),
         normArgTRUEorFALSE(read_pos),
         normArgSingleInteger(min_base_quality),
-        normArgTRUEorFALSE(noncovered))
+        normArgTRUEorFALSE(noncovered),
+        normArgTRUEorFALSE(nm))
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -24,7 +24,8 @@ setClass("BamTallyParam",
                         xs = "logical",
                         read_pos = "logical",
                         min_base_quality = "integer",
-                        noncovered = "logical"))
+                        noncovered = "logical",
+                        nm = "logical"))
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Constructor
@@ -107,7 +108,8 @@ BamTallyParam <- function(genome, which = GRanges(),
                           indels = FALSE, include_soft_clips = 0L,
                           exon_iit = NULL, IIT_BPPARAM = NULL,
                           xs = FALSE, read_pos = FALSE,
-                          min_base_quality = 0L, noncovered = FALSE)
+                          min_base_quality = 0L, noncovered = FALSE,
+                          nm = FALSE)
 {
   if (!is.null(desired_read_group) && !isSingleString(desired_read_group))
     stop("'desired_read_group' must be NULL or a single, non-NA string")
@@ -139,6 +141,8 @@ BamTallyParam <- function(genome, which = GRanges(),
     stop("min_base_quality must be a single, non-negative, non-NA number")
   if (!isTRUEorFALSE(noncovered))
     stop("noncovered must be TRUE or FALSE")
+  if (!isTRUEorFALSE(nm))
+    stop("nm must be TRUE or FALSE")
   args <- names(formals(sys.function()))
   params <- mget(args, environment())
   params$genome <- as(genome, "GmapGenome")

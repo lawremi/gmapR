@@ -26,7 +26,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP verbosep_R, SEXP max_softclip_R,
                 SEXP genome_iit_file_R,
                 SEXP print_xs_scores_p_R, SEXP print_cycles_p_R,
-                SEXP minimum_quality_score_R, SEXP noncovered_R)
+                SEXP minimum_quality_score_R, SEXP noncovered_R,
+                SEXP print_nm_scores_p_R)
 {
   Bamreader_T bamreader = (Bamreader_T) R_ExternalPtrAddr(bamreader_R);
   const char *genome_dir =
@@ -54,6 +55,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
   bool print_cycles_p = asLogical(print_cycles_p_R);
   int minimum_quality_score = asInteger(minimum_quality_score_R);
   bool noncovered_p = asLogical(noncovered_R);
+  bool print_nm_scores_p = asLogical(print_nm_scores_p_R);
 
   Genome_T genome = createGenome(genome_dir, db);
   IIT_T chromosome_iit = readChromosomeIIT(genome_dir, db);
@@ -88,7 +90,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  print_indels_p, blocksize, verbosep,
                                  /*readlevel_p*/false, max_softclip,
                                  print_cycles_p,
-                                 /*print_nm_scores_p*/ false,
+                                 print_nm_scores_p,
                                  print_xs_scores_p, noncovered_p);
   IIT_free(&chromosome_iit);
   Genome_free(&genome);
