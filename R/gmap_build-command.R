@@ -30,9 +30,10 @@ setMethod("gmap_build", c("RTLFile", "GmapGenome"), function(x, genome, ...) {
   gmap_build(import(x), genome, ...)
 })
 
-setMethod("gmap_build", c("FaFile", "GmapGenome"), function(x, genome, ...) {
-  gmap_build(getSeq(x), genome, ...)
-})
+setMethod("gmap_build", c("FaFile", "GmapGenome"),
+          function(x, genome, param, ...) {
+              gmap_build(getSeq(x, param), genome, ...)
+          })
 
 setMethod("gmap_build", c("DNAStringSet", "GmapGenome"),
           function(x, genome, ...) {
