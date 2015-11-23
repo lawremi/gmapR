@@ -9,35 +9,46 @@
 
 setClassUnion("POSIXltORNULL", c("POSIXlt", "NULL"))
 
-setClassUnion("GsnapParamORNULL", c("GsnapParam", "NULL"))
-
 .valid_GsnapOutput <- function(object) {
   if (length(samPaths(object)) == 0L && length(bamPaths(object)) == 0L)
     paste0("No GSNAP output at '", object@path, "'")
 }
 
-setClass("GsnapOutput",
+setClassUnion("GmapAlignerParamORNULL", c("GmapAlignerParam", "NULL"))
+
+setClassUnion("GsnapParamORNULL", c("GsnapParam", "NULL"))
+setIs("GsnapParamORNULL", "GmapAlignerParamORNULL")
+
+setClass("GmapAlignerOutput",
          representation(path = "character",
-                        param = "GsnapParamORNULL",
-                        version = "POSIXltORNULL"),
+                        param = "GmapAlignerParamORNULL",
+                        version = "POSIXltORNULL"))
+         
+setClass("GsnapOutput",
+         representation(param = "GsnapParamORNULL"),
+         contains="GmapAlignerOutput",
          validity = .valid_GsnapOutput)
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Accessors
 ###
 
-setMethod("path", "GsnapOutput", function(object) object@path)
+setMethod("path", "GmapAlignerOutput", function(object) object@path)
 
-## should contain any category ever known to be used by gsnap
-.ALIGNMENT_CATEGORIES <- c("concordant_uniq", "concordant_mult",
-                           "concordant_transloc", "paired_mult",
-                           "paired_uniq_inv", "paired_uniq_long",
-                           "paired_uniq_scr", "unpaired_uniq", "unpaired_mult",
-                           "unpaired_transloc",  "halfmapping_uniq",
-                           "halfmapping_mult", "halfmapping_transloc",
-                           "nomapping", "concordant_circular",
-                           "halfmapping_circular", "paired_uniq_circular",
-                           "unpaired_circular")
+setGeneric("alignmentCategories",
+           function(x) standardGeneric("alignmentCategories"))
+
+setMethod("alignmentCategories", "GsnapOutput", function(x) {
+              c("concordant_uniq", "concordant_mult",
+                "concordant_transloc", "paired_mult",
+                "paired_uniq_inv", "paired_uniq_long",
+                "paired_uniq_scr", "unpaired_uniq", "unpaired_mult",
+                "unpaired_transloc",  "halfmapping_uniq",
+                "halfmapping_mult", "halfmapping_transloc",
+                "nomapping", "concordant_circular",
+                "halfmapping_circular", "paired_uniq_circular",
+                "unpaired_circular")
+          })
 
 ### Q: How to handle the single BAM output case? We would still want a
 ### formal object, with a version, parameters, etc. If 'path' is a
@@ -53,16 +64,26 @@ is_dir <- function(x) {
 
 setGeneric("bamPath", function(x) standardGeneric("bamPath"))
 
-setMethod("bamPath", "GsnapOutput", function(x) {
-  paths <- bamPaths(x)
-  if (length(paths) > 1) # maybe this should be the analysis BAM if it exists?
-    paths <- paths["concordant_uniq"]
-  paths
-})
+setMethod("bamPath", "GmapAlignerOutput", function(x) {
+              paths <- bamPaths(x)
+              if (length(paths) > 1L)
+                  paths <- paths[alignmentCategories(x)[1L]]
+              paths
+          })
 
 ## file_ext does not allow '_'
 file_ext2 <- function(x) {
   gsub(".*\\.", "", x)
+}
+
+paths <- function(x) {
+    if (!is_dir(x)) {
+        return(path(x))
+    }
+    paths <- list_files_with_exts(path(x), alignmentCategories(x),
+                                  full.names = TRUE)
+    names(paths) <- file_ext2(paths)
+    paths[alignmentCategories(x)]
 }
 
 samPaths <- function(x) {
@@ -71,13 +92,10 @@ samPaths <- function(x) {
       return(path(x))
     return(character())
   }
-  paths <- list_files_with_exts(path(x), .ALIGNMENT_CATEGORIES,
-                                full.names = TRUE)
-  names(paths) <- file_ext2(paths)
-  paths
+  paths(x)
 }
 
-setMethod("bamPaths", "GsnapOutput", function(x) {
+setMethod("bamPaths", "GmapAlignerOutput", function(x) {
   if (!is_dir(x)) {
     if (file_ext(path(x)) == "bam")
       return(path(x))
@@ -85,7 +103,7 @@ setMethod("bamPaths", "GsnapOutput", function(x) {
   }
   paths <- list_files_with_exts(path(x), "bam", full.names = TRUE)
   names(paths) <- file_ext2(file_path_sans_ext(paths))
-  paths <- paths[names(paths) %in% .ALIGNMENT_CATEGORIES]
+  paths <- paths[names(paths) %in% alignmentCategories(x)]
   paths
 })
 
@@ -93,29 +111,31 @@ setMethod("bamPaths", "GsnapOutput", function(x) {
 ### Constructor
 ###
 
+newGmapAlignerOutput <- function(Class, path, param = NULL, version = NULL) {
+    if (!is.character(path) || any(is.na(path)))
+        stop("'path' must be a character vector without any NA's")
+    if (!is(version, "POSIXltORNULL")) {
+        if (is.character(version))
+            version <- parseGsnapVersion(version)
+        else stop("'version' must be a version string, POSIXlt object or NULL")
+    }
+    path <- file_path_as_absolute(path)
+    new(Class, path = path, version = version, param = param)
+}
+
 GsnapOutput <- function(path, param = NULL, version = NULL) {
-  if (!is.character(path) || any(is.na(path)))
-    stop("'path' must be a character vector without any NA's")
-  if (!is(version, "POSIXltORNULL")) {
-    if (is.character(version))
-      version <- parseGsnapVersion(version)
-    else stop("'version' must be a version string, POSIXlt object or NULL")
-  }
-  if (!is(param, "GsnapParamORNULL"))
-    stop("'param' must be a GsnapParam object or NULL")
-  path <- file_path_as_absolute(path)
-  new("GsnapOutput", path = path, version = version, param = param)
+  newGmapAlignerOutput("GsnapOutput", path, param, version)
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Coercion
 ###
 
-setAs("GsnapOutput", "BamFileList", function(from) {
+setAs("GmapAlignerOutput", "BamFileList", function(from) {
   BamFileList(bamPaths(from))
 })
 
-setAs("GsnapOutput", "BamFile", function(from) {
+setAs("GmapAlignerOutput", "BamFile", function(from) {
   BamFile(bamPath(from))
 })
 
@@ -123,19 +143,19 @@ setAs("GsnapOutput", "BamFile", function(from) {
 ### Utilities
 ###
 
-setMethod("merge", c("GsnapOutput", "GsnapOutput"), function(x, y) {
+setMethod("merge", c("GmapAlignerOutput", "GmapAlignerOutput"), function(x, y) {
 ### TODO: get Cory's lane merging code for BAMs in here
 })
 
 setGeneric("consolidate", function(x, ...) standardGeneric("consolidate"))
 
-setMethod("consolidate", "GsnapOutput", function(x) {
+setMethod("consolidate", "GmapAlignerOutput", function(x) {
 ### TODO: this should produce the pipeline's analyzed BAM
   x
 })
 
 ##converts all gsnap SAM files to BAM files and creates the .bai index files
-setMethod("asBam", "GsnapOutput",
+setMethod("asBam", "GmapAlignerOutput",
           function(file) {
             ## the input is not a file. It is a GsnapOutput,
             ## but param name is enforced
@@ -155,6 +175,11 @@ setMethod("asBam", "GsnapOutput",
             file
 })
 
+setMethod("import", c("GsnapOutput", "missing", "missing"),
+          function(con, format, text, ...) {
+              import(as(con, "BamFile"), ...)
+          })
+
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### List class
 ###
@@ -167,9 +192,13 @@ setMethod("asBam", "GsnapOutput",
 ### character vectors. Would we vectorize the version or not? It makes
 ### sense to have an object that represents a single run of gsnap.
 
+setClass("GmapAlignerOutputList",
+         prototype = prototype(elementType = "GmapAlignerOutput"),
+         contains = "List")
+
 setClass("GsnapOutputList",
          prototype = prototype(elementType = "GsnapOutput"),
-         contains = "List")
+         contains = "GmapAlignerOutputList")
 
 setClass("SimpleGsnapOutputList",
          contains = c("GsnapOutputList", "SimpleList"))
@@ -181,7 +210,7 @@ GsnapOutputList <- function(...) {
   S4Vectors:::new_SimpleList_from_list("SimpleGsnapOutputList", args)
 }
 
-setAs("GsnapOutputList", "BamFileList", function(from) {
+setAs("GmapAlignerOutputList", "BamFileList", function(from) {
   BamFileList(lapply(from, as, "BamFile"))
 })
 
@@ -190,6 +219,6 @@ setAs("GsnapOutputList", "BamFileList", function(from) {
 ### Show
 ###
 
-setMethod("show", "GsnapOutput", function(object) {
-  cat("A GsnapOutput Object\n", "path: ", path(object), "\n", sep = "")
+setMethod("show", "GmapAlignerOutput", function(object) {
+  cat("A ", class(object), " Object\n", "path: ", path(object), "\n", sep = "")
 })

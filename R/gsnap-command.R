@@ -125,6 +125,10 @@ setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
   mode <- match.arg(mode)
   quality_protocol <- match.arg(quality_protocol)
   filter_chastity <- match.arg(filter_chastity)
+
+  if (version) {
+      .redirect <- ">/dev/null"
+  }
   
 ### TODO: if input_a is NULL, or split_output and .redirect are NULL:
 ###       return a pipe()

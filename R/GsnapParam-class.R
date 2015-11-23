@@ -9,27 +9,16 @@
 ###
 
 setClassUnion("integerORNULL", c("integer", "NULL"))
-setClassUnion("GmapSnpsORNULL", c("GmapSnps", "NULL"))
 
 setClass("GsnapParam",
-         representation(genome = "GmapGenome",
-                        part = "characterORNULL", # used by parallelized_gsnap
-                        batch = "character", # weird "0", "1", ... 
-                        max_mismatches = "integerORNULL",
+         representation(max_mismatches = "integerORNULL",
                         suboptimal_levels = "integer",
-                        snps = "GmapSnpsORNULL",
-                        mode = "character",
-                        nthreads = "integer",
                         novelsplicing = "logical",
                         splicing = "characterORNULL",
-                        npaths = "integer",
-                        quiet_if_excessive = "logical",
-                        nofails = "logical", 
-                        split_output = "logical",
                         terminal_threshold = "integer",
                         gmap_mode = "character",
-                        clip_overlap = "logical",
-                        extra = "list"))
+                        clip_overlap = "logical"),
+         contains="GmapAlignerParam")
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Accessors
@@ -148,6 +137,27 @@ gsnap_extra <- function(x) {
 ### Constructor
 ###
 
+newGmapAlignerParam <- function(Class, genome, snps) {
+    if (missing(genome))
+        stop("The 'genome' must be specified (and coercible to GmapGenome)")
+    args <- formals(sys.function(sys.parent(1L)))
+    params <- mget(names(args), parent.frame())
+    params$unique_only <- NULL
+    paramClasses <- getSlots(Class)
+    paramClasses <- paramClasses[setdiff(names(paramClasses),
+                                         c("extra", "snps"))]
+    params <- mapply(as, params[names(paramClasses)], paramClasses,
+                     SIMPLIFY = FALSE)
+    if (!is.null(snps)) {
+        if (!is(snps, "GmapSnps")) {
+            snps <- GmapSnps(snps, genome)
+        }
+        params$snps <- snps
+    }
+    params$extra <- evalq(list(...), parent.frame())
+    do.call(new, c(Class, params))
+}
+
 GsnapParam <- function(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
                        max_mismatches = NULL,
                        suboptimal_levels = 0L, mode = "standard",
@@ -157,54 +167,43 @@ GsnapParam <- function(genome, unique_only = FALSE, molecule = c("RNA", "DNA"),
                        split_output = !unique_only,
                        novelsplicing = FALSE, splicing = NULL, 
                        nthreads = 1L, part = NULL, batch = "2",
-                       terminal_threshold = if (molecule == "DNA") 1000L else 2L,
-                       gmap_mode = if (molecule == "DNA") "none" else
-                       "pairsearch,terminal,improve",
+                       terminal_threshold =
+                           if (molecule == "DNA") 1000L else 2L,
+                       gmap_mode = if (molecule == "DNA") "none"
+                                   else "pairsearch,terminal,improve",
                        clip_overlap = FALSE, ...)
 {
-  if (missing(genome))
-    stop("The 'genome' must be specified (should be coercible to GmapGenome)")
   molecule <- match.arg(molecule)
-  args <- formals(sys.function())
-  params <- mget(names(args), environment())
-  params$unique_only <- NULL
-  paramClasses <- getSlots("GsnapParam")
-  paramClasses <- paramClasses[setdiff(names(paramClasses), c("extra", "snps"))]
-  params <- mapply(as, params[names(paramClasses)], paramClasses,
-                   SIMPLIFY = FALSE)
-  if (!is.null(snps)) {
-    if (!is(snps, "GmapSnps")) {
-      snps <- GmapSnps(snps, genome)
-    }
-    params$snps <- snps
-  }
-  params$extra <- list(...)
-  do.call(new, c("GsnapParam", params))
+  newGmapAlignerParam("GsnapParam", genome, snps)
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Coercion
 ###
 
-setAs("GsnapParam", "list", function(from) {
+GmapAlignerParam_asList <- function(from) {
   to <- lapply(slotNames(from), slot, object = from)
   names(to) <- slotNames(from)
-  to$split_output <- if (to$split_output) "gsnap" else NULL
+  to$split_output <- if (to$split_output) tolower(sub("Param", "", class(from)))
   to$db <- genome(to$genome)
   to$dir <- path(directory(to$genome))
   to$genome <- NULL
   to$use_snps <- name(to$snps)
   to$snpsdir <- path(directory(to$snps))
-  to$novelsplicing <- as.integer(to$novelsplicing)
-  to <- rename(to, splicing = "use_splicing")
   extras <- to$extra
   to <- c(to, extras)
-  to$extra <- NULL
-  
+  to$extra <- NULL  
   to
-})
+}
 
-setMethod("as.list", "GsnapParam", function(x) as(x, "list"))
+setAs("GsnapParam", "list", function(from) {
+          to <- GmapAlignerParam_asList(from)
+          to$novelsplicing <- as.integer(to$novelsplicing)
+          to <- rename(to, splicing = "use_splicing")
+          to
+      })
+
+as.list.GmapAlignerParam <- function(x) as(x, "list")
 
 setAs("ANY", "characterORNULL", function(from) {
   if (is.null(from))
@@ -222,7 +221,7 @@ setAs("ANY", "integerORNULL", function(from) {
 ### Show
 ###
 
-setMethod("show", "GsnapParam", function(object) {
+setMethod("show", "GmapAlignerParam", function(object) {
   slots <- lapply(slotNames(object), slot, object = object)
   names(slots) <- slotNames(object)
   slots$genome <- paste0(slots$genome@name,
@@ -231,6 +230,6 @@ setMethod("show", "GsnapParam", function(object) {
     slots$snps <- paste0(name(slots$snps),
                          " (", path(directory(slots$snps)), ")")
   }
-  cat("A GsnapParams object\n",
+  cat("A ", class(object), " object\n",
       paste0(names(slots), ": ", slots, collapse = "\n"), "\n", sep = "")
 })

@@ -18,7 +18,7 @@ importMethodsFrom(GenomicRanges, seqnames, strand)
 importMethodsFrom(Rsamtools, asBam)
 importClassesFrom(GenomicFeatures, TxDb)
 importFrom(GenomicFeatures, transcripts, exons)
-importClassesFrom(rtracklayer, RTLFile, FastaFile)
+importClassesFrom(rtracklayer, RTLFile, FastaFile, RTLFileList)
 importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
 importMethodsFrom(rtracklayer, export)
 importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed, VRanges, ref, alt,
@@ -32,10 +32,14 @@ importMethodsFrom(GenomicAlignments, qwidth)
 
 export(bam_tally, GmapGenome, GmapGenomeDirectory, GsnapParam,
        directory, BamTallyParam, makeGmapGenomePackage, GsnapOutput,
-       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which, variantSummary)
+       GmapSnps, GmapSnpDirectory, TP53Genome, TP53Which, variantSummary,
+       GmapParam)
 
 exportClasses(GmapGenome, GmapGenomeDirectory, GmapSnpDirectory,
-              GsnapOutput, GmapSnps, BamTallyParam, GsnapParam)
+              GsnapOutput, GmapSnps, BamTallyParam, GsnapParam, GmapParam,
+              GmapAlignerParam)
 
 exportMethods(bamPaths, path, genome, seqinfo, gsnap, "snps<-",
-              "spliceSites<-", getSeq)
+              "spliceSites<-", getSeq, gmap)
+
+S3method(as.list, GmapAlignerParam)
