@@ -6,9 +6,8 @@
 #include "iit.h"
 #include "bytestream.h"
 
-/*I changed the order of these, because the XS spots are optional...*/
 enum { SEQNAMES, POS, REF, READ, N_CYCLES, N_CYCLES_REF, COUNT, COUNT_REF,
-       COUNT_TOTAL, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
+       RAW_COUNT_TOTAL, COUNT_TOTAL, COUNT_PLUS, COUNT_PLUS_REF, COUNT_MINUS,
        COUNT_MINUS_REF, DELCOUNT_PLUS, DELCOUNT_MINUS,
        READ_POS_MEAN, READ_POS_MEAN_REF, READ_POS_VAR,
        READ_POS_VAR_REF, MDFNE, MDFNE_REF,  CODON_STRAND,
@@ -41,6 +40,7 @@ typedef struct TallyTable {
   int *n_cycles_ref;
   int *count;
   int *count_ref;
+  int *raw_count_total;
   int *count_total;
   int *count_plus;
   int *count_plus_ref;
@@ -84,6 +84,7 @@ static SEXP R_TallyTable_new(int n_rows, int n_cycle_bins, bool xs) {
   SET_VECTOR_ELT(tally_R, N_CYCLES_REF, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_REF, allocVector(INTSXP, n_rows));
+  SET_VECTOR_ELT(tally_R, RAW_COUNT_TOTAL, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_TOTAL, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_PLUS, allocVector(INTSXP, n_rows));
   SET_VECTOR_ELT(tally_R, COUNT_PLUS_REF, allocVector(INTSXP, n_rows));
@@ -128,6 +129,7 @@ static TallyTable *TallyTable_new(SEXP tally_R, bool xs) {
   tally->n_cycles_ref = INTEGER(VECTOR_ELT(tally_R, N_CYCLES_REF));
   tally->count = INTEGER(VECTOR_ELT(tally_R, COUNT));
   tally->count_ref = INTEGER(VECTOR_ELT(tally_R, COUNT_REF));
+  tally->raw_count_total = INTEGER(VECTOR_ELT(tally_R, RAW_COUNT_TOTAL));
   tally->count_total = INTEGER(VECTOR_ELT(tally_R, COUNT_TOTAL));
   tally->count_plus = INTEGER(VECTOR_ELT(tally_R, COUNT_PLUS));
   tally->count_plus_ref = INTEGER(VECTOR_ELT(tally_R, COUNT_PLUS_REF));
@@ -163,7 +165,10 @@ static TallyTable *TallyTable_new(SEXP tally_R, bool xs) {
 }
 
 static void
-read_total_counts(unsigned char **bytes, int row, int *count_total) {
+read_total_counts(unsigned char **bytes, int row, int *raw_count_total,
+                  int *count_total)
+{
+  raw_count_total[row] = read_int(bytes);
   int count_total_plus = read_int(bytes);
   int count_total_minus = read_int(bytes);
   count_total[row] = count_total_plus + count_total_minus;
@@ -286,7 +291,8 @@ parse_indels(unsigned char *bytes, int row,
     tally->count_minus_ref[row] = read_int(&bytes);
     tally->count_ref[row] = tally->count_plus_ref[row] +
 	tally->count_minus_ref[row];
-    tally->count_total[row] = tally->count_ref[row] + tally->count[row];
+    tally->raw_count_total[row] = tally->count_ref[row] + tally->count[row];
+    tally->count_total[row] = tally->raw_count_total[row];
     tally->strand[row] = STRAND_NONE;
     SEXP seq_R = mkChar(read_string(&bytes));
     if (insertion) {
@@ -354,8 +360,7 @@ static int
 parse_alleles(unsigned char *bytes, int row, int ref_row,
               TallyParam param, TallyTable *tally, int strand)
 {
-
-  read_total_counts(&bytes, row, tally->count_total);
+  read_total_counts(&bytes, row, tally->raw_count_total, tally->count_total);
   int delcount_plus = 0, delcount_minus = 0;
   int n_alleles = read_allele_counts(&bytes, row, tally->read_R,
                                      tally->count_plus, tally->count_minus,
@@ -383,6 +388,7 @@ parse_alleles(unsigned char *bytes, int row, int ref_row,
       tally->read_pos_mean[row] = R_NaN;
       tally->read_pos_var[row] = NA_REAL;
       tally->mdfne[row] = NA_REAL;
+      tally->count_high_nm[row] = 0;
       if (param.xs) {
         tally->count_xs_plus[row] = 0;
         tally->count_xs_minus[row] = 0;
@@ -391,6 +397,7 @@ parse_alleles(unsigned char *bytes, int row, int ref_row,
   }
   for (int r = ref_row; r < row; r++) {
     tally->n_cycles_ref[r] = tally->n_cycles[ref_row];
+    tally->raw_count_total[r] = tally->raw_count_total[ref_row];
     tally->count_total[r] = tally->count_total[ref_row];
     tally->count_plus_ref[r] = tally->count_plus[ref_row];
     tally->count_minus_ref[r] = tally->count_minus[ref_row];
@@ -430,7 +437,7 @@ static int parse_indel_count(unsigned char *bytes) {
 
 static int parse_allele_count(unsigned char *bytes) {
   int n_alleles = 1; /* always have a reference */
-  bytes += sizeof(int) * 4 + 1; /* skip total and reference */
+  bytes += sizeof(int) * 5 + 1; /* skip total and reference */
   while(bytes[0] != '\0') {
       if (bytes[0] != '_')
           n_alleles++;

@@ -115,7 +115,12 @@ Readevid_cmp (const void *a, const void *b);
 typedef struct Tally_T *Tally_T;
 struct Tally_T {
   char refnt;
-  int nmatches;
+  int nmatches_passing;
+  int nmismatches_passing;
+
+  int nmatches_total;		/* Kept for informational purposes */
+  int nmismatches_total;	/* Kept for informational purposes */
+
   int delcounts_plus;
   int delcounts_minus;
 
@@ -139,6 +144,7 @@ struct Tally_T {
   int avail_matches_byshift_minus;
 #endif
 
+  /* Includes only passing quality scores */
   int n_matches_byshift_plus;
   int *matches_byshift_plus;
   int n_matches_byshift_minus;
@@ -150,6 +156,7 @@ struct Tally_T {
   int n_matches_byxs;
   int *matches_byxs;
 
+  /* Includes only passing quality scores */
   List_T mismatches_byshift;
   List_T mismatches_bynm;
   List_T mismatches_byxs;

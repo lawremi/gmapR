@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 161999 2015-03-26 00:05:19Z twu $";
+static char rcsid[] = "$Id: tally.c 178965 2015-11-16 19:55:45Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -443,7 +443,10 @@ Tally_new () {
   T new = (T) MALLOC(sizeof(*new));
 
   new->refnt = ' ';
-  new->nmatches = 0;
+  new->nmatches_passing = 0;
+  new->nmatches_total = 0;
+  new->nmismatches_passing = 0;
+  new->nmismatches_total = 0;
   new->delcounts_plus = 0;
   new->delcounts_minus = 0;
   new->n_fromleft_plus = 0;
@@ -502,7 +505,10 @@ Tally_clear (T this) {
 
 
   this->refnt = ' ';
-  this->nmatches = 0;
+  this->nmatches_passing = 0;
+  this->nmatches_total = 0;
+  this->nmismatches_passing = 0;
+  this->nmismatches_total = 0;
   this->delcounts_plus = 0;
   this->delcounts_minus = 0;
   this->n_fromleft_plus = 0;
@@ -638,7 +644,10 @@ Tally_transfer (T *dest, T *src) {
   *dest = *src;
 
   temp->refnt = ' ';
-  temp->nmatches = 0;
+  temp->nmatches_passing = 0;
+  temp->nmatches_total = 0;
+  temp->nmismatches_passing = 0;
+  temp->nmismatches_total = 0;
   temp->delcounts_plus = 0;
   temp->delcounts_minus = 0;
   temp->n_fromleft_plus = 0;

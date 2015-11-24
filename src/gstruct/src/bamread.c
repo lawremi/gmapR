@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 163197 2015-04-13 21:57:42Z twu $";
+static char rcsid[] = "$Id: bamread.c 178960 2015-11-16 19:52:26Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -644,6 +644,7 @@ Bamread_next_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr
 struct Bamline_T {
   char *acc;
   unsigned int flag;
+  int hiti;
   int nhits;
   bool good_unique_p;			/* Good above good_unique_mapq.  Dependent on second_mapq. */
   int mapq;
@@ -744,6 +745,11 @@ Bamline_firstend_p (Bamline_T this) {
     fprintf(stderr,"Read is marked as paired (0x1), but neither first read nor second read bit is set\n");
     exit(9);
   }
+}
+
+int
+Bamline_hiti (Bamline_T this) {
+  return this->hiti;
 }
 
 int
@@ -1332,6 +1338,22 @@ Bamline_splice_strand (Bamline_T this) {
 
 
 static int
+aux_hiti (T this) {
+#ifndef HAVE_SAMTOOLS_LIB
+  return 1;
+#else
+  uint8_t *s;
+
+  s = bam_aux_get(this->bam,"HI");
+  if (s == NULL) {
+    return 1;
+  } else {
+    return bam_aux2i(s);
+  }
+#endif
+}
+
+static int
 aux_nhits (T this) {
 #ifndef HAVE_SAMTOOLS_LIB
   return 1;
@@ -1820,7 +1842,7 @@ Bamline_free (Bamline_T *old) {
 
 
 static Bamline_T
-Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int mapq,
+Bamline_new (char *acc, unsigned int flag, int hiti, int nhits, bool good_unique_p, int mapq,
 	     int nm, char splice_strand, char *chr, Genomicpos_T chrpos_low,
 	     char *mate_chr, Genomicpos_T mate_chrpos_low, int insert_length,
 	     Intlist_T cigar_types, Uintlist_T cigar_npositions, int cigar_querylength, int readlength,
@@ -1832,6 +1854,7 @@ Bamline_new (char *acc, unsigned int flag, int nhits, bool good_unique_p, int ma
   strcpy(new->acc,acc);
 
   new->flag = flag;
+  new->hiti = hiti;
   new->nhits = nhits;
   new->good_unique_p = good_unique_p;
 
@@ -1919,7 +1942,7 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
   char *acc, *chr, *mate_chr, splice_strand;
   int nm;
   unsigned int flag;
-  int nhits;
+  int hiti, nhits;
   bool good_unique_p;
   int mapq;
   Genomicpos_T chrpos_low, mate_chrpos_low;
@@ -1983,10 +2006,11 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 	FREE(read);
       } else {
 	debug1(fprintf(stderr,"Success\n"));
+	hiti = aux_hiti(this);
 	nm = aux_nm(this);
 	splice_strand = aux_splice_strand(this);
 	good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
 			   readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2009,10 +2033,11 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 	  (need_unique_p == false || nhits == 1) &&
 	  (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	  (need_concordant_p == false || concordantp(flag) == true)) {
+	hiti = aux_hiti(this);
 	nm = aux_nm(this);
 	splice_strand = aux_splice_strand(this);
 	good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			   mate_chr,mate_chrpos_low,insert_length,
 			   cigar_types,cigarlengths,cigar_querylength,
 			   readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2037,7 +2062,7 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
   char *acc, *chr, *mate_chr, splice_strand;
   int nm;
   unsigned int flag;
-  int nhits;
+  int hiti, nhits;
   bool good_unique_p;
   int mapq;
   Genomicpos_T chrpos_low, mate_chrpos_low;
@@ -2104,10 +2129,11 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 	  FREE(read);
 	} else {
 	  debug1(fprintf(stderr,"Success\n"));
+	  hiti = aux_hiti(this);
 	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
 			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2134,10 +2160,11 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 	    (need_unique_p == false || nhits == 1) &&
 	    (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	    (need_concordant_p == false || concordantp(flag) == true)) {
+	  hiti = aux_hiti(this);
 	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
 			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2166,7 +2193,7 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
   char *acc, *chr, *mate_chr, splice_strand;
   int nm;
   unsigned int flag;
-  int nhits;
+  int hiti, nhits;
   bool good_unique_p;
   int mapq;
   Genomicpos_T chrpos_low, mate_chrpos_low;
@@ -2233,10 +2260,11 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 	  FREE(read);
 	} else {
 	  debug1(fprintf(stderr,"Success\n"));
+	  hiti = aux_hiti(this);
 	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
 			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2264,10 +2292,11 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
 	    (need_unique_p == false || nhits == 1) &&
 	    (need_primary_p == false || (flag & NOT_PRIMARY) == 0) &&
 	    (need_concordant_p == false || concordantp(flag) == true)) {
+	  hiti = aux_hiti(this);
 	  nm = aux_nm(this);
 	  splice_strand = aux_splice_strand(this);
 	  good_unique_p = aux_good_unique_p(this,good_unique_mapq);
-	  return Bamline_new(acc,flag,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
+	  return Bamline_new(acc,flag,hiti,nhits,good_unique_p,mapq,nm,splice_strand,chr,chrpos_low,
 			     mate_chr,mate_chrpos_low,insert_length,
 			     cigar_types,cigarlengths,cigar_querylength,
 			     readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2449,7 +2478,7 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
   char *acc, *chr, *mate_chr, splice_strand;
   int nm;
   unsigned int flag;
-  int nhits;
+  int hiti, nhits;
   int mapq;
   Genomicpos_T chrpos_low, mate_chrpos_low;
   int insert_length;
@@ -2471,11 +2500,12 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
 	       &cigar_types,&cigarlengths,&cigar_querylength,
 	       &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
 	       &terminalp);
+    hiti = aux_hiti(this);
     nm = aux_nm(this);
     splice_strand = aux_splice_strand(this);
     if (!strcmp(acc,desired_acc) && chrpos_low == desired_chrpos) {
       Bamread_unlimit_region(this);
-      return Bamline_new(acc,flag,nhits,/*good_unique_p*/true,mapq,nm,splice_strand,chr,chrpos_low,
+      return Bamline_new(acc,flag,hiti,nhits,/*good_unique_p*/true,mapq,nm,splice_strand,chr,chrpos_low,
 			 mate_chr,mate_chrpos_low,insert_length,
 			 cigar_types,cigarlengths,cigar_querylength,
 			 readlength,read,quality_string,hardclip,hardclip_quality,terminalp,
@@ -2537,7 +2567,7 @@ Bamstore_new (Genomicpos_T chrpos) {
 
 Bamline_T
 Bamstore_get (Table_T bamstore_chrtable, char *chr, Genomicpos_T low, char *acc,
-	      Genomicpos_T mate_low) {
+	      Genomicpos_T mate_low, int hiti) {
   List_T p, list = NULL;
   Bamline_T wanted = NULL, bamline;
   Bamstore_T bamstore;
@@ -2560,7 +2590,7 @@ Bamstore_get (Table_T bamstore_chrtable, char *chr, Genomicpos_T low, char *acc,
   } else {
     for (p = bamstore->bamlines; p != NULL; p = List_next(p)) {
       bamline = (Bamline_T) List_head(p);
-      if (strcmp(Bamline_acc(bamline),acc) == 0 && Bamline_mate_chrpos_low(bamline) == mate_low) {
+      if (strcmp(Bamline_acc(bamline),acc) == 0 && Bamline_mate_chrpos_low(bamline) == mate_low && bamline->hiti == hiti) {
 	wanted = bamline;
       } else {
 	list = List_push(list,(void *) bamline);
@@ -2637,7 +2667,10 @@ struct Bampair_T {
   Bamline_T bamline_high;
   Genomicpos_T chrpos_low;
   Genomicpos_T chrpos_high;
+  Genomicpos_T chrpos_low_noclip;
+  Genomicpos_T chrpos_high_noclip;
   int level;
+  bool plusp;			/* Based on first read */
 };
 
 char *
@@ -2671,9 +2704,24 @@ Bampair_chrpos_high (Bampair_T this) {
   return this->chrpos_high;
 }
 
+Genomicpos_T
+Bampair_chrpos_low_noclip (Bampair_T this) {
+  return this->chrpos_low_noclip;
+}
+
+Genomicpos_T
+Bampair_chrpos_high_noclip (Bampair_T this) {
+  return this->chrpos_high_noclip;
+}
+
 int
 Bampair_level (Bampair_T this) {
   return this->level;
+}
+
+bool
+Bampair_plusp (Bampair_T this) {
+  return this->plusp;
 }
 
 bool
@@ -2720,14 +2768,77 @@ Bampair_new (Bamline_T bamline_low, Bamline_T bamline_high) {
   if (bamline_low == NULL) {
     new->chrpos_low = bamline_high->chrpos_low;
     new->chrpos_high = Bamline_chrpos_high(bamline_high);
+    new->chrpos_low_noclip = Bamline_chrpos_low_noclip(bamline_high);
+    new->chrpos_high_noclip = Bamline_chrpos_high_noclip(bamline_high);
+
+    if (Bamline_firstend_p(bamline_high) == true) {
+      if (bamline_high->flag & QUERY_MINUSP) {
+	new->plusp = false;
+      } else {
+	new->plusp = true;
+      }
+    } else {
+      if (bamline_high->flag & QUERY_MINUSP) {
+	new->plusp = true;
+      } else {
+	new->plusp = false;
+      }
+    }
+
   } else if (bamline_high == NULL) {
     new->chrpos_low = bamline_low->chrpos_low;
     new->chrpos_high = Bamline_chrpos_high(bamline_low);
+    new->chrpos_low_noclip = Bamline_chrpos_low_noclip(bamline_low);
+    new->chrpos_high_noclip = Bamline_chrpos_high_noclip(bamline_low);
+
+    if (Bamline_firstend_p(bamline_low) == true) {
+      if (bamline_low->flag & QUERY_MINUSP) {
+	new->plusp = false;
+      } else {
+	new->plusp = true;
+      }
+    } else {
+      if (bamline_low->flag & QUERY_MINUSP) {
+	new->plusp = true;
+      } else {
+	new->plusp = false;
+      }
+    }
+
   } else {
     new->chrpos_low = bamline_low->chrpos_low;
     new->chrpos_high = Bamline_chrpos_high(bamline_high);
+    new->chrpos_low_noclip = Bamline_chrpos_low_noclip(bamline_low);
+    new->chrpos_high_noclip = Bamline_chrpos_high_noclip(bamline_high);
+
+    if (Bamline_firstend_p(bamline_low) == true && Bamline_firstend_p(bamline_high) == false) {
+      if (bamline_low->flag & QUERY_MINUSP) {
+	new->plusp = false;
+      } else {
+	new->plusp = true;
+      }
+
+    } else if (Bamline_firstend_p(bamline_low) == false && Bamline_firstend_p(bamline_high) == true) {
+      if (bamline_high->flag & QUERY_MINUSP) {
+	new->plusp = false;
+      } else {
+	new->plusp = true;
+      }
+
+    } else if (Bamline_firstend_p(bamline_low) == true && Bamline_firstend_p(bamline_high) == true) {
+      fprintf(stderr,"For bampair %s, both ends are first ends.  Flags are %d and %d\n",
+	      bamline_low->acc,bamline_low->flag,bamline_high->flag);
+      new->plusp = false;
+
+    } else {
+      fprintf(stderr,"For bampair %s , both ends are second ends.  Flags are %d and %d\n",
+	      bamline_low->acc,bamline_low->flag,bamline_high->flag);
+      new->plusp = false;
+    }
   }
+
   new->level = -1;
+
   return new;
 }
 
@@ -2756,30 +2867,91 @@ Bampair_print (FILE *fp, Bampair_T this, int quality_score_adj) {
 
 
 void
-Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
+Bampair_details (Uintlist_T *chrpos_first_lows, Uintlist_T *chrpos_first_highs,
+		 Uintlist_T *chrpos_second_lows, Uintlist_T *chrpos_second_highs,
+		 Uintlist_T *chrpos_overlap_lows, Uintlist_T *chrpos_overlap_highs,
 		 Uintlist_T *splice_lows, Uintlist_T *splice_highs, Intlist_T *splice_signs,
 		 Bampair_T this) {
-  *chrpos_lows = (Uintlist_T) NULL;
-  *chrpos_highs = (Uintlist_T) NULL;
+  Uintlist_T p1, p2, q1, q2;
+  Chrpos_T low1, high1, low2, high2;
+
+  *chrpos_first_lows = (Uintlist_T) NULL;
+  *chrpos_first_highs = (Uintlist_T) NULL;
+  *chrpos_second_lows = (Uintlist_T) NULL;
+  *chrpos_second_highs = (Uintlist_T) NULL;
+  *chrpos_overlap_lows = (Uintlist_T) NULL;
+  *chrpos_overlap_highs = (Uintlist_T) NULL;
   *splice_lows = (Uintlist_T) NULL;
   *splice_highs = (Uintlist_T) NULL;
   *splice_signs = (Intlist_T) NULL;
 
   if (this->bamline_low != NULL) {
-    Bamline_regions(&(*chrpos_lows),&(*chrpos_highs),this->bamline_low);
+    if (1 || Bamline_firstend_p(this->bamline_low) == true) {
+      Bamline_regions(&(*chrpos_first_lows),&(*chrpos_first_highs),this->bamline_low);
+    } else {
+      Bamline_regions(&(*chrpos_second_lows),&(*chrpos_second_highs),this->bamline_low);
+    }
     Bamline_splices(&(*splice_lows),&(*splice_highs),&(*splice_signs),this->bamline_low);
   }
 
   if (this->bamline_high != NULL) {
-    Bamline_regions(&(*chrpos_lows),&(*chrpos_highs),this->bamline_high);
+    if (0 && Bamline_firstend_p(this->bamline_high) == true) {
+      Bamline_regions(&(*chrpos_first_lows),&(*chrpos_first_highs),this->bamline_high);
+    } else {
+      Bamline_regions(&(*chrpos_second_lows),&(*chrpos_second_highs),this->bamline_high);
+    }
     Bamline_splices(&(*splice_lows),&(*splice_highs),&(*splice_signs),this->bamline_high);
   }
 
-  *chrpos_lows = Uintlist_reverse(*chrpos_lows);
-  *chrpos_highs = Uintlist_reverse(*chrpos_highs);
+  *chrpos_first_lows = Uintlist_reverse(*chrpos_first_lows);
+  *chrpos_first_highs = Uintlist_reverse(*chrpos_first_highs);
+  *chrpos_second_lows = Uintlist_reverse(*chrpos_second_lows);
+  *chrpos_second_highs = Uintlist_reverse(*chrpos_second_highs);
   *splice_lows = Uintlist_reverse(*splice_lows);
   *splice_highs = Uintlist_reverse(*splice_highs);
   *splice_signs = Intlist_reverse(*splice_signs);
+
+  if (this->bamline_low != NULL && this->bamline_high != NULL) {
+    p1 = *chrpos_first_lows;
+    q1 = *chrpos_first_highs;
+    p2 = *chrpos_second_lows;
+    q2 = *chrpos_second_highs;
+
+    while (p1 != NULL && p2 != NULL) {
+      low1 = Uintlist_head(p1);
+      high1 = Uintlist_head(q1);
+      low2 = Uintlist_head(p2);
+      high2 = Uintlist_head(q2);
+
+      if (low2 >= high1) {
+	p1 = Uintlist_next(p1);	q1 = Uintlist_next(q1); /* Advance first read */
+      } else if (low1 >= high2) {
+	p2 = Uintlist_next(p2);	q2 = Uintlist_next(q2); /* Advance second read */
+      } else if (low1 <= low2) {
+	*chrpos_overlap_lows = Uintlist_push(*chrpos_overlap_lows,low2);
+	if (high2 <= high1) {
+	  *chrpos_overlap_highs = Uintlist_push(*chrpos_overlap_highs,high2);
+	  p2 = Uintlist_next(p2); q2 = Uintlist_next(q2); /* Advance second read */
+	} else {
+	  *chrpos_overlap_highs = Uintlist_push(*chrpos_overlap_highs,high1);
+	  p1 = Uintlist_next(p1); q1 = Uintlist_next(q1); /* Advance first read */
+	}
+      } else {
+	*chrpos_overlap_lows = Uintlist_push(*chrpos_overlap_lows,low1);
+	if (high1 <= high2) {
+	  *chrpos_overlap_highs = Uintlist_push(*chrpos_overlap_highs,high1);
+	  p1 = Uintlist_next(p1); q1 = Uintlist_next(q1); /* Advance first read */
+	} else {
+	  *chrpos_overlap_highs = Uintlist_push(*chrpos_overlap_highs,high2);
+	  p2 = Uintlist_next(p2); q2 = Uintlist_next(q2); /* Advance second read */
+	}
+      }
+    }
+
+    *chrpos_overlap_lows = Uintlist_reverse(*chrpos_overlap_lows);
+    *chrpos_overlap_highs = Uintlist_reverse(*chrpos_overlap_highs);
+  }
+
 
   return;
 }
@@ -2822,7 +2994,7 @@ Bamread_all_pairs (T bamreader, char *desired_read_group, int minimum_mapq, int 
     } else {
       /* This is the high end */
       bamline_low = Bamstore_get(bamstore_chrtable,Bamline_chr(bamline),Bamline_mate_chrpos_low(bamline),
-				 Bamline_acc(bamline),Bamline_chrpos_low(bamline));
+				 Bamline_acc(bamline),Bamline_chrpos_low(bamline),bamline->hiti);
       if (bamline_low == NULL) {
 #if 0
 	fprintf(stderr,"Hmm...low end not found for %s at %s:%u\n",

@@ -1,4 +1,4 @@
-/* $Id: bamread.h 160725 2015-03-11 16:45:17Z twu $ */
+/* $Id: bamread.h 178960 2015-11-16 19:52:26Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -60,6 +60,8 @@ extern int
 Bamline_paired_read_p (Bamline_T this);
 extern int
 Bamline_firstend_p (Bamline_T this);
+extern int
+Bamline_hiti (Bamline_T this);
 extern int
 Bamline_nhits (Bamline_T this);
 extern bool
@@ -169,7 +171,7 @@ Bamstore_new (Genomicpos_T chrpos);
 
 extern Bamline_T
 Bamstore_get (Table_T bamstore_chrtable, char *chr, Genomicpos_T low, char *acc,
-	      Genomicpos_T mate_low);
+	      Genomicpos_T mate_low, int hiti);
 
 extern void
 Bamstore_add_at_low (Table_T bamstore_chrtable, char *chr, Genomicpos_T low,
@@ -191,8 +193,15 @@ extern Genomicpos_T
 Bampair_chrpos_low (Bampair_T this);
 extern Genomicpos_T
 Bampair_chrpos_high (Bampair_T this);
+extern Genomicpos_T
+Bampair_chrpos_low_noclip (Bampair_T this);
+extern Genomicpos_T
+Bampair_chrpos_high_noclip (Bampair_T this);
+
 extern int
 Bampair_level (Bampair_T this);
+extern bool
+Bampair_plusp (Bampair_T this);
 extern bool
 Bampair_good_unique_p (Bampair_T this);
 extern bool
@@ -205,7 +214,9 @@ Bampair_free (Bampair_T *old);
 extern void
 Bampair_print (FILE *fp, Bampair_T this, int quality_score_adj);
 extern void
-Bampair_details (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs,
+Bampair_details (Uintlist_T *chrpos_first_lows, Uintlist_T *chrpos_first_highs,
+		 Uintlist_T *chrpos_second_lows, Uintlist_T *chrpos_second_highs,
+		 Uintlist_T *chrpos_overlap_lows, Uintlist_T *chrpos_overlap_highs,
 		 Uintlist_T *splice_lows, Uintlist_T *splice_highs, Intlist_T *splice_signs,
 		 Bampair_T this);
 

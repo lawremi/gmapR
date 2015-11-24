@@ -110,7 +110,7 @@ variantSummary <- function(x, read_pos_breaks = NULL,
   
   tally_names <- c("seqnames", "pos", "ref", "alt",
                    "n.read.pos", "n.read.pos.ref",
-                   "count", "count.ref", "count.total",
+                   "count", "count.ref", "raw.count.total", "count.total",
                    "count.plus", "count.plus.ref",
                    "count.minus", "count.minus.ref",
                    "count.del.plus", "count.del.minus",
@@ -280,6 +280,7 @@ variantSummaryColumnDescriptions <-
   desc <- c(
     n.read.pos = "Number of unique read positions for the ALT",
     n.read.pos.ref = "Number of unique read positions for the REF",
+    raw.count.total = "Total depth, before quality filtering",  
     count.plus = "Positive strand ALT count",
     count.plus.ref = "Positive strand REF count",
     count.minus = "Negative strand ALT count",
