@@ -22,7 +22,9 @@
                 min_depth = 0L, variant_strand = 0L,
                 ignore_query_Ns = FALSE,
                 indels = FALSE, include_soft_clips = 0L,
-                exon_iit = NULL, IIT_BPPARAM = NULL)
+                exon_iit = NULL, IIT_BPPARAM = NULL,
+                xs = FALSE, read_pos = FALSE,
+                min_base_quality = 0L, noncovered = FALSE, nm = FALSE)
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
@@ -73,6 +75,20 @@
   \item{IIT_BPPARAM}{A \code{BiocParallelParam} object to use when
     generating the iit file from an R object. Ignored if \code{exon_iit}
     is a character vector or \code{NULL}
+  }
+  \item{xs}{Whether to tabulate reads by XS tag, the aligner's best
+    guess about the strand of transcription.
+  }
+  \item{read_pos}{Whether to tabulate by read position.
+  }
+  \item{min_base_quality}{Minimum base quality cutoff. Calls of lower
+    quality are not counted, except in the total raw depth.
+  }
+  \item{noncovered}{
+    Whether to report zero tallies, where there is no coverage.
+  }
+  \item{nm}{
+    Whether to tally by NM tag, the number of mismatches for a read.
   }
 }
 \seealso{

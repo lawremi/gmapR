@@ -73,7 +73,7 @@ setMethod("normArgCdsIIT", "GmapGenome", function(exon_iit, genome, BPPARAM) {
         stop("No map matching the pattern 'genes.iit' found for this GmapGenome")
     if(length(exon_iit) > 1)
         stop("Multipe map matching the pattern 'genes.iit' found for this GmapGenome")
-    normArgsCdsIIT(exon_iit)
+    normArgCdsIIT(exon_iit)
 })
 
 .makeCdsIIT <- function(exons,

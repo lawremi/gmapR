@@ -7,7 +7,8 @@
 ### High-level wrapper
 ###
 
-setGeneric("iit_store", function(x, dest, BPPARAM=MulticoreParam(1), ...) standardGeneric("iit_store"))
+setGeneric("iit_store", function(x, dest, BPPARAM=MulticoreParam(1), ...)
+    standardGeneric("iit_store"))
 
 gmapRange <- function(x) {
   pos <- strand(x) == "+"
@@ -28,7 +29,8 @@ gmapRange <- function(x) {
     
     strtpos = if(pos) min(strts) else max(ends)
     endpos = if(!pos) min(strts) else max(ends)
-    hdr = paste0(">", name, " ", runValue(seqnames(grange))[1], ":", strtpos, "..", endpos )
+    hdr = paste0(">", name, " ", runValue(seqnames(grange))[1], ":", strtpos,
+        "..", endpos)
 
     datline = paste(name, name, "NA")
     rngst = if(pos) strts[o] else ends[o]
@@ -69,7 +71,7 @@ setMethod("iit_store", c("character"),
                    label = if (gff) "ID" else NULL)
           {
             .iit_store(gff = gff, label = label, sort = "none",
-                       output = dest, inputfile = x)
+                       output = dest, .inputfile = x)
           })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -203,7 +203,7 @@ setAs("GsnapParam", "list", function(from) {
           to
       })
 
-as.list.GmapAlignerParam <- function(x) as(x, "list")
+as.list.GmapAlignerParam <- function(x, ...) as(x, "list")
 
 setAs("ANY", "characterORNULL", function(from) {
   if (is.null(from))

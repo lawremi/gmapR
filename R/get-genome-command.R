@@ -21,7 +21,7 @@ setMethod("get_genome", "GmapGenome",
               snpsdir <- directory(snps)
             }
             tmpfile <- file.path(tempdir(), "get_genome.fasta")
-            .get_genome(path(directory(db)), genome(db), snpsdir = snpsdir,
+            .get_genome(path(directory(x)), genome(x), snpsdir = snpsdir,
                         usesnps = usesnps, snpformat = "2", ...,
                         .range = range, .redirect = tmpfile)
             readDNAStringSet(tmpfile)

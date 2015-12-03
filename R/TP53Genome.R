@@ -38,7 +38,7 @@ GeneGenome <- function(gene) {
 exonsToGene <- range
 
 getExons <- function(txdb, orgdb, gene) {
-  eg <- select(orgdb, gene, "ENTREZID", "SYMBOL")$ENTREZID
+  eg <- AnnotationDbi::select(orgdb, gene, "ENTREZID", "SYMBOL")$ENTREZID
   exons(txdb, vals = list(gene_id=eg))
 }
 
