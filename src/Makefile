@@ -58,7 +58,7 @@ gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools
 gmap/Makefile: gmap/configure
 	cd $(dir $@); \
 	 ./configure --with-gmapdb=${GMAPDB} --prefix=${PREFIX} \
-	            --libdir=${PREFIX}/${LIBnn} # \ # \ # \ # \ # --disable-maintainer-mode;;;;
+	            --libdir=${PREFIX}/${LIBnn} --disable-maintainer-mode
 
 clean:
 	for dir in $(SUBDIRS); do \
