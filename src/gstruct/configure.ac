@@ -20,6 +20,8 @@ AC_INIT([gstruct],PKG_VERSION,[Thomas Wu <twu@gene.com>])
 AC_MSG_CHECKING(package version)
 AC_MSG_RESULT(PKG_VERSION)
 
+AM_MAINTAINER_MODE([enable])
+
 ### Read defaults
 
 # Handle CONFIG_SITE better than Autoconf does
