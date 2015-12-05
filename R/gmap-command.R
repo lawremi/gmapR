@@ -47,7 +47,7 @@ setMethod("gmap", c("character", "GmapParam"),
                       output_path <- output_dir
                   } else {
                       output_path <- paste0(output, ".",
-                                            formatToExt(params$format))
+                                            formatToExt(params_list$format))
                       params_list$.redirect <- paste(">", output_path)
                   }
 
