@@ -75,7 +75,9 @@ setMethod("import", c("GmapOutput", "missing", "missing"),
                   f <- as(con, "RTLFile")
               }
               ans <- import(f, ...)
-              seqinfo(ans) <- seqinfo(con@param@genome)
+              si <- seqinfo(con@param@genome)
+              seqlevels(ans) <- seqlevels(si)
+              seqinfo(ans) <- si
               ans
           })
 
