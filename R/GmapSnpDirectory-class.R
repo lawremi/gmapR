@@ -31,7 +31,7 @@ setReplaceMethod("snps", c("GmapSnpDirectory", "character", "VCF"),
                    iitFile <- file.path(iitPath, paste(name, "iit", sep = "."))
                    alt <- values(gr)$ALT
                    if (is(alt, "List")) {
-                     gr <- rep(gr, elementLengths(alt))
+                     gr <- rep(gr, elementNROWS(alt))
                      alt <- unlist(alt)
                    }
                    ref <- values(gr)$REF
