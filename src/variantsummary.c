@@ -195,19 +195,20 @@ read_xs_counts(unsigned char **bytes, int row, int *count_xs_plus,
                int *count_xs_minus)
 {
     int n_xs = read_int(bytes);
-    if (count_xs_plus == NULL) {
-        return;
+    if (count_xs_plus != NULL) {
+        count_xs_plus[row] = 0;
+        count_xs_minus[row] = 0;        
     }
-    count_xs_plus[row] = 0;
-    count_xs_minus[row] = 0;
     for (int index = 0; index < n_xs; index++) {
 	int xs = read_int(bytes);
 	int count = read_int(bytes);
-	if (xs == 1) {
-	    count_xs_plus[row] = count;
-	} else if (xs == 2) {
-	    count_xs_minus[row] = count;
-	} 
+        if (count_xs_plus != NULL) {
+            if (xs == 1) {
+                count_xs_plus[row] = count;
+            } else if (xs == 2) {
+                count_xs_minus[row] = count;
+            }
+        }
     }
 }
 
