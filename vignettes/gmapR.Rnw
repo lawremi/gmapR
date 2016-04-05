@@ -165,7 +165,7 @@ library("org.Hs.eg.db")
 library("TxDb.Hsapiens.UCSC.hg19.knownGene")
 eg <- org.Hs.eg.db::org.Hs.egSYMBOL2EG[["TP53"]]
 txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene
-tx <- transcripts(txdb, vals = list(gene_id = eg))
+tx <- transcripts(txdb, filter = list(gene_id = eg))
 roi <- range(tx) + 1e6
 strand(roi) <- "*"
 @ 
