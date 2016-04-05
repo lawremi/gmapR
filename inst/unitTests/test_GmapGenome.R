@@ -64,7 +64,7 @@ test_GmapGenome_spliceSites_replacement <- function() {
     library(org.Hs.eg.db)
     eg <- org.Hs.egSYMBOL2EG[["TP53"]]
     txTP53 <- transcripts(TxDb.Hsapiens.UCSC.hg19.knownGene,
-                          vals = list(gene_id = eg))
+                          filter = list(gene_id = eg))
     rngs <- GRanges(ranges=IRanges(start(range(txTP53)), end(range(txTP53))),
                     seqnames="chr17")
     rngs + 1e6
