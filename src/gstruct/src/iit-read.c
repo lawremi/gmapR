@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit-read.c 160316 2015-03-05 23:15:56Z twu $";
+static char rcsid[] = "$Id: iit-read.c 185885 2016-03-14 18:23:39Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -1660,8 +1660,8 @@ read_tree (off_t offset, off_t filesize, FILE *fp, char *filename, T new, int di
   }
 
   if ((offset += sizeof(int)*(new->nintervals[divno]+1)) > filesize) {
-    fprintf(stderr,"IIT file %s appears to have an offset that is too large (offset after sigmas %ld, filesize %ld\n",
-	    filename,offset,filesize);
+    fprintf(stderr,"IIT file %s appears to have an offset that is too large (divno %d, offset after sigmas %ld, filesize %ld)\n",
+	    filename,divno,offset,filesize);
     exit(9);
   } else {
     new->sigmas[divno] = (int *) CALLOC(new->nintervals[divno]+1,sizeof(int));
@@ -2560,23 +2560,26 @@ IIT_read (char *filename, char *name, bool readonlyp, Divread_T divread, char *d
   Interval_T interval;
 #endif
 
-  /* printf("Reading IIT file %s\n",filename); */
-  if ((fp = FOPEN_READ_BINARY(filename)) == NULL) {
-    if (add_iit_p == false) {
-      /* fprintf(stderr,"Cannot open IIT file %s\n",filename); */
+
+  if (add_iit_p == false) {
+    if ((fp = FOPEN_READ_BINARY(filename)) == NULL) {
       return NULL;
+    }
+
+  } else {
+    /* Try adding .iit first */
+    newfile = (char *) CALLOC(strlen(filename)+strlen(".iit")+1,sizeof(char));
+    sprintf(newfile,"%s.iit",filename);
+    if ((fp = FOPEN_READ_BINARY(newfile)) != NULL) {
+      filename = newfile;
     } else {
-      newfile = (char *) CALLOC(strlen(filename)+strlen(".iit")+1,sizeof(char));
-      sprintf(newfile,"%s.iit",filename);
-      if ((fp = FOPEN_READ_BINARY(newfile)) == NULL) {
-	/* fprintf(stderr,"Cannot open IIT file %s or %s\n",filename,newfile); */
-	FREE(newfile);
+      FREE(newfile);
+      if ((fp = FOPEN_READ_BINARY(filename)) == NULL) {
 	return NULL;
-      } else {
-	filename = newfile;
       }
     }
   }
+
 
   new = (T) MALLOC(sizeof(*new));
 

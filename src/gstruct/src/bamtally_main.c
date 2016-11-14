@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally_main.c 159971 2015-03-02 21:26:24Z twu $";
+static char rcsid[] = "$Id: bamtally_main.c 198589 2016-10-01 04:22:06Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -49,6 +49,7 @@ static char *map_iitfile = NULL; /* For coding regions */
 static bool print_noncovered_p = false;
 static int min_depth = 1;
 static int variant_strands = 0;
+static double variant_pct = 0.05;
 static bool genomic_diff_p = false;
 static bool signed_counts_p = false;
 
@@ -81,7 +82,7 @@ static char *chromosome = NULL;
 
 static bool print_totals_p = false;
 
-static int blocksize = 1000;
+static int blocksize = 1;  /* was 1000, but segment-based ref counts is not compatible with block printing */
 
 static char *desired_read_group = NULL;
 static int minimum_mapq = 0;
@@ -126,6 +127,7 @@ static struct option long_options[] = {
   {"noncovered", no_argument, 0, 0},	   /* print_noncovered_p */
   {"depth", required_argument, 0, 0}, /* min_depth */
   {"variants", required_argument, 0, 'X'}, /* variant_strands */
+  {"variant-pct", required_argument, 0, 0}, /* variant_pct */
   {"diffs-only", no_argument, 0, 0},	   /* genomic_diff_p */
 
   /* Genomic region */
@@ -252,6 +254,9 @@ main (int argc, char *argv[]) {
 	min_depth = atoi(optarg);
       } else if (!strcmp(long_name,"diffs-only")) {
 	genomic_diff_p = true;
+
+      } else if (!strcmp(long_name,"variant-pct")) {
+	variant_pct = atof(optarg);
 
       } else if (!strcmp(long_name,"indels")) {
 	print_indels_p = true;
@@ -420,7 +425,7 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,
 				  minimum_quality_score,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-				  min_depth,variant_strands,ignore_query_Ns_p,
+				  min_depth,variant_strands,variant_pct,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep,readlevel_p,max_softclip,
 				  print_cycles_p,print_nm_scores_p,print_xs_scores_p,print_noncovered_p);
     } else {
@@ -450,7 +455,7 @@ main (int argc, char *argv[]) {
 				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				     output_type,blockp,blocksize,
-				     quality_score_adj,min_depth,variant_strands,
+				     quality_score_adj,min_depth,variant_strands,variant_pct,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
 				     want_genotypes_p,verbosep,readlevel_p,
@@ -489,7 +494,7 @@ main (int argc, char *argv[]) {
 				  desired_read_group,minimum_mapq,good_unique_mapq,
 				  minimum_quality_score,maximum_nhits,
 				  need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
-				  min_depth,variant_strands,ignore_query_Ns_p,
+				  min_depth,variant_strands,variant_pct,ignore_query_Ns_p,
 				  print_indels_p,blocksize,verbosep,readlevel_p,
 				  max_softclip,print_cycles_p,print_nm_scores_p,print_xs_scores_p,print_noncovered_p);
       IIT_free(&chromosome_iit);
@@ -516,7 +521,7 @@ main (int argc, char *argv[]) {
 				   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				   output_type,blockp,blocksize,
-				   quality_score_adj,min_depth,variant_strands,
+				   quality_score_adj,min_depth,variant_strands,variant_pct,
 				   genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				   print_indels_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
 				   want_genotypes_p,verbosep,readlevel_p,
@@ -576,7 +581,7 @@ main (int argc, char *argv[]) {
 				     need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 				     /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 				     output_type,blockp,blocksize,
-				     quality_score_adj,min_depth,variant_strands,
+				     quality_score_adj,min_depth,variant_strands,variant_pct,
 				     genomic_diff_p,signed_counts_p,ignore_query_Ns_p,
 				     print_indels_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
 				     want_genotypes_p,verbosep,readlevel_p,

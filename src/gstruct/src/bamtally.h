@@ -1,4 +1,4 @@
-/* $Id: bamtally.h 159524 2015-02-25 21:21:38Z twu $ */
+/* $Id: bamtally.h 186975 2016-04-05 02:27:29Z twu $ */
 #ifndef BAMTALLY_INCLUDED
 #define BAMTALLY_INCLUDED
 #include "bamread.h"
@@ -23,7 +23,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      bool ignore_lowend_p, bool ignore_highend_p,
 	      Tally_outputtype_T output_type, bool blockp, int blocksize,
-	      int quality_score_adj, int min_depth, int variant_strands,
+	      int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p,
 	      bool want_genotypes_p, bool verbosep, bool readlevel_p, int max_softclip, bool print_noncovered_p,
@@ -38,7 +38,7 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 IIT_T map_iit, int alloclength,
 		 char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
+		 int blocksize, int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p,
 		 int max_softclip, bool print_noncovered_p);
 
@@ -49,7 +49,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      char *desired_read_group, int minimum_mapq, int good_unique_mapq,
 	      int minimum_quality_score, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
+	      int min_depth, int variant_strands, double variant_pct, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
 	      int max_softclip, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p, bool print_noncovered_p);
 

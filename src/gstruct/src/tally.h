@@ -1,6 +1,7 @@
 #ifndef TALLY_INCLUDED
 #define TALLY_INCLUDED
 #include "list.h"
+#include "intlist.h"
 #include "bool.h"
 
 #include "genomicpos.h"
@@ -89,11 +90,47 @@ extern Deletion_T
 find_deletion_seg (List_T deletions, char *segment, int mlength);
 
 
+typedef struct Microinv_T *Microinv_T;
+struct Microinv_T {
+  Genomicpos_T chrpos;
+  char *segment;
+  int mlength;
+  int shift;			/* Used to record shifts */
+  int nm;
+  int xs;
+  long int count;
+
+  long int count_plus;		/* Used by unique elements */
+  long int count_minus;		/* Used by unique elements */
+
+  Microinv_T next;		/* Used for linking similar microinversions together */
+};
+
+
+extern Microinv_T
+Microinv_new (Genomicpos_T chrpos, char *microinv, int mlength, int shift, int nm, int xs, int ncounts);
+extern void
+Microinv_free (Microinv_T *old);
+extern int
+Microinv_count_cmp (const void *a, const void *b);
+extern Microinv_T
+find_microinv_byshift (List_T microinvs, char *segment, int mlength, int shift);
+extern Microinv_T
+find_microinv_bynm (List_T microinvs, char *segment, int mlength, int nm);
+extern Microinv_T
+find_microinv_byxs (List_T microinvs, char *segment, int mlength, int xs);
+extern Microinv_T
+find_microinv_seg (List_T microinvs, char *segment, int mlength);
+
+
+
 typedef struct Readevid_T *Readevid_T;
 extern Readevid_T
-Readevid_new (unsigned int linei, char nt, int shift, int nm, int xs);
+Readevid_new (unsigned int linei, int nreps, char nt, int shift, int nm, int xs);
 extern unsigned int
 Readevid_linei (Readevid_T this);
+extern int
+Readevid_nreps (Readevid_T this);
 extern char
 Readevid_nt (Readevid_T this);
 extern int
@@ -124,8 +161,10 @@ struct Tally_T {
   int delcounts_plus;
   int delcounts_minus;
 
+#if 0
   long int n_fromleft_plus; /* Used for reference count for insertions */
   long int n_fromleft_minus; /* Used for reference count for insertions */
+#endif
 
 #ifdef USE_MATCHPOOL
   Matchpool_T matchpool;
@@ -169,7 +208,15 @@ struct Tally_T {
   List_T deletions_bynm;
   List_T deletions_byxs;
 
+  List_T microinvs_byshift;
+  List_T microinvs_bynm;
+  List_T microinvs_byxs;
+
   List_T readevidence;
+
+  List_T bamlines;		/* Stored at chrpos_high */
+  Intlist_T bamline_nreps_plus;
+  Intlist_T bamline_nreps_minus;
 };
 
 

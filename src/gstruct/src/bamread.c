@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamread.c 178960 2015-11-16 19:52:26Z twu $";
+static char rcsid[] = "$Id: bamread.c 198589 2016-10-01 04:22:06Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -26,7 +26,6 @@ static char rcsid[] = "$Id: bamread.c 178960 2015-11-16 19:52:26Z twu $";
 #else
 #define debug1(x)
 #endif
-
 
 
 #ifdef HAVE_SAMTOOLS_LIB
@@ -257,7 +256,7 @@ Bamread_nreads (int *npositions, T this, char *chr, Genomicpos_T chrpos1, Genomi
 
     cigar = bam1_cigar(this->bam);
     for (i = 0; i < this->core->n_cigar; i++) {
-      type = (int) ("MIDNSHP"[cigar[i] & BAM_CIGAR_MASK]);
+      type = (int) ("MIDNSHP=X"[cigar[i] & BAM_CIGAR_MASK]);
       length = cigar[i] >> BAM_CIGAR_SHIFT;
 
       if (type == 'S') {
@@ -456,6 +455,8 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     *read_group = bam_aux2Z(ptr);
   }
 
+#if 0
+  /* XG is used as XG:i in other software */
   ptr = bam_aux_get(this->bam,"XG");
   if (ptr == NULL) {
     *terminalp = false;
@@ -467,6 +468,10 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
       *terminalp = true;
     }
   }
+#else
+  *terminalp = false;
+#endif
+
 
   /* Cigar */
   *cigarlength = 0;
@@ -478,10 +483,10 @@ parse_line (T this, char **acc, unsigned int *flag, int *mapq, char **chr, Genom
     length = cigar[i] >> BAM_CIGAR_SHIFT;
     *cigarlengths = Uintlist_push(*cigarlengths,length);
 
-    type = (int) ("MIDNSHP"[cigar[i] & BAM_CIGAR_MASK]);
+    type = (int) ("MIDNSHP=X"[cigar[i] & BAM_CIGAR_MASK]);
     *cigartypes = Intlist_push(*cigartypes,type);
 
-    if (type == 'S' || type == 'M' || type == 'I') {
+    if (type == 'S' || type == 'M' || type == 'I' || type == 'X') {
       *cigarlength += (int) length;
     } else if (type == 'H') {
       *cigarlength += (int) length;
@@ -516,7 +521,7 @@ has_indel_p (T this) {
   cigar = bam1_cigar(this->bam);
   for (i = 0; i < this->core->n_cigar; i++) {
     /* length = cigar[i] >> BAM_CIGAR_SHIFT; */
-    type = (int) ("MIDNSHP"[cigar[i] & BAM_CIGAR_MASK]);
+    type = (int) ("MIDNSHP=X"[cigar[i] & BAM_CIGAR_MASK]);
     if (type == 'I' || type == 'D') {
       return true;
     }
@@ -541,7 +546,7 @@ perfect_match_p (T this) {
   cigar = bam1_cigar(this->bam);
   for (i = 0; i < this->core->n_cigar; i++) {
     /* length = cigar[i] >> BAM_CIGAR_SHIFT; */
-    type = (int) ("MIDNSHP"[cigar[i] & BAM_CIGAR_MASK]);
+    type = (int) ("MIDNSHP=X"[cigar[i] & BAM_CIGAR_MASK]);
     if (type == 'S') {
       return false;
 
@@ -549,6 +554,9 @@ perfect_match_p (T this) {
       return false;
       
     } else if (type == 'M') {
+      /* acceptable */
+
+    } else if (type == 'X') {
       /* acceptable */
 
     } else if (type == 'N') {
@@ -655,9 +663,12 @@ struct Bamline_T {
   char *mate_chr;
   Genomicpos_T mate_chrpos_low;
   int insert_length;
+
+  char *cigar_string;
   Intlist_T cigar_types;
   Uintlist_T cigar_npositions;
   int cigar_querylength;
+
   int readlength;
   char *read;
   char *quality_string;
@@ -684,6 +695,16 @@ unsigned int
 Bamline_flag (Bamline_T this) {
   return this->flag;
 }
+
+bool
+Bamline_plusp (Bamline_T this) {
+  if (this->flag & QUERY_MINUSP) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 
 static bool
 concordantp (unsigned int flag) {
@@ -780,6 +801,9 @@ Bamline_perfect_match_p (Bamline_T this) {
     } else if (type == 'M') {
       /* acceptable */
 
+    } else if (type == 'X') {
+      /* acceptable */
+
     } else if (type == 'N') {
       /* acceptable */
       
@@ -829,6 +853,21 @@ Bamline_perfect_match_p (Bamline_T this) {
 }
 
 
+bool
+Bamline_microinv_p (Bamline_T this) {
+  Intlist_T p;
+  int type;
+
+  for (p = this->cigar_types; p != NULL; p = Intlist_next(p)) {
+    type = Intlist_head(p);
+    if (type == 'X') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 int
 Bamline_mapq (Bamline_T this) {
   return this->mapq;
@@ -870,11 +909,15 @@ Bamline_insert_length (Bamline_T this) {
   return this->insert_length;
 }
 
+char *
+Bamline_cigar_string (Bamline_T this) {
+  return this->cigar_string;
+}
+
 Intlist_T
 Bamline_cigar_types (Bamline_T this) {
   return this->cigar_types;
 }
-
 
 Uintlist_T
 Bamline_cigar_npositions (Bamline_T this) {
@@ -903,6 +946,10 @@ Bamline_diffcigar (int *min_overhang, Uintlist_T *npositions, Uintlist_T *chrpos
       /* Ignore */
 
     } else if (type == 'M') {
+      querypos += Uintlist_head(q);
+      chrpos += Uintlist_head(q);
+
+    } else if (type == 'X') {
       querypos += Uintlist_head(q);
       chrpos += Uintlist_head(q);
 
@@ -971,21 +1018,21 @@ Bamread_print_cigar (FILE *fp, Bamline_T this) {
   return;
 }
 
-char *
-Bamline_cigar_string (Bamline_T this) {
+static char *
+compute_cigar_string (Intlist_T cigar_types, Uintlist_T cigar_npositions) {
   char *string, number[12];
   Intlist_T p;
   Uintlist_T q;
   int string_length = 0;
 
-  for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
+  for (p = cigar_types, q = cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
     sprintf(number,"%u",Uintlist_head(q));
     string_length += strlen(number) + 1;
   }
   string = (char *) CALLOC(string_length+1,sizeof(char));
 
   string_length = 0;
-  for (p = this->cigar_types, q = this->cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
+  for (p = cigar_types, q = cigar_npositions; p != NULL; p = Intlist_next(p), q = Uintlist_next(q)) {
     sprintf(number,"%u",Uintlist_head(q));
     sprintf(&(string[string_length]),"%u%c",Uintlist_head(q),Intlist_head(p));
     string_length += strlen(number) + 1;
@@ -1528,6 +1575,9 @@ Bamline_strand (Bamline_T this, Genome_T genome, IIT_T chromosome_iit) {
     } else if (type == 'M') {
       chrpos += Uintlist_head(q);
 
+    } else if (type == 'X') {
+      chrpos += Uintlist_head(q);
+
     } else if (type == 'N') {
       firstpos = chrpos - 1U;
       chrpos += Uintlist_head(q);
@@ -1581,6 +1631,9 @@ Bamline_chrpos_high (Bamline_T this) {
     } else if (type == 'M') {
       chrpos_high += Uintlist_head(q);
 
+    } else if (type == 'X') {
+      chrpos_high += Uintlist_head(q);
+
     } else if (type == 'N') {
       chrpos_high += Uintlist_head(q);
 
@@ -1621,6 +1674,9 @@ Bamline_chrpos_high_noclip (Bamline_T this) {
       /* Ignore */
 
     } else if (type == 'M') {
+      chrpos_high += Uintlist_head(q);
+
+    } else if (type == 'X') {
       chrpos_high += Uintlist_head(q);
 
     } else if (type == 'N') {
@@ -1731,6 +1787,11 @@ Bamline_regions (Uintlist_T *chrpos_lows, Uintlist_T *chrpos_highs, Bamline_T th
       position += Uintlist_head(q);
       *chrpos_highs = Uintlist_push(*chrpos_highs,position);
 
+    } else if (type == 'X') {
+      *chrpos_lows = Uintlist_push(*chrpos_lows,position);
+      position += Uintlist_head(q);
+      *chrpos_highs = Uintlist_push(*chrpos_highs,position);
+
     } else if (type == 'N') {
       position += Uintlist_head(q);
 
@@ -1771,6 +1832,9 @@ Bamline_splices (Uintlist_T *splice_lows, Uintlist_T *splice_highs, Intlist_T *s
       /* Ignore */
 
     } else if (type == 'M') {
+      position += Uintlist_head(q);
+
+    } else if (type == 'X') {
       position += Uintlist_head(q);
 
     } else if (type == 'N') {
@@ -1819,6 +1883,7 @@ Bamline_free (Bamline_T *old) {
     if ((*old)->mate_chr != NULL) {
       FREE((*old)->mate_chr);
     }
+    FREE((*old)->cigar_string);
     Intlist_free(&(*old)->cigar_types);
     Uintlist_free(&(*old)->cigar_npositions);
     FREE((*old)->read);
@@ -1880,6 +1945,7 @@ Bamline_new (char *acc, unsigned int flag, int hiti, int nhits, bool good_unique
 
   new->insert_length = insert_length;
 
+  new->cigar_string = compute_cigar_string(cigar_types,cigar_npositions);
   new->cigar_types = cigar_types;		/* not copying */
   new->cigar_npositions = cigar_npositions;	/* not copying */
 
@@ -1961,14 +2027,14 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {
-    debug1(fprintf(stderr,"Region limited\n"));
+    /* debug1(fprintf(stderr,"Region limited\n")); */
     while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
-      debug1(fprintf(stderr,"Got line\n"));
       parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		 &mate_chr,&mate_chrpos_low,&insert_length,
 		 &cigar_types,&cigarlengths,&cigar_querylength,
 		 &readlength,&read,&quality_string,&hardclip,&hardclip_quality,
 		 &read_group,&terminalp);
+      debug1(fprintf(stderr,"Got line %u\n",chrpos_low));
       if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
 	Intlist_free(&cigar_types);
@@ -2055,10 +2121,10 @@ Bamread_next_bamline (T this, char *desired_read_group, int minimum_mapq, int go
 #endif
 }
 
-Bamline_T
-Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
-					 bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-					 bool need_concordant_p) {
+static Bamline_T
+Bamread_next_bamline_copy_aux (T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
+			       bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
+			       bool need_concordant_p, bool exclude_perfect_p) {
   char *acc, *chr, *mate_chr, splice_strand;
   int nm;
   unsigned int flag;
@@ -2081,17 +2147,18 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {
-    debug1(fprintf(stderr,"Region limited\n"));
+    /* debug1(fprintf(stderr,"Region limited\n")); */
     while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
-      if (perfect_match_p(this) == true) {
+      if (exclude_perfect_p == true && perfect_match_p(this) == true) {
 	/* Skip */
+	debug1(fprintf(stderr,"Skipping line\n"));
       } else {
-	debug1(fprintf(stderr,"Got line\n"));
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
 		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
 		   &terminalp);
+	debug1(fprintf(stderr,"Got line %u\n",chrpos_low));
 	if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	  debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
 	  Intlist_free(&cigar_types);
@@ -2147,7 +2214,7 @@ Bamread_next_imperfect_bamline_copy_aux (T this, char *desired_read_group, int m
 
   } else {
     while (bam_read1(this->fp,this->bam) >= 0) {
-      if (perfect_match_p(this) == true) {
+      if (exclude_perfect_p == true && perfect_match_p(this) == true) {
 	/* Skip */
       } else {
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
@@ -2212,17 +2279,17 @@ Bamread_next_indel_bamline (T this, char *desired_read_group, int minimum_mapq, 
   return (Bamline_T) NULL;
 #else
   if (this->region_limited_p == 1) {
-    debug1(fprintf(stderr,"Region limited\n"));
+    /* debug1(fprintf(stderr,"Region limited\n")); */
     while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
       if (has_indel_p(this) == false) {
 	/* Skip */
       } else {
-	debug1(fprintf(stderr,"Got line\n"));
 	parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 		   &mate_chr,&mate_chrpos_low,&insert_length,
 		   &cigar_types,&cigarlengths,&cigar_querylength,
 		   &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
 		   &terminalp);
+	debug1(fprintf(stderr,"Got line %u\n",chrpos_low));
 	if (desired_read_group != NULL && (read_group == NULL || strcmp(desired_read_group,read_group))) {
 	  debug1(fprintf(stderr,"Fails because doesn't have desired read group %s\n",desired_read_group));
 	  Intlist_free(&cigar_types);
@@ -2356,7 +2423,11 @@ bamline_read_cmp (const void *x, const void *y) {
   }
 #else
 
-  return strcmp(a->read,b->read);
+  if ((cmp = strcmp(a->read,b->read)) != 0) {
+    return cmp;
+  } else {
+    return strcmp(a->cigar_string,b->cigar_string);
+  }
 
 #endif
 
@@ -2380,9 +2451,9 @@ Bamread_next_bamline_set (int *nlines, Bamline_T *prev_bamline,
     set_chrpos_low = Bamline_chrpos_low(*prev_bamline);
   }
 
-  while ((bamline = Bamread_next_imperfect_bamline_copy_aux(this,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
-							    need_unique_p,need_primary_p,ignore_duplicates_p,
-							    need_concordant_p)) != NULL) {
+  while ((bamline = Bamread_next_bamline_copy_aux(this,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
+						  need_unique_p,need_primary_p,ignore_duplicates_p,
+						  need_concordant_p,/*exclude_perfect_p*/false)) != NULL) {
 #if 0
     if (Bamline_perfect_match_p(bamline) == true) {
       /* Exclude all perfect matches to the reference */
@@ -2416,12 +2487,13 @@ Bamread_next_bamline_set (int *nlines, Bamline_T *prev_bamline,
     qsort(bamlines,*nlines,sizeof(Bamline_T),bamline_read_cmp);
   }
   List_free(&bamline_list);
-  *prev_bamline = bamline;
+  *prev_bamline = bamline;	/* Should be NULL */
+
   return bamlines;
 }
 
 
-
+/* Called by indelfix.c */
 Bamline_T **
 Bamread_block (int **nlines, Genomicpos_T chrstart, Genomicpos_T chrend,
 	       T this, char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
@@ -2440,9 +2512,9 @@ Bamread_block (int **nlines, Genomicpos_T chrstart, Genomicpos_T chrend,
   *nlines = (int *) CALLOC(chrend - chrstart + 1,sizeof(int));
 
   /* Excludes all perfect matches to the reference */
-  while ((bamline = Bamread_next_imperfect_bamline_copy_aux(this,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
-							    need_unique_p,need_primary_p,ignore_duplicates_p,
-							    need_concordant_p)) != NULL) {
+  while ((bamline = Bamread_next_bamline_copy_aux(this,desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
+						  need_unique_p,need_primary_p,ignore_duplicates_p,
+						  need_concordant_p,/*exclude_perfect_p*/true)) != NULL) {
     if (Intlist_head(bamline->cigar_types) != 'S') {
       chrpos_low_noclip = bamline->chrpos_low;
     } else {
@@ -2494,12 +2566,12 @@ Bamread_get_acc (T this, char *desired_chr, Genomicpos_T desired_chrpos, char *d
 
   Bamread_limit_region(this,desired_chr,desired_chrpos,desired_chrpos);
   while (bam_iter_read(this->fp,this->iter,this->bam) >= 0) {
-    debug1(fprintf(stderr,"Got line\n"));
     parse_line(this,&acc,&flag,&mapq,&chr,&chrpos_low,
 	       &mate_chr,&mate_chrpos_low,&insert_length,
 	       &cigar_types,&cigarlengths,&cigar_querylength,
 	       &readlength,&read,&quality_string,&hardclip,&hardclip_quality,&read_group,
 	       &terminalp);
+    debug1(fprintf(stderr,"Got line %u\n",chrpos_low));
     hiti = aux_hiti(this);
     nm = aux_nm(this);
     splice_strand = aux_splice_strand(this);

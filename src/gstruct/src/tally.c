@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 178965 2015-11-16 19:55:45Z twu $";
+static char rcsid[] = "$Id: tally.c 198589 2016-10-01 04:22:06Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -10,9 +10,10 @@ static char rcsid[] = "$Id: tally.c 178965 2015-11-16 19:55:45Z twu $";
 #include <string.h>
 #include "mem.h"
 #include "assert.h"
+#include "bamread.h"
 
 
-#define INITIAL_READLENGTH 75
+#define INITIAL_READLENGTH 200
 
 
 /* Matchpool and mismatchpool are buggy, resulting in a loop somewhere */
@@ -273,12 +274,117 @@ find_deletion_seg (List_T deletions, char *segment, int mlength) {
 }
 
 
+Microinv_T
+Microinv_new (Genomicpos_T chrpos, char *microinv, int mlength, int shift, int nm, int xs, int ncounts) {
+  Microinv_T new = (Microinv_T) MALLOC(sizeof(*new));
+
+  new->chrpos = chrpos;
+  new->segment = (char *) CALLOC(mlength+1,sizeof(char));
+  strncpy(new->segment,microinv,mlength);
+  new->mlength = mlength;
+  new->shift = shift;
+  new->nm = nm;
+  new->xs = xs;
+  new->count = ncounts;
+
+  /* Assigned when mismatch added to unique list */
+  /* new->count_plus = 0; */
+  /* new->count_minus = 0; */
+  
+  new->next = NULL;
+
+  return new;
+}
+
+void
+Microinv_free (Microinv_T *old) {
+  FREE((*old)->segment);
+  FREE(*old);
+  return;
+}
+
+
+int
+Microinv_count_cmp (const void *a, const void *b) {
+  Microinv_T x = * (Microinv_T *) a;
+  Microinv_T y = * (Microinv_T *) b;
+
+  if (x->count > y->count) {
+    return -1;
+  } else if (x->count < y->count) {
+    return +1;
+  } else {
+    return strcmp(x->segment,y->segment);
+  }
+}
+
+Microinv_T
+find_microinv_byshift (List_T microinvs, char *segment, int mlength, int shift) {
+  List_T p;
+  Microinv_T minv;
+
+  for (p = microinvs; p != NULL; p = List_next(p)) {
+    minv = (Microinv_T) List_head(p);
+    if (minv->shift == shift && minv->mlength == mlength /* && !strncmp(minv->segment,segment,mlength)*/) {
+      return minv;
+    }
+  }
+  return (Microinv_T) NULL;
+}
+
+Microinv_T
+find_microinv_bynm (List_T microinvs, char *segment, int mlength, int nm) {
+  List_T p;
+  Microinv_T minv;
+
+  for (p = microinvs; p != NULL; p = List_next(p)) {
+    minv = (Microinv_T) List_head(p);
+    if (minv->nm == nm && minv->mlength == mlength /* && !strncmp(minv->segment,segment,mlength)*/) {
+      return minv;
+    }
+  }
+  return (Microinv_T) NULL;
+}
+
+Microinv_T
+find_microinv_byxs (List_T microinvs, char *segment, int mlength, int xs) {
+  List_T p;
+  Microinv_T minv;
+
+  for (p = microinvs; p != NULL; p = List_next(p)) {
+    minv = (Microinv_T) List_head(p);
+    if (minv->xs == xs && minv->mlength == mlength /* && !strncmp(minv->segment,segment,mlength)*/) {
+      return minv;
+    }
+  }
+  return (Microinv_T) NULL;
+}
+
+
+
+Microinv_T
+find_microinv_seg (List_T microinvs, char *segment, int mlength) {
+  List_T p;
+  Microinv_T minv;
+
+  for (p = microinvs; p != NULL; p = List_next(p)) {
+    minv = (Microinv_T) List_head(p);
+    /* Not necessary to check segment, since it is defined by starting position and mlength */
+    if (minv->mlength == mlength /* && !strncmp(minv->segment,segment,mlength)*/ ) {
+      return minv;
+    }
+  }
+  return (Microinv_T) NULL;
+}
+
+
 /************************************************************************
  *   Readevid_T
  ************************************************************************/
 
 struct Readevid_T {
   unsigned int linei;
+  int nreps;
   char nt;
   char nti;
 
@@ -289,10 +395,11 @@ struct Readevid_T {
 
 
 Readevid_T
-Readevid_new (unsigned int linei, char nt, int shift, int nm, int xs) {
+Readevid_new (unsigned int linei, int nreps, char nt, int shift, int nm, int xs) {
   Readevid_T new = (Readevid_T) MALLOC(sizeof(*new));
 
   new->linei = linei;
+  new->nreps = nreps;
   new->nt = nt;
   switch (nt) {
   case 'A': new->nti = 0; break;
@@ -319,6 +426,11 @@ Readevid_free (Readevid_T *old) {
 unsigned int
 Readevid_linei (Readevid_T this) {
   return this->linei;
+}
+
+int
+Readevid_nreps (Readevid_T this) {
+  return this->nreps;
 }
 
 char
@@ -449,8 +561,8 @@ Tally_new () {
   new->nmismatches_total = 0;
   new->delcounts_plus = 0;
   new->delcounts_minus = 0;
-  new->n_fromleft_plus = 0;
-  new->n_fromleft_minus = 0;
+  /* new->n_fromleft_plus = 0; */
+  /* new->n_fromleft_minus = 0; */
   
 #ifdef USE_MATCHPOOL
   new->matchpool = Matchpool_new();
@@ -488,7 +600,15 @@ Tally_new () {
   new->deletions_bynm = (List_T) NULL;
   new->deletions_byxs = (List_T) NULL;
 
+  new->microinvs_byshift = (List_T) NULL;
+  new->microinvs_bynm = (List_T) NULL;
+  new->microinvs_byxs = (List_T) NULL;
+
   new->readevidence = (List_T) NULL;
+
+  new->bamlines = (List_T) NULL;
+  new->bamline_nreps_plus = (Intlist_T) NULL;
+  new->bamline_nreps_minus = (Intlist_T) NULL;
 
   return new;
 }
@@ -501,7 +621,9 @@ Tally_clear (T this) {
   Mismatch_T mismatch;
   Insertion_T ins;
   Deletion_T del;
+  Microinv_T minv;
   Readevid_T readevid;
+  Bamline_T bamline;
 
 
   this->refnt = ' ';
@@ -511,8 +633,8 @@ Tally_clear (T this) {
   this->nmismatches_total = 0;
   this->delcounts_plus = 0;
   this->delcounts_minus = 0;
-  this->n_fromleft_plus = 0;
-  this->n_fromleft_minus = 0;
+  /* this->n_fromleft_plus = 0; */
+  /* this->n_fromleft_minus = 0; */
 
   if (this->use_array_p == true) {
 #if 1
@@ -621,6 +743,28 @@ Tally_clear (T this) {
   this->deletions_byxs = (List_T) NULL;
 
 
+  for (ptr = this->microinvs_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&(this->microinvs_byshift));
+  this->microinvs_byshift = (List_T) NULL;
+
+  for (ptr = this->microinvs_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&(this->microinvs_bynm));
+  this->microinvs_bynm = (List_T) NULL;
+
+  for (ptr = this->microinvs_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&(this->microinvs_byxs));
+  this->microinvs_byxs = (List_T) NULL;
+
+
   for (ptr = this->readevidence; ptr != NULL; ptr = List_next(ptr)) {
     readevid = (Readevid_T) List_head(ptr);
     Readevid_free(&readevid);
@@ -628,6 +772,18 @@ Tally_clear (T this) {
   List_free(&(this->readevidence));
   this->readevidence = (List_T) NULL;
 
+
+  for (ptr = this->bamlines; ptr != NULL; ptr = List_next(ptr)) {
+    bamline = (Bamline_T) List_head(ptr);
+    Bamline_free(&bamline);
+  }
+  List_free(&(this->bamlines));
+  this->bamlines = (List_T) NULL;
+
+  Intlist_free(&(this->bamline_nreps_plus));
+  Intlist_free(&(this->bamline_nreps_minus));
+  this->bamline_nreps_plus = (Intlist_T) NULL;
+  this->bamline_nreps_minus = (Intlist_T) NULL;
 
   return;
 }
@@ -650,8 +806,8 @@ Tally_transfer (T *dest, T *src) {
   temp->nmismatches_total = 0;
   temp->delcounts_plus = 0;
   temp->delcounts_minus = 0;
-  temp->n_fromleft_plus = 0;
-  temp->n_fromleft_minus = 0;
+  /* temp->n_fromleft_plus = 0; */
+  /* temp->n_fromleft_minus = 0; */
 
   if (temp->use_array_p == true) {
     memset((void *) temp->matches_byshift_plus,0,temp->n_matches_byshift_plus * sizeof(int));
@@ -676,6 +832,10 @@ Tally_transfer (T *dest, T *src) {
   temp->deletions_bynm = (List_T) NULL;
   temp->deletions_byxs = (List_T) NULL;
 
+  temp->microinvs_byshift = (List_T) NULL;
+  temp->microinvs_bynm = (List_T) NULL;
+  temp->microinvs_byxs = (List_T) NULL;
+
   /* Not clear why we have to delete readevid, but not the other lists */
   for (ptr = temp->readevidence; ptr != NULL; ptr = List_next(ptr)) {
     readevid = (Readevid_T) List_head(ptr);
@@ -683,6 +843,10 @@ Tally_transfer (T *dest, T *src) {
   }
   List_free(&(temp->readevidence));
   temp->readevidence = (List_T) NULL;
+
+  temp->bamlines = (List_T) NULL;
+  temp->bamline_nreps_plus = (Intlist_T) NULL;
+  temp->bamline_nreps_minus = (Intlist_T) NULL;
 
   *src = temp;
 
@@ -698,7 +862,9 @@ Tally_free (T *old) {
   Mismatch_T mismatch;
   Insertion_T ins;
   Deletion_T del;
+  Microinv_T minv;
   Readevid_T readevid;
+  Bamline_T bamline;
 
 
 #if 0
@@ -810,12 +976,47 @@ Tally_free (T *old) {
   /* (*old)->deletions_byxs = (List_T) NULL; */
 
 
+  for (ptr = (*old)->microinvs_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&((*old)->microinvs_byshift));
+  /* (*old)->microinvs_byshift = (List_T) NULL; */
+
+  for (ptr = (*old)->microinvs_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&((*old)->microinvs_bynm));
+  /* (*old)->microinvs_bynm = (List_T) NULL; */
+
+  for (ptr = (*old)->microinvs_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    minv = (Microinv_T) List_head(ptr);
+    Microinv_free(&minv);
+  }
+  List_free(&((*old)->microinvs_byxs));
+  /* (*old)->microinvs_byxs = (List_T) NULL; */
+
+
   for (ptr = (*old)->readevidence; ptr != NULL; ptr = List_next(ptr)) {
     readevid = (Readevid_T) List_head(ptr);
     Readevid_free(&readevid);
   }
   List_free(&((*old)->readevidence));
   /* (*old)->readevidence = (List_T) NULL; */
+
+
+  for (ptr = (*old)->bamlines; ptr != NULL; ptr = List_next(ptr)) {
+    bamline = (Bamline_T) List_head(ptr);
+    Bamline_free(&bamline);
+  }
+  List_free(&((*old)->bamlines));
+  /* this->bamlines = (List_T) NULL; */
+
+  Intlist_free(&((*old)->bamline_nreps_plus));
+  Intlist_free(&((*old)->bamline_nreps_minus));
+  /* this->bamline_nreps_plus = (Intlist_T) NULL; */
+  /* this->bamline_nreps_minus = (Intlist_T) NULL; */
 
 
   FREE(*old);

@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: bamtally.c 179050 2015-11-17 21:30:52Z twu $";
+static char rcsid[] = "$Id: bamtally.c 198589 2016-10-01 04:22:06Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -73,13 +73,27 @@ static bool totals_only_p = false;
 #define debug2(x)
 #endif
 
-/* Print block */
+/* Codon processing */
 #ifdef DEBUG3
 #define debug3(x) x
 #else
 #define debug3(x)
 #endif
 
+/* Refsegment counts */
+#ifdef DEBUG4
+#define debug4(x) x
+#else
+#define debug4(x)
+#endif
+
+
+/* Print block */
+#ifdef DEBUG9
+#define debug9(x) x
+#else
+#define debug9(x)
+#endif
 
 
 typedef enum {FIRST, SECOND} Pairend_T;
@@ -500,6 +514,70 @@ Deletion_xs_cmp (const void *a, const void *b) {
 }
 
 
+static int
+Microinv_chain_length (Microinv_T this) {
+  int length = 0;
+
+  while (this != NULL) {
+    length++;
+    this = this->next;
+  }
+
+  return length;
+}
+
+/* Go -1 to -readlength, then +readlength to +1 */
+static int
+Microinv_shift_cmp (const void *a, const void *b) {
+  Microinv_T x = * (Microinv_T *) a;
+  Microinv_T y = * (Microinv_T *) b;
+
+  if (x->shift < 0 && y->shift > 0) {
+    return -1;
+  } else if (y->shift < 0 && x->shift > 0) {
+    return +1;
+  } else {
+    if (x->shift > y->shift) {
+      return -1;
+    } else if (y->shift > x->shift) {
+      return +1;
+    } else {
+      return 0;
+    }
+  }
+}
+
+static int
+Microinv_nm_cmp (const void *a, const void *b) {
+  Microinv_T x = * (Microinv_T *) a;
+  Microinv_T y = * (Microinv_T *) b;
+
+  if (x->nm < y->nm) {
+    return -1;
+  } else if (y->nm < x->nm) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
+static int
+Microinv_xs_cmp (const void *a, const void *b) {
+  Microinv_T x = * (Microinv_T *) a;
+  Microinv_T y = * (Microinv_T *) b;
+
+  if (x->xs < y->xs) {
+    return -1;
+  } else if (y->xs < x->xs) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
+
+
+
 /************************************************************************
  *   Probability calculations
  ************************************************************************/
@@ -837,12 +915,16 @@ compute_probs_array (double *probs, double *loglik, char refnt,
 
 
 static bool
-pass_variant_filter_p (long int nmatches_passing, long int delcounts_plus, long int delcounts_minus,
-		       List_T mismatches_by_shift, int min_depth, int variant_strands) {
-  long int depth;
-  bool plus_strand_p[4], minus_strand_p[4];
+pass_variant_filter_p (char refnt, long int nmatches_passing, long int delcounts_plus, long int delcounts_minus,
+		       List_T mismatches_by_shift, int min_depth, int variant_strands, double variant_pct) {
+  long int depth, mismatch_both, mismatch_plus, mismatch_minus;
+  long int both_strands_n[4], plus_strand_n[4], minus_strand_n[4];
   List_T ptr;
   Mismatch_T mismatch;
+
+  if (refnt == 'N') {
+    return false;
+  }
 
   depth = nmatches_passing + delcounts_plus + delcounts_minus;
   ptr = mismatches_by_shift;
@@ -858,116 +940,328 @@ pass_variant_filter_p (long int nmatches_passing, long int delcounts_plus, long 
 
   if (variant_strands == 0) {
     return true;
+
   } else if (variant_strands == 1) {
     /* Not sure if we should look at insertions_byshift also */
-    if (mismatches_by_shift == NULL && delcounts_plus == 0 && delcounts_minus == 0) {
-      return false;
+    if ((double) delcounts_plus/(double) depth >= variant_pct) {
+      return true;
+    } else if ((double) delcounts_minus/(double) depth >= variant_pct) {
+      return true;
     } else {
-      return true;
-    }
-
-  } else {
-    if (delcounts_plus > 0 && delcounts_minus > 0) {
-      return true;
-    }
-
-    plus_strand_p[0] = plus_strand_p[1] = plus_strand_p[2] = plus_strand_p[3] = false;
-    minus_strand_p[0] = minus_strand_p[1] = minus_strand_p[2] = minus_strand_p[3] = false;
-
-    /* Look for two strands on a given mismatch allele */
-    for (ptr = mismatches_by_shift; ptr != NULL; ptr = List_next(ptr)) {
-      mismatch = (Mismatch_T) List_head(ptr);
-      if (mismatch->shift > 0) {
-	if (delcounts_minus > 0) {
-	  return true;
-	}
+      both_strands_n[0] = both_strands_n[1] = both_strands_n[2] = both_strands_n[3] = 0;
+      ptr = mismatches_by_shift;
+      while (ptr != NULL) {
+	mismatch = (Mismatch_T) List_head(ptr);
 	switch (mismatch->nt) {
-	case 'A':
-	  if (minus_strand_p[/*A*/0] == true) {
-	    return true;
-	  } else {
-	    plus_strand_p[/*A*/0] = true;
-	  }
-	  break;
-	case 'C':
-	  if (minus_strand_p[/*C*/1] == true) {
-	    return true;
-	  } else {
-	    plus_strand_p[/*C*/1] = true;
-	  }
-	  break;
-	case 'G': 
-	  if (minus_strand_p[/*G*/2] == true) {
-	    return true;
-	  } else {
-	    plus_strand_p[/*G*/2] = true;
-	  }
-	  break;
-	case 'T':
-	  if (minus_strand_p[/*T*/3] == true) {
-	    return true;
-	  } else {
-	    plus_strand_p[/*T*/3] = true;
-	  }
-	  break;
+	case 'A': both_strands_n[/*A*/0] += mismatch->count; break;
+	case 'C': both_strands_n[/*C*/1] += mismatch->count; break;
+	case 'G': both_strands_n[/*G*/2] += mismatch->count; break;
+	case 'T': both_strands_n[/*T*/3] += mismatch->count; break;
 	}
+	ptr = List_next(ptr);
+      }
 
-      } else if (mismatch->shift < 0) {
-	if (delcounts_plus > 0) {
-	  return true;
-	}
-	switch (mismatch->nt) {
-	case 'A':
-	  if (plus_strand_p[/*A*/0] == true) {
-	    return true;
-	  } else {
-	    minus_strand_p[/*A*/0] = true;
-	  }
-	  break;
-	case 'C':
-	  if (plus_strand_p[/*C*/1] == true) {
-	    return true;
-	  } else {
-	    minus_strand_p[/*C*/1] = true;
-	  }
-	  break;
-	case 'G':
-	  if (plus_strand_p[/*G*/2] == true) {
-	    return true;
-	  } else {
-	    minus_strand_p[/*G*/2] = true;
-	  }
-	  break;
-	case 'T':
-	  if (plus_strand_p[/*T*/3] == true) {
-	    return true;
-	  } else {
-	    minus_strand_p[/*T*/3] = true;
-	  }
-	  break;
-	}
+      if ((double) both_strands_n[0]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) both_strands_n[1]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) both_strands_n[2]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) both_strands_n[3]/(double) depth >= variant_pct) {
+	return true;
+      } else {
+	return false;
       }
     }
 
-    return false;
+  } else {
+    if ((double) delcounts_plus/(double) depth >= variant_pct &&
+	(double) delcounts_minus/(double) depth >= variant_pct) {
+      return true;
+    } else {
+      plus_strand_n[0] = plus_strand_n[1] = plus_strand_n[2] = plus_strand_n[3] = 0;
+      minus_strand_n[0] = minus_strand_n[1] = minus_strand_n[2] = minus_strand_n[3] = 0;
+      ptr = mismatches_by_shift;
+      while (ptr != NULL) {
+	mismatch = (Mismatch_T) List_head(ptr);
+	if (mismatch->shift > 0) {
+	  switch (mismatch->nt) {
+	  case 'A': plus_strand_n[/*A*/0] += mismatch->count; break;
+	  case 'C': plus_strand_n[/*C*/1] += mismatch->count; break;
+	  case 'G': plus_strand_n[/*G*/2] += mismatch->count; break;
+	  case 'T': plus_strand_n[/*T*/3] += mismatch->count; break;
+	  }
+	} else if (mismatch->shift < 0) {
+	  switch (mismatch->nt) {
+	  case 'A': minus_strand_n[/*A*/0] += mismatch->count; break;
+	  case 'C': minus_strand_n[/*C*/1] += mismatch->count; break;
+	  case 'G': minus_strand_n[/*G*/2] += mismatch->count; break;
+	  case 'T': minus_strand_n[/*T*/3] += mismatch->count; break;
+	  }
+	}
+	ptr = List_next(ptr);
+      }
+
+      if ((double) plus_strand_n[0]/(double) depth >= variant_pct &&
+	  (double) minus_strand_n[0]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) plus_strand_n[1]/(double) depth >= variant_pct &&
+		 (double) minus_strand_n[1]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) plus_strand_n[2]/(double) depth >= variant_pct &&
+		 (double) minus_strand_n[2]/(double) depth >= variant_pct) {
+	return true;
+      } else if ((double) plus_strand_n[3]/(double) depth >= variant_pct &&
+		 (double) minus_strand_n[3]/(double) depth >= variant_pct) {
+	return true;
+      }  else {
+	return false;
+      }
+    }
   }
+}
+
+
+static bool
+refsegment_p (Genomicpos_T segment_low, Genomicpos_T segment_high, Genomicpos_T chrpos_low,
+	      Intlist_T types, Uintlist_T npositions, bool terminalp, int max_softclip) {
+  Genomicpos_T pos;
+  Intlist_T a;
+  Uintlist_T b;
+  unsigned int mlength;
+  int type;
+
+
+  debug4(printf("Checking read at %u for refsegment\n",chrpos_low));
+
+  pos = chrpos_low - 1U;		/* Bamread reports chrpos as 1-based */
+
+  if (terminalp == false) {
+    /* Don't handle soft clip for terminal alignments */
+    max_softclip = 0;
+  }
+
+  if (max_softclip > 0 && types != NULL) {
+    if (Intlist_head(types) == 'S') {
+      /* Revise pos, so we handle the initial soft clip */
+      mlength = Uintlist_head(npositions);
+      if (pos < mlength) {
+	/* Make sure initial soft clip does not extend past beginning of chromosome */
+	pos = 0U;
+	Uintlist_head_set(npositions,pos);
+      } else {
+	pos -= mlength;
+      }
+
+      mlength = Uintlist_head(npositions);
+      if (mlength > max_softclip) {
+	/* Make sure initial soft clip does not extend past max_softclip */
+	fprintf(stderr,"Read has initial soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	pos += (mlength - max_softclip);
+	Uintlist_head_set(npositions,max_softclip);
+      }
+    }
+  }
+
+  for (a = types, b = npositions; a != NULL; a = Intlist_next(a), b = Uintlist_next(b)) {
+    type = Intlist_head(a);
+    mlength = Uintlist_head(b);
+    if (type == 'S' && max_softclip == 0) {
+      /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
+
+    } else if (type == 'H') {
+      /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
+
+    } else if (type == 'N') {
+      pos += mlength;
+
+    } else if (type == 'P') {
+      /* Phantom nucleotides that are inserted in the reference
+	 without modifying the genomicpos.  Like a 'D' but leaves pos
+	 unaltered. */
+
+    } else if (type == 'I') {
+      /* Skip */
+
+    } else if (type == 'D') {
+      pos += mlength;
+
+    } else if (type == 'X') {
+      pos += mlength;
+
+    } else if (type == 'M' || (type == 'S' && max_softclip > 0)) {
+      if (0 /* mlength < min_mlength */) {
+	pos += mlength;
+
+      } else {
+	if (type == 'S' && mlength > max_softclip) {
+	  /* Must be final softclip, because we handled initial one already */
+	  fprintf(stderr,"Read has final soft clip %d greater than max_softclip %d\n",mlength,max_softclip);
+	  mlength = max_softclip;
+	}
+
+	debug4(printf("Check if reference %u..%u spans given segment %u..%u\n",pos+1U,pos+1U+mlength,segment_low,segment_high));
+	if (pos+1U <= segment_low && pos+1U+mlength >= segment_high) {
+	  return true;
+	}
+
+	pos += mlength;
+      }
+
+    } else {
+      fprintf(stderr,"Cannot parse type '%c'\n",type);
+      exit(9);
+    }
+  }
+  
+  return false;
+}
+
+
+
+static int
+insertion_refcount (int *refcount_plus, Insertion_T ins, Tally_T *alloc_tallies,
+		    Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip) {
+  int refcount = 0;
+  Genomicpos_T segment_low, segment_high;
+  List_T q;
+  Intlist_T r, s;
+  Tally_T this;
+  int alloci;
+  Bamline_T bamline_rep;
+
+
+  *refcount_plus = 0;
+  segment_low = ins->chrpos;
+  segment_high = segment_low + 1; /* Ignore insertion mlength */
+  debug4(printf("insertion_refcount called with segment %u..%u against alloc_low %u and alloc_high %u\n",
+		segment_low,segment_high,alloc_low,alloc_high));
+  debug4(printf("alloci range is %d to %d\n",segment_high - alloc_low,alloc_high - alloc_low));
+  for (alloci = segment_high - alloc_low; alloci < alloc_high - alloc_low; alloci++) {
+    this = alloc_tallies[alloci];
+#ifdef DEBUG4
+    if (List_length(this->bamlines) > 0) {
+      printf("  tally at %d has %d bamlines\n",alloci,List_length(this->bamlines));
+    }
+#endif
+    for (q = this->bamlines, r = this->bamline_nreps_plus, s = this->bamline_nreps_minus; q != NULL;
+	 q = List_next(q), r = Intlist_next(r), s = Intlist_next(s)) {
+      bamline_rep = (Bamline_T) List_head(q);
+      if (refsegment_p(segment_low,segment_high,Bamline_chrpos_low(bamline_rep),
+		       Bamline_cigar_types(bamline_rep),Bamline_cigar_npositions(bamline_rep),
+		       Bamline_terminalp(bamline_rep),max_softclip) == true) {
+	refcount += Intlist_head(r) + Intlist_head(s);
+	*refcount_plus += Intlist_head(r);
+      }
+    }
+  }
+
+  return refcount;
+}
+
+
+static int
+deletion_refcount (int *refcount_plus, Deletion_T del, Tally_T *alloc_tallies,
+		   Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip) {
+  int refcount = 0;
+  Genomicpos_T segment_low, segment_high;
+  List_T q;
+  Intlist_T r, s;
+  Tally_T this;
+  int alloci;
+  Bamline_T bamline_rep;
+
+
+  *refcount_plus = 0;
+  segment_low = del->chrpos;
+  segment_high = segment_low + del->mlength;
+  debug4(printf("deletion_refcount called with segment %u..%u against alloc_low %u and alloc_high %u\n",
+		segment_low,segment_high,alloc_low,alloc_high));
+  debug4(printf("alloci range is %d to %d\n",segment_high - alloc_low,alloc_high - alloc_low));
+  for (alloci = segment_high - alloc_low; alloci < alloc_high - alloc_low; alloci++) {
+    this = alloc_tallies[alloci];
+#ifdef DEBUG4
+    if (List_length(this->bamlines) > 0) {
+      printf("  tally at %d has %d bamlines\n",alloci,List_length(this->bamlines));
+    }
+#endif
+    for (q = this->bamlines, r = this->bamline_nreps_plus, s = this->bamline_nreps_minus; q != NULL;
+	 q = List_next(q), r = Intlist_next(r), s = Intlist_next(s)) {
+      bamline_rep = (Bamline_T) List_head(q);
+      if (refsegment_p(segment_low,segment_high,Bamline_chrpos_low(bamline_rep),
+		       Bamline_cigar_types(bamline_rep),Bamline_cigar_npositions(bamline_rep),
+		       Bamline_terminalp(bamline_rep),max_softclip) == true) {
+	refcount += Intlist_head(r) + Intlist_head(s);
+	*refcount_plus += Intlist_head(r);
+      }
+    }
+  }
+
+  return refcount;
+}
+
+
+static int
+minv_refcount (int *refcount_plus, Microinv_T minv, Tally_T *alloc_tallies,
+	       Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip) {
+  int refcount = 0;
+  Genomicpos_T segment_low, segment_high;
+  List_T q;
+  Intlist_T r, s;
+  Tally_T this;
+  int alloci;
+  Bamline_T bamline_rep;
+
+
+  *refcount_plus = 0;
+  segment_low = minv->chrpos;
+  segment_high = segment_low + minv->mlength;
+  debug4(printf("minv_refcount called with segment %u..%u against alloc_low %u and alloc_high %u\n",
+		segment_low,segment_high,alloc_low,alloc_high));
+  debug4(printf("alloci range is %d to %d\n",segment_high - alloc_low,alloc_high - alloc_low));
+  for (alloci = segment_high - alloc_low; alloci < alloc_high - alloc_low; alloci++) {
+    this = alloc_tallies[alloci];
+#ifdef DEBUG4
+    if (List_length(this->bamlines) > 0) {
+      printf("  tally at %d has %d bamlines\n",alloci,List_length(this->bamlines));
+    }
+#endif
+    for (q = this->bamlines, r = this->bamline_nreps_plus, s = this->bamline_nreps_minus; q != NULL;
+	 q = List_next(q), r = Intlist_next(r), s = Intlist_next(s)) {
+      bamline_rep = (Bamline_T) List_head(q);
+      if (refsegment_p(segment_low,segment_high,Bamline_chrpos_low(bamline_rep),
+		       Bamline_cigar_types(bamline_rep),Bamline_cigar_npositions(bamline_rep),
+		       Bamline_terminalp(bamline_rep),max_softclip) == true) {
+	refcount += Intlist_head(r) + Intlist_head(s);
+	*refcount_plus += Intlist_head(r);
+      }
+    }
+  }
+
+  return refcount;
 }
 
 
 static void
 print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_T chroffset,
-			    Genomicpos_T chrpos) {
+			    Genomicpos_T chrpos, Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high,
+			    int max_softclip) {
   List_T p;
   Mismatch_T mismatch;
   Insertion_T ins;
   Deletion_T del;
+  Microinv_T minv;
+  int refcount, refcount_plus;
+  
 
   if (this->insertions_byshift != NULL) {
     fprintf(fp,"\n");
     fprintf(fp,"^");
     for (p = this->insertions_byshift; p != NULL; p = List_next(p)) {
       ins = (Insertion_T) List_head(p);
-      fprintf(fp,"%s %ld ref:%ld",ins->segment,ins->count,this->n_fromleft_plus+this->n_fromleft_minus);
+      fprintf(fp,"%s %ld ref:%ld",
+	      ins->segment,ins->count,
+	      insertion_refcount(&refcount_plus,ins,alloc_tallies,alloc_low,alloc_high,max_softclip));
     }
     fprintf(fp,"\n");
   }
@@ -977,7 +1271,21 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
     fprintf(fp,"_");
     for (p = this->deletions_byshift; p != NULL; p = List_next(p)) {
       del = (Deletion_T) List_head(p);
-      fprintf(fp,"%s %ld ref:%ld",del->segment,del->count,this->n_fromleft_plus+this->n_fromleft_minus);
+      fprintf(fp,"%s %ld ref:%ld",
+	      del->segment,del->count,
+	      deletion_refcount(&refcount_plus,del,alloc_tallies,alloc_low,alloc_high,max_softclip));
+    }
+    fprintf(fp,"\n");
+  }
+
+  if (this->microinvs_byshift != NULL) {
+    fprintf(fp,"\n");
+    fprintf(fp,"x");
+    for (p = this->microinvs_byshift; p != NULL; p = List_next(p)) {
+      minv = (Microinv_T) List_head(p);
+      fprintf(fp,"%s %ld ref:%ld",
+	      minv->segment,minv->count,
+	      minv_refcount(&refcount_plus,minv,alloc_tallies,alloc_low,alloc_high,max_softclip));
     }
     fprintf(fp,"\n");
   }
@@ -1003,8 +1311,9 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
 
 static bool
 pass_difference_filter_p (double *probs, double *loglik, Tally_T this,
+			  Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high,
 			  Genome_T genome, char *printchr, Genomicpos_T chroffset, Genomicpos_T chrpos,
-			  int quality_score_adj, bool genomic_diff_p) {
+			  int quality_score_adj, bool genomic_diff_p, int max_softclip) {
   int bestg;
 
   if (genomic_diff_p == false) {
@@ -1027,7 +1336,7 @@ pass_difference_filter_p (double *probs, double *loglik, Tally_T this,
 	if (genotype_compatibility[0][bestg] == 0) {
 	  fprintf(stderr,"At %s:%u, genotype %s inconsistent with genome %c: ",
 		  printchr,chrpos,genotype_string[bestg],this->refnt);
-	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos);
+	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos,alloc_tallies,alloc_low,alloc_high,max_softclip);
 	  fprintf(stderr,"\n");
 	  return false;
 	} else {
@@ -1037,7 +1346,7 @@ pass_difference_filter_p (double *probs, double *loglik, Tally_T this,
 	if (genotype_compatibility[1][bestg] == 0) {
 	  fprintf(stderr,"At %s:%u, genotype %s inconsistent with genome %c: ",
 		  printchr,chrpos,genotype_string[bestg],this->refnt);
-	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos);
+	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos,alloc_tallies,alloc_low,alloc_high,max_softclip);
 	  fprintf(stderr,"\n");
 	  return false;
 	} else {
@@ -1047,7 +1356,7 @@ pass_difference_filter_p (double *probs, double *loglik, Tally_T this,
 	if (genotype_compatibility[2][bestg] == 0) {
 	  fprintf(stderr,"At %s:%u, genotype %s inconsistent with genome %c: ",
 		  printchr,chrpos,genotype_string[bestg],this->refnt);
-	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos);
+	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos,alloc_tallies,alloc_low,alloc_high,max_softclip);
 	  fprintf(stderr,"\n");
 	  return false;
 	} else {
@@ -1057,7 +1366,7 @@ pass_difference_filter_p (double *probs, double *loglik, Tally_T this,
 	if (genotype_compatibility[3][bestg] == 0) {
 	  fprintf(stderr,"At %s:%u, genotype %s inconsistent with genome %c: ",
 		  printchr,chrpos,genotype_string[bestg],this->refnt);
-	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos);
+	  print_allele_counts_simple(stderr,this,genome,chroffset,chrpos,alloc_tallies,alloc_low,alloc_high,max_softclip);
 	  fprintf(stderr,"\n");
 	  return false;
 	} else {
@@ -1098,7 +1407,7 @@ print_runlength (Tally_T *block_tallies, Genomicpos_T *exonstart, Genomicpos_T l
   for (blocki = 0; blocki < lasti; blocki++) {
     this = block_tallies[blocki];
     if (this->nmatches_passing > 0 || this->delcounts_plus + this->delcounts_minus > 0 ||
-	this->mismatches_byshift != NULL || this->insertions_byshift != NULL || this->deletions_byshift != NULL) {
+	this->mismatches_byshift != NULL || this->insertions_byshift != NULL || this->deletions_byshift != NULL || this->microinvs_byshift != NULL) {
       chrpos = blockstart + blocki;
       if (chrpos > lastpos + 1U) {
 	if (*exonstart == 0U) {
@@ -1356,6 +1665,7 @@ get_exons (int *nexons, char *annot, char *chr, Genomicpos_T chroffset, int sign
   char *p;
 
   /* Skip header */
+  /* fprintf(stderr,"annot is %s\n",annot); */
   p = annot;
   while (*p != '\0' && *p != '\n') {
     p++;
@@ -2118,6 +2428,7 @@ process_codons_plus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T tal
   int total_plus = 0, total_minus = 0;
   int codon_tally_plus[64], codon_tally_minus[64], ref_codon_tally_plus = 0, ref_codon_tally_minus = 0;
   Readevid_T *readevid0, *readevid1, *readevid2;
+  int nreps;
   int nreads0, nreads1, nreads2;
   int i = 0, j = 0, k = 0;
   unsigned int linei0, linei1, linei2, highest;
@@ -2133,6 +2444,17 @@ process_codons_plus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T tal
   readevid0 = (Readevid_T *) List_to_array_n(&nreads0,tally0->readevidence);
   readevid1 = (Readevid_T *) List_to_array_n(&nreads1,tally1->readevidence);
   readevid2 = (Readevid_T *) List_to_array_n(&nreads2,tally2->readevidence);
+#if 0
+  for (i = 0; i < nreads0; i++) {
+    printf("i %d\n",Readevid_linei(readevid0[i]));
+  }
+  for (j = 0; j < nreads1; j++) {
+    printf("j %d\n",Readevid_linei(readevid1[j]));
+  }
+  for (k = 0; k < nreads2; k++) {
+    printf("k %d\n",Readevid_linei(readevid2[k]));
+  }
+#endif
 
   if ((ref_codoni = Tally_codoni_plus(tally0,tally1,tally2,chrpos0,chrpos1,chrpos2,genome,chroffset)) < 0) {
     /* Skip, because genome has one or more Ns here */
@@ -2182,21 +2504,23 @@ process_codons_plus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T tal
       if (linei2 > highest) highest = linei2;
 
       if (linei0 == highest && linei1 == highest && linei2 == highest) {
+	nreps = Readevid_nreps(readevid0[i]);
 	if ((codoni = Readevid_codoni_plus(&shift,&nm,&xs,readevid0[i],readevid1[j],readevid2[k])) < 0) {
 	  /* Skip */
 	} else {
 	  if (shift > 0) {
-	    codon_tally_plus[codoni] += 1;
-	    total_plus += 1;
+	    codon_tally_plus[codoni] += nreps;
+	    total_plus += nreps;
 	  } else {
-	    codon_tally_minus[codoni] += 1;
-	    total_minus += 1;
+	    codon_tally_minus[codoni] += nreps;
+	    total_minus += nreps;
 	  }
 	  codon_shift[codoni] = Intlist_push(codon_shift[codoni],shift);
 	  codon_nm[codoni] = Intlist_push(codon_nm[codoni],nm);
 	  codon_xs[codoni] = Intlist_push(codon_xs[codoni],xs);
 	}
-	/* printf(" %u:%c%c%c",highest,Readevid_nt(readevid0[i]),Readevid_nt(readevid1[j]),Readevid_nt(readevid2[k])); */
+	/*printf(" %u(x%d)=>%d:%c%c%c",highest,nreps,codon_tally_plus[codoni]+codon_tally_minus[codoni],
+	  Readevid_nt(readevid0[i]),Readevid_nt(readevid1[j]),Readevid_nt(readevid2[k])); */
 	i++; j++; k++;
 
       } else {
@@ -2365,6 +2689,7 @@ process_codons_minus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T ta
   int total_plus = 0, total_minus = 0;
   int codon_tally_plus[64], codon_tally_minus[64], ref_codon_tally_plus = 0, ref_codon_tally_minus = 0;
   Readevid_T *readevid0, *readevid1, *readevid2;
+  int nreps;
   int nreads0, nreads1, nreads2;
   int i = 0, j = 0, k = 0;
   unsigned int linei0, linei1, linei2, highest;
@@ -2428,21 +2753,22 @@ process_codons_minus (Ucharlist_T bytes, int *nbytes, Tally_T tally0, Tally_T ta
       if (linei2 > highest) highest = linei2;
 
       if (linei0 == highest && linei1 == highest && linei2 == highest) {
+	nreps = Readevid_nreps(readevid0[i]);
 	if ((codoni = Readevid_codoni_minus(&shift,&nm,&xs,readevid0[i],readevid1[j],readevid2[k])) < 0) {
 	  /* Skip */
 	} else {
 	  if (shift > 0) {
-	    codon_tally_plus[codoni] += 1;
-	    total_plus += 1;
+	    codon_tally_plus[codoni] += nreps;
+	    total_plus += nreps;
 	  } else {
-	    codon_tally_minus[codoni] += 1;
-	    total_minus += 1;
+	    codon_tally_minus[codoni] += nreps;
+	    total_minus += nreps;
 	  }
 	  codon_shift[codoni] = Intlist_push(codon_shift[codoni],shift);
 	  codon_nm[codoni] = Intlist_push(codon_nm[codoni],nm);
 	  codon_xs[codoni] = Intlist_push(codon_xs[codoni],xs);
 	}
-	/* printf(" %u:%c%c%c",highest,Readevid_nt(readevid0[i]),Readevid_nt(readevid1[j]),Readevid_nt(readevid2[k])); */
+	/* printf(" %u(x%d):%c%c%c",highest,nreps,Readevid_nt(readevid0[i]),Readevid_nt(readevid1[j]),Readevid_nt(readevid2[k])); */
 	i++; j++; k++;
 
       } else {
@@ -2839,9 +3165,10 @@ print_gene_info (List_T plus_genes, List_T minus_genes, Genomicpos_T chrpos) {
   Gene_T gene;
   int exoni;
   int ntpos;
-  bool firstp = true;
+  bool firstp;
 
-  /* Print gene information */
+  /* Print gene nt information */
+  firstp = true;
   for (p = plus_genes; p != NULL; p = List_next(p)) {
     gene = (Gene_T) List_head(p);
     exoni = gene->exoni;
@@ -2863,7 +3190,7 @@ print_gene_info (List_T plus_genes, List_T minus_genes, Genomicpos_T chrpos) {
 	printf("|");
       }
       ntpos = gene->cum_exonlength[exoni] + (chrpos - gene->exons[exoni]->exonstart);
-      printf("+%s_%s_exon%d/%d_nt%d",gene->genename,gene->acc,exoni+1,gene->nexons,ntpos+1);
+      printf("+%s_%s_exon%d/%d_aa%d.nt%d",gene->genename,gene->acc,exoni+1,gene->nexons,(ntpos+1+2)/3,ntpos+1);
     }
   }
 
@@ -2888,7 +3215,70 @@ print_gene_info (List_T plus_genes, List_T minus_genes, Genomicpos_T chrpos) {
 	printf("|");
       }
       ntpos = gene->cum_exonlength[exoni] + (gene->exons[exoni]->exonstart - chrpos);
-      printf("-%s_%s_exon%d/%d_nt%d",gene->genename,gene->acc,exoni+1,gene->nexons,ntpos+1);
+      /* was (ntpos+1)/3 */
+      printf("-%s_%s_exon%d/%d_aa%d.nt%d",gene->genename,gene->acc,exoni+1,gene->nexons,(ntpos+1+2)/3,ntpos+1);
+    }
+  }
+
+  printf("\t");
+
+  /* Print gene aa information */
+  firstp = true;
+  for (p = plus_genes; p != NULL; p = List_next(p)) {
+    gene = (Gene_T) List_head(p);
+    exoni = gene->exoni;
+#if 0
+    /* Already done by report_plus_genes */
+    while (exoni < gene->nexons && chrpos > gene->exons[exoni]->exonend) {
+      exoni++;
+    }
+#endif
+
+    if (exoni >= gene->nexons) {
+      /* Skip */
+    } else if (chrpos < gene->exons[exoni]->exonstart) {
+      /* Skip */
+    } else {
+      ntpos = gene->cum_exonlength[exoni] + (chrpos - gene->exons[exoni]->exonstart);
+      if ((ntpos + 1) % 3 != 0) {
+	/* Skip */
+      } else {
+	if (firstp == true) {
+	  firstp = false;
+	} else {
+	  printf("|");
+	}
+	printf("+%s_%s_exon%d/%d_aa%d",gene->genename,gene->acc,exoni+1,gene->nexons,(ntpos+1+2)/3);
+      }
+    }
+  }
+
+  for (p = minus_genes; p != NULL; p = List_next(p)) {
+    gene = (Gene_T) List_head(p);
+    exoni = gene->exoni;
+#if 0
+    /* Already done by report_minus_genes */
+    while (exoni >= 0 && chrpos > gene->exons[exoni]->exonstart) {
+      exoni--;
+    }
+#endif
+
+    if (exoni < 0) {
+      /* Skip */
+    } else if (chrpos < gene->exons[exoni]->exonend) {
+      /* Skip */
+    } else {
+      ntpos = gene->cum_exonlength[exoni] + (gene->exons[exoni]->exonstart - chrpos);
+      if ((ntpos + 1) % 3 != 0) {
+	/* Skip */
+      } else {
+	if (firstp == true) {
+	  firstp = false;
+	} else {
+	  printf("|");
+	}
+	printf("-%s_%s_exon%d/%d_aa%d",gene->genename,gene->acc,exoni+1,gene->nexons,(ntpos+1+2)/3);
+      }
     }
   }
 
@@ -2989,8 +3379,9 @@ genes_get (List_T *plus_genes, List_T *minus_genes, IIT_T map_iit,
 static void
 print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
 	     Tally_T *prev_block_tallies, Genomicpos_T prev_blockstart, Genomicpos_T prev_blockptr,
+	     Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip,
 	     Genome_T genome, char *printchr, Genomicpos_T chroffset, IIT_T map_iit,
-	     bool blockp, int quality_score_adj, int min_depth, int variant_strands,
+	     bool blockp, int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 	     bool genomic_diff_p, bool signed_counts_p, bool print_totals_p, bool print_cycles_p,
 	     bool print_nm_scores_p, bool print_xs_scores_p,
 	     bool want_genotypes_p, bool readlevel_p, bool print_noncovered_p) {
@@ -3005,28 +3396,31 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
   Mismatch_T mismatch, mismatch0, *mm_array, *mm_subarray;
   Insertion_T ins, ins0, *ins_array_byshift, *ins_array_bynm, *ins_array_byxs, *ins_subarray;
   Deletion_T del, del0, *del_array_byshift, *del_array_bynm, *del_array_byxs, *del_subarray;
+  Microinv_T minv, minv0, *minv_array_byshift, *minv_array_bynm, *minv_array_byxs, *minv_subarray;
   List_T unique_mismatches_byshift, unique_mismatches_bynm, unique_mismatches_byxs, ptr;
   List_T unique_insertions_byshift, unique_insertions_bynm, unique_insertions_byxs,
-    unique_deletions_byshift, unique_deletions_bynm, unique_deletions_byxs;
+    unique_deletions_byshift, unique_deletions_bynm, unique_deletions_byxs,
+    unique_microinvs_byshift, unique_microinvs_bynm, unique_microinvs_byxs;
   long int total, total_matches_plus, total_matches_minus, total_mismatches_plus, total_mismatches_minus;
   int shift, quality, nm, xs;
   int ignore;
   bool firstp;
+  int refcount, refcount_plus;
 
 
   lasti = blockptr - blockstart;
-  debug3(printf("Printing blocki 0 to %d\n",lasti));
+  debug9(printf("Printing blocki 0 to %d\n",lasti));
 
   /* Block total */
   total = 0;
   for (blocki = 0; blocki < lasti; blocki++) {
     this = block_tallies[blocki];
     if (print_noncovered_p == true ||
-	(pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-			       this->mismatches_byshift,min_depth,variant_strands) == true &&
-	 pass_difference_filter_p(probs,loglik,this,genome,
-				  printchr,chroffset,chrpos,
-				  quality_score_adj,genomic_diff_p) == true)) {
+	(pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+			       this->mismatches_byshift,min_depth,variant_strands,variant_pct) == true &&
+	 pass_difference_filter_p(probs,loglik,this,alloc_tallies,alloc_low,alloc_high,genome,
+				  printchr,chroffset,chrpos,quality_score_adj,genomic_diff_p,
+				  max_softclip) == true)) {
       total += this->nmatches_passing + this->delcounts_plus + this->delcounts_minus;
       for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	mismatch = (Mismatch_T) List_head(ptr);
@@ -3242,9 +3636,10 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    }
 	  }
 	  if (signed_counts_p == false) {
-	    printf(" ref:%ld",this->n_fromleft_plus+this->n_fromleft_minus);
+	    printf(" ref:%ld",insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,max_softclip));
 	  } else {
-	    printf(" ref:%ld|%ld",this->n_fromleft_plus,this->n_fromleft_minus);
+	    refcount = insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,max_softclip);
+	    printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
 	  }
 	}
 
@@ -3446,9 +3841,10 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	    }
           }
 	  if (signed_counts_p == false) {
-	    printf(" ref:%ld",this->n_fromleft_plus+this->n_fromleft_minus);
+	    printf(" ref:%ld",deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,max_softclip));
 	  } else {
-	    printf(" ref:%ld|%ld",this->n_fromleft_plus,this->n_fromleft_minus);
+	    refcount = deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,max_softclip);
+	    printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
 	  }
 	}
 
@@ -3477,18 +3873,225 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 	List_free(&unique_deletions_byshift);
       }
 
+
+      /* Handle microinversions */
+      if (this->microinvs_byshift != NULL) {
+	unique_microinvs_byshift = NULL;
+	for (ptr = this->microinvs_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	  minv = (Microinv_T) List_head(ptr);
+	  if ((minv0 = find_microinv_seg(unique_microinvs_byshift,minv->segment,minv->mlength)) != NULL) {
+	    if (minv->shift > 0) {
+	      minv0->count_plus += minv->count;
+	    } else {
+	      minv0->count_minus += minv->count;
+	    }
+
+	    /* Insert microinv into list */
+	    minv->next = minv0->next;
+	    minv0->next = minv;
+
+#if 0
+	    minv0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    minv0 = Microinv_new(chrpos,minv->segment,minv->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (minv->shift > 0) {
+	      minv0->count_plus = minv->count;
+	      minv0->count_minus = 0;
+	    } else {
+	      minv0->count_minus = minv->count;
+	      minv0->count_plus = 0;
+	    }
+	    minv0->next = minv;
+	    unique_microinvs_byshift = List_push(unique_microinvs_byshift,minv0);
+	  }
+	}
+	minv_array_byshift = (Microinv_T *) List_to_array(unique_microinvs_byshift,NULL);
+	qsort(minv_array_byshift,List_length(unique_microinvs_byshift),sizeof(Microinv_T),Microinv_count_cmp);
+
+	unique_microinvs_bynm = NULL;
+	for (ptr = this->microinvs_bynm; ptr != NULL; ptr = List_next(ptr)) {
+	  minv = (Microinv_T) List_head(ptr);
+	  if ((minv0 = find_microinv_seg(unique_microinvs_bynm,minv->segment,minv->mlength)) != NULL) {
+	    if (minv->shift > 0) {
+	      minv0->count_plus += minv->count;
+	    } else {
+	      minv0->count_minus += minv->count;
+	    }
+
+	    /* Minvert microinv into list */
+	    minv->next = minv0->next;
+	    minv0->next = minv;
+
+#if 0
+	    minv0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    minv0 = Microinv_new(chrpos,minv->segment,minv->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (minv->shift > 0) {
+	      minv0->count_plus = minv->count;
+	      minv0->count_minus = 0;
+	    } else {
+	      minv0->count_minus = minv->count;
+	      minv0->count_plus = 0;
+	    }
+	    minv0->next = minv;
+	    unique_microinvs_bynm = List_push(unique_microinvs_bynm,minv0);
+	  }
+	}
+	minv_array_bynm = (Microinv_T *) List_to_array(unique_microinvs_bynm,NULL);
+	qsort(minv_array_bynm,List_length(unique_microinvs_bynm),sizeof(Microinv_T),Microinv_count_cmp);
+
+	unique_microinvs_byxs = NULL;
+	for (ptr = this->microinvs_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  minv = (Microinv_T) List_head(ptr);
+	  if ((minv0 = find_microinv_seg(unique_microinvs_byxs,minv->segment,minv->mlength)) != NULL) {
+	    if (minv->shift > 0) {
+	      minv0->count_plus += minv->count;
+	    } else {
+	      minv0->count_minus += minv->count;
+	    }
+
+	    /* Insert microinv into list */
+	    minv->next = minv0->next;
+	    minv0->next = minv;
+
+#if 0
+	    minv0->shift += 1; /* Used here as nshifts.  Not necessary. */
+#endif
+	  } else {
+	    minv0 = Microinv_new(chrpos,minv->segment,minv->mlength,/*shift, used here as nshifts*/1,/*nm*/0,/*xs*/0,/*ncounts*/1);
+	    if (minv->shift > 0) {
+	      minv0->count_plus = minv->count;
+	      minv0->count_minus = 0;
+	    } else {
+	      minv0->count_minus = minv->count;
+	      minv0->count_plus = 0;
+	    }
+	    minv0->next = minv;
+	    unique_microinvs_byxs = List_push(unique_microinvs_byxs,minv0);
+	  }
+	}
+	minv_array_byxs = (Microinv_T *) List_to_array(unique_microinvs_byxs,NULL);
+	qsort(minv_array_byxs,List_length(unique_microinvs_byxs),sizeof(Microinv_T),Microinv_count_cmp);
+
+
+	printf("x");
+	if (blockp == false) {
+	  /* Genomic position */
+	  printf("%s\t%u\t",printchr,chrpos);
+	}
+
+	for (i = 0; i < List_length(unique_microinvs_byshift); i++) {
+	  minv0 = minv_array_byshift[i];
+	  if (i > 0) {
+	    printf(" ");
+	  }
+	  if (signed_counts_p == false) {
+	    printf("%s %ld",minv0->segment,minv0->count_plus+minv0->count_minus);
+	  } else {
+	    printf("%s %ld|%ld",minv0->segment,minv0->count_plus,minv0->count_minus);
+	  }
+	  if (print_cycles_p == true) {
+	    if ((length = Microinv_chain_length(minv0->next)) > 0) {
+	      printf("(");
+	      minv_subarray = (Microinv_T *) CALLOC(length,sizeof(Microinv_T));
+	      for (minv = minv0->next, j = 0; minv != NULL; minv = minv->next, j++) {
+		minv_subarray[j] = minv;
+	      }
+	      qsort(minv_subarray,length,sizeof(Microinv_T),Microinv_shift_cmp);
+
+	      printf("%ld@%d",minv_subarray[0]->count,minv_subarray[0]->shift);
+	      for (j = 1; j < length; j++) {
+		printf(",%ld@%d",minv_subarray[j]->count,minv_subarray[j]->shift);
+	      }
+	      FREE(minv_subarray);
+	      printf(")");
+	    }
+	  }
+	  if (print_nm_scores_p == true) {
+	    minv0 = minv_array_bynm[i];
+	    if ((length = Microinv_chain_length(minv0->next)) > 0) {
+	      printf("(");
+	      minv_subarray = (Microinv_T *) CALLOC(length,sizeof(Microinv_T));
+	      for (minv = minv0->next, j = 0; minv != NULL; minv = minv->next, j++) {
+		minv_subarray[j] = minv;
+	      }
+	      qsort(minv_subarray,length,sizeof(Microinv_T),Microinv_nm_cmp);
+
+	      printf("%ldNM%d",minv_subarray[0]->count,minv_subarray[0]->nm);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldNM%d",minv_subarray[j]->count,minv_subarray[j]->nm);
+	      }
+	      FREE(minv_subarray);
+	      printf(")");
+	    }
+	  }
+	  if (print_xs_scores_p == true) {
+	    minv0 = minv_array_byxs[i];
+	    if ((length = Microinv_chain_length(minv0->next)) > 0) {
+	      printf("(");
+	      minv_subarray = (Microinv_T *) CALLOC(length,sizeof(Microinv_T));
+	      for (minv = minv0->next, j = 0; minv != NULL; minv = minv->next, j++) {
+		minv_subarray[j] = minv;
+	      }
+	      qsort(minv_subarray,length,sizeof(Microinv_T),Microinv_xs_cmp);
+
+	      printf("%ldXS%d",minv_subarray[0]->count,minv_subarray[0]->xs);
+	      for (j = 1; j < length; j++) {
+		printf(",%ldXS%d",minv_subarray[j]->count,minv_subarray[j]->xs);
+	      }
+	      FREE(minv_subarray);
+	      printf(")");
+	    }
+	  }
+
+	  if (signed_counts_p == false) {
+	    printf(" ref:%ld",minv_refcount(&refcount_plus,minv0,alloc_tallies,alloc_low,alloc_high,max_softclip));
+	  } else {
+	    refcount = minv_refcount(&refcount_plus,minv0,alloc_tallies,alloc_low,alloc_high,max_softclip);
+	    printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
+	  }
+	}
+
+	printf("\n");
+
+	FREE(minv_array_byxs);
+	FREE(minv_array_bynm);
+	FREE(minv_array_byshift);
+
+	for (ptr = unique_microinvs_byxs; ptr != NULL; ptr = List_next(ptr)) {
+	  minv0 = List_head(ptr);
+	  Microinv_free(&minv0);
+	}
+	List_free(&unique_microinvs_byxs);
+
+	for (ptr = unique_microinvs_bynm; ptr != NULL; ptr = List_next(ptr)) {
+	  minv0 = List_head(ptr);
+	  Microinv_free(&minv0);
+	}
+	List_free(&unique_microinvs_bynm);
+
+	for (ptr = unique_microinvs_byshift; ptr != NULL; ptr = List_next(ptr)) {
+	  minv0 = List_head(ptr);
+	  Microinv_free(&minv0);
+	}
+	List_free(&unique_microinvs_byshift);
+      }
+
+
       /* Handle mismatches */
       if (print_noncovered_p == false && 
-	  pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-				this->mismatches_byshift,min_depth,variant_strands) == false) {
+	  pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+				this->mismatches_byshift,min_depth,variant_strands,variant_pct) == false) {
 	if (blockp == true) {
 	  printf("\n");
 	}
 
       } else if (print_noncovered_p == false &&
-		 pass_difference_filter_p(probs,loglik,this,genome,
-					  printchr,chroffset,chrpos,
-					  quality_score_adj,genomic_diff_p) == false) {
+		 pass_difference_filter_p(probs,loglik,this,alloc_tallies,alloc_low,alloc_high,genome,
+					  printchr,chroffset,chrpos,quality_score_adj,genomic_diff_p,
+					  max_softclip) == false) {
 	if (blockp == true) {
 	  printf("\n");
 	}
@@ -3914,8 +4517,9 @@ print_block (Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T block
 static void
 tally_block (long int *tally_matches, long int *tally_mismatches,
 	     Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr, 
+	     Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip,
 	     Genome_T genome, char *printchr, Genomicpos_T chroffset, Genomicpos_T chrstart,
-	     int quality_score_adj, int min_depth, int variant_strands,
+	     int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 	     bool genomic_diff_p, bool print_noncovered_p) {
   Tally_T this;
   double probs[NGENOTYPES], loglik[NGENOTYPES];
@@ -3927,18 +4531,18 @@ tally_block (long int *tally_matches, long int *tally_mismatches,
 
 
   lasti = blockptr - blockstart;
-  debug3(printf("Printing blocki 0 to %d\n",lasti));
+  debug9(printf("Printing blocki 0 to %d\n",lasti));
 
   /* Block total */
   total = 0;
   for (blocki = 0; blocki < lasti; blocki++) {
     this = block_tallies[blocki];
     if (print_noncovered_p == true ||
-	(pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-			       this->mismatches_byshift,min_depth,variant_strands) == true &&
-	 pass_difference_filter_p(probs,loglik,this,genome,
-				  printchr,chroffset,chrpos,
-				  quality_score_adj,genomic_diff_p) == true)) {
+	(pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+			       this->mismatches_byshift,min_depth,variant_strands,variant_pct) == true &&
+	 pass_difference_filter_p(probs,loglik,this,alloc_tallies,alloc_low,alloc_high,genome,
+				  printchr,chroffset,chrpos,quality_score_adj,genomic_diff_p,
+				  max_softclip) == true)) {
       total += this->nmatches_passing + this->delcounts_plus + this->delcounts_minus;
       for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	mismatch = (Mismatch_T) List_head(ptr);
@@ -3960,14 +4564,14 @@ tally_block (long int *tally_matches, long int *tally_mismatches,
       chrpos = blockstart + blocki;
 
       if (print_noncovered_p == false &&
-	  pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-				this->mismatches_byshift,min_depth,variant_strands) == false) {
+	  pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+				this->mismatches_byshift,min_depth,variant_strands,variant_pct) == false) {
 	/* Skip */
 
       } else if (print_noncovered_p == false &&
-		 pass_difference_filter_p(probs,loglik,this,genome,
-					  printchr,chroffset,chrpos,
-					  quality_score_adj,genomic_diff_p) == false) {
+		 pass_difference_filter_p(probs,loglik,this,alloc_tallies,alloc_low,alloc_high,genome,
+					  printchr,chroffset,chrpos,quality_score_adj,genomic_diff_p,
+					  max_softclip) == false) {
 	/* Skip */
 
       } else {
@@ -4008,8 +4612,9 @@ static void
 iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	   Tally_T *block_tallies, Genomicpos_T blockstart, Genomicpos_T blockptr,
 	   Tally_T *prev_block_tallies, Genomicpos_T prev_blockstart, Genomicpos_T prev_blockptr,
+	   Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip,
 	   Genome_T genome, char *printchr, Genomicpos_T chroffset, IIT_T map_iit, int quality_score_adj,
-	   int min_depth, int variant_strands, bool print_cycles_p, bool print_nm_scores_p,
+	   int min_depth, int variant_strands, double variant_pct, bool print_cycles_p, bool print_nm_scores_p,
 	   bool print_xs_scores_p, bool print_noncovered_p) {
   Tally_T this;
   char Buffer[100], *label;
@@ -4032,6 +4637,7 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
   unsigned char *bytearray;
   Ucharlist_T pointers = NULL, bytes = NULL;
   int ignore, nbytes, ntotal;
+  int refcount, refcount_plus;
 
 
   lasti = blockptr - blockstart;
@@ -4041,8 +4647,8 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
   for (blocki = 0; blocki < lasti; blocki++) {
     this = block_tallies[blocki];
     if (print_noncovered_p == true ||
-	pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-			      this->mismatches_byshift,min_depth,variant_strands) == true) {
+	pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+			      this->mismatches_byshift,min_depth,variant_strands,variant_pct) == true) {
       total += this->nmatches_passing + this->delcounts_plus + this->delcounts_minus;
       for (ptr = this->mismatches_byshift; ptr != NULL; ptr = List_next(ptr)) {
 	mismatch = (Mismatch_T) List_head(ptr);
@@ -4196,11 +4802,13 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	bytes = push_int(&nbytes,bytes,ninsertions);
 	for (i = 0; i < ninsertions; i++) {
 	  ins0 = ins_array_byshift[i];
+	  refcount = insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,max_softclip);
+
 	  /* Counts and segment for insertion i */
 	  bytes = push_int(&nbytes,bytes,ins0->count_plus);
 	  bytes = push_int(&nbytes,bytes,ins0->count_minus);
-	  bytes = push_int(&nbytes,bytes,this->n_fromleft_plus); /* ref count */
-	  bytes = push_int(&nbytes,bytes,this->n_fromleft_minus); /* ref count */
+	  bytes = push_int(&nbytes,bytes,refcount_plus); /* ref count */
+	  bytes = push_int(&nbytes,bytes,refcount - refcount_plus); /* ref count */
 	  bytes = push_string(&nbytes,bytes,ins0->segment);
 
 	  /* Cycles for insertion i */
@@ -4387,13 +4995,15 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 	bytes = push_int(&nbytes,bytes,ndeletions);
 	for (i = 0; i < ndeletions; i++) {
 	  del0 = del_array_byshift[i];
+	  refcount = deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,max_softclip);
+
 	  /* Counts and segment for deletion i */
 	  debug2(printf("plus and minus counts for deletion\n"));
 	  bytes = push_int(&nbytes,bytes,del0->count_plus);
 	  bytes = push_int(&nbytes,bytes,del0->count_minus);
 	  debug2(printf("plus and minus counts for reference\n"));
-	  bytes = push_int(&nbytes,bytes,this->n_fromleft_plus); /* ref count */
-	  bytes = push_int(&nbytes,bytes,this->n_fromleft_minus); /* ref count */
+	  bytes = push_int(&nbytes,bytes,refcount_plus); /* ref count */
+	  bytes = push_int(&nbytes,bytes,refcount - refcount_plus); /* ref count */
 	  debug2(printf("Deletion string:\n"));
 	  bytes = push_string(&nbytes,bytes,del0->segment);
 
@@ -4473,8 +5083,8 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
       debug2(printf("Pointers for allele counts:\n"));
       pointers = push_int(&ignore,pointers,nbytes);
       if (print_noncovered_p == true ||
-	  pass_variant_filter_p(this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
-				this->mismatches_byshift,min_depth,variant_strands) == true) {
+	  pass_variant_filter_p(this->refnt,this->nmatches_passing,this->delcounts_plus,this->delcounts_minus,
+				this->mismatches_byshift,min_depth,variant_strands,variant_pct) == true) {
 	total_matches_plus = total_matches_minus = 0;
 	if (this->use_array_p == false) {
 	  for (ptr = this->list_matches_byshift; ptr != NULL; ptr = List_next(ptr)) {
@@ -4802,8 +5412,8 @@ iit_block (List_T *intervallist, List_T *labellist, List_T *datalist,
 
 /* A modified version is in indelfix.c */
 static Genomicpos_T
-transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block_tallies,
-		   Genomicpos_T *exonstart, Genomicpos_T lastpos,
+transfer_position (long int *grand_total, Tally_T *alloc_tallies, Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip,
+		   Tally_T *block_tallies, Genomicpos_T *exonstart, Genomicpos_T lastpos,
 		   Genomicpos_T *blockptr, Genomicpos_T *blockstart, Genomicpos_T *blockend,
 
 		   Tally_T *prev_block_tallies, Genomicpos_T *prev_blockptr, Genomicpos_T *prev_blockstart, Genomicpos_T *prev_blockend,
@@ -4814,7 +5424,7 @@ transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block
 		   Genome_T genome, char *printchr, Genomicpos_T chroffset,
 		   Genomicpos_T chrstart, Genomicpos_T chrend, IIT_T map_iit,
 		   Tally_outputtype_T output_type, bool blockp, int blocksize,
-		   int quality_score_adj, int min_depth, int variant_strands,
+		   int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 		   bool genomic_diff_p, bool signed_counts_p, bool print_totals_p, bool print_cycles_p,
 		   bool print_nm_scores_p, bool print_xs_scores_p, bool want_genotypes_p,
 		   bool readlevel_p, bool print_noncovered_p) {
@@ -4835,15 +5445,18 @@ transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block
 	lastpos = print_runlength(block_tallies,&(*exonstart),lastpos,*blockstart,*blockptr,printchr);
       } else if (output_type == OUTPUT_TALLY) {
 	tally_block(tally_matches,tally_mismatches,
-		    block_tallies,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		    quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		    block_tallies,*blockstart,*blockptr,
+		    alloc_tallies,alloc_low,alloc_high,max_softclip,
+		    genome,printchr,chroffset,chrstart,
+		    quality_score_adj,min_depth,variant_strands,variant_pct,genomic_diff_p,
 		    print_noncovered_p);
       } else if (output_type == OUTPUT_IIT) {
 	iit_block(&(*intervallist),&(*labellist),&(*datalist),
 		  block_tallies,*blockstart,*blockptr,
 		  prev_block_tallies,*prev_blockstart,*prev_blockptr,
+		  alloc_tallies,alloc_low,alloc_high,max_softclip,
 		  genome,printchr,chroffset,map_iit,
-		  quality_score_adj,min_depth,variant_strands,
+		  quality_score_adj,min_depth,variant_strands,variant_pct,
 	          print_cycles_p,print_nm_scores_p,print_xs_scores_p,print_noncovered_p);
 
 	for (blocki = 0; blocki < *prev_blockptr - *prev_blockstart; blocki++) {
@@ -4864,9 +5477,11 @@ transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block
 	}
 	print_block(block_tallies,*blockstart,*blockptr,
 		    prev_block_tallies,*prev_blockstart,*prev_blockptr,
+		    alloc_tallies,alloc_low,alloc_high,max_softclip,
 		    genome,printchr,chroffset,map_iit,
-		    blockp,quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-		    signed_counts_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
+		    blockp,quality_score_adj,min_depth,variant_strands,variant_pct,
+		    genomic_diff_p,signed_counts_p,print_totals_p,print_cycles_p,
+		    print_nm_scores_p,print_xs_scores_p,
 	            want_genotypes_p,readlevel_p,print_noncovered_p);
 
 	for (blocki = 0; blocki < *prev_blockptr - *prev_blockstart; blocki++) {
@@ -4894,8 +5509,8 @@ transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block
 #endif
 
     Tally_transfer(&(block_tallies[blocki]),&(alloc_tallies[alloci]));
-    block_tallies[blocki+1]->n_fromleft_plus = alloc_tallies[alloci+1]->n_fromleft_plus;
-    block_tallies[blocki+1]->n_fromleft_minus = alloc_tallies[alloci+1]->n_fromleft_minus;
+    /* block_tallies[blocki+1]->n_fromleft_plus = alloc_tallies[alloci+1]->n_fromleft_plus; */
+    /* block_tallies[blocki+1]->n_fromleft_minus = alloc_tallies[alloci+1]->n_fromleft_minus; */
 
     /* Points just beyond maximum chrpos observed */
     if (chrpos + 1U > *blockptr) {
@@ -4911,7 +5526,7 @@ transfer_position (long int *grand_total, Tally_T *alloc_tallies, Tally_T *block
 
 
 static void
-transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high,
+transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high, Genomicpos_T alloc_low, Genomicpos_T alloc_high, int max_softclip,
 		      Tally_T *block_tallies_low, Tally_T *block_tallies_high,
 		      Genomicpos_T *blockptr, Genomicpos_T *blockstart, Genomicpos_T *blockend,
 		      long int *tally_matches_low, long int *tally_mismatches_low,
@@ -4920,7 +5535,7 @@ transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high,
 		      Genome_T genome, char *printchr, Genomicpos_T chroffset,
 		      Genomicpos_T chrstart, Genomicpos_T chrend, IIT_T map_iit,
 		      int blocksize, int quality_score_adj, int min_depth, int variant_strands,
-		      bool genomic_diff_p, bool print_noncovered_p) {
+		      double variant_pct, bool genomic_diff_p, bool print_noncovered_p) {
   /* Genomicpos_T lastpos; */
   int blocki;
 
@@ -4938,13 +5553,17 @@ transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high,
       debug0(printf("      print block from blockstart %u to blockptr %u\n",*blockstart,*blockptr));
       
       tally_block(tally_matches_low,tally_mismatches_low,
-		  block_tallies_low,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		  block_tallies_low,*blockstart,*blockptr,
+		  alloc_tallies_low,alloc_low,alloc_high,max_softclip,
+		  genome,printchr,chroffset,chrstart,
+		  quality_score_adj,min_depth,variant_strands,variant_pct,genomic_diff_p,
 		  print_noncovered_p);
 
       tally_block(tally_matches_high,tally_mismatches_high,
-		  block_tallies_high,*blockstart,*blockptr,genome,printchr,chroffset,chrstart,
-		  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
+		  block_tallies_high,*blockstart,*blockptr,
+		  alloc_tallies_high,alloc_low,alloc_high,max_softclip,
+		  genome,printchr,chroffset,chrstart,
+		  quality_score_adj,min_depth,variant_strands,variant_pct,genomic_diff_p,
 		  print_noncovered_p);
 
       debug0(printf("      set blockstart to chrpos, blockend to chrpos + blocksize\n"));
@@ -4959,10 +5578,10 @@ transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high,
 
     Tally_transfer(&(block_tallies_low[blocki]),&(alloc_tallies_low[alloci]));
     Tally_transfer(&(block_tallies_high[blocki]),&(alloc_tallies_high[alloci]));
-    block_tallies_low[blocki+1]->n_fromleft_plus = alloc_tallies_low[alloci+1]->n_fromleft_plus;
-    block_tallies_low[blocki+1]->n_fromleft_minus = alloc_tallies_low[alloci+1]->n_fromleft_minus;
-    block_tallies_high[blocki+1]->n_fromleft_plus = alloc_tallies_high[alloci+1]->n_fromleft_plus;
-    block_tallies_high[blocki+1]->n_fromleft_minus = alloc_tallies_high[alloci+1]->n_fromleft_minus;
+    /* block_tallies_low[blocki+1]->n_fromleft_plus = alloc_tallies_low[alloci+1]->n_fromleft_plus; */
+    /* block_tallies_low[blocki+1]->n_fromleft_minus = alloc_tallies_low[alloci+1]->n_fromleft_minus; */
+    /* block_tallies_high[blocki+1]->n_fromleft_plus = alloc_tallies_high[alloci+1]->n_fromleft_plus; */
+    /* block_tallies_high[blocki+1]->n_fromleft_minus = alloc_tallies_high[alloci+1]->n_fromleft_minus; */
 
     /* Points just beyond maximum chrpos observed */
     if (chrpos + 1U > *blockptr) {
@@ -4978,7 +5597,7 @@ transfer_position_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high,
 
 
 
-
+/* n_total_counts is nreps, the number of exact duplicates of this read */
 static void
 revise_position (char querynt, char genomicnt, int nm, int xs, int signed_shift,
 		 Tally_T this, Tally_T right, bool ignore_query_Ns_p, bool readlevel_p,
@@ -4989,13 +5608,19 @@ revise_position (char querynt, char genomicnt, int nm, int xs, int signed_shift,
   int *newarray, oldsize;
   int max_shift_plus, max_shift_minus;
 
+  assert(n_passing_counts >= 0);
+  assert(n_total_counts > 0);
+
+#if 0
   if (right != NULL) {
     if (signed_shift > 0) {
       right->n_fromleft_plus += n_passing_counts;
     } else {
       right->n_fromleft_minus += n_passing_counts;
     }
+
   }
+#endif
 
   if (readlevel_p == true || totals_only_p == true) {
     /* Don't store any details.  Also, nmatches captures both matches and mismatches */
@@ -5204,7 +5829,7 @@ revise_position (char querynt, char genomicnt, int nm, int xs, int signed_shift,
   }
 
   /* Only needed if map_iit != NULL */
-  this->readevidence = List_push(this->readevidence,Readevid_new(linei,toupper(querynt),signed_shift,nm,xs));
+  this->readevidence = List_push(this->readevidence,Readevid_new(linei,/*nreps*/n_total_counts,toupper(querynt),signed_shift,nm,xs));
 
   return;
 }
@@ -5262,6 +5887,32 @@ revise_deletion (Genomicpos_T chrpos, char *deletion, int mlength, int signed_sh
   return;
 }
 
+static void
+revise_microinv (Genomicpos_T chrpos, char *microinv, int mlength, int signed_shift, int nm, int xs, Tally_T this,
+		 int n_passing_counts) {
+  Microinv_T minv;
+
+  if ((minv = find_microinv_byshift(this->microinvs_byshift,microinv,mlength,signed_shift)) != NULL) {
+    minv->count += n_passing_counts;
+  } else {
+    this->microinvs_byshift = List_push(this->microinvs_byshift,(void *) Microinv_new(chrpos,microinv,mlength,signed_shift,nm,xs,n_passing_counts));
+  }
+
+  if ((minv = find_microinv_bynm(this->microinvs_bynm,microinv,mlength,nm)) != NULL) {
+    minv->count += n_passing_counts;
+  } else {
+    this->microinvs_bynm = List_push(this->microinvs_bynm,(void *) Microinv_new(chrpos,microinv,mlength,signed_shift,nm,xs,n_passing_counts));
+  }
+
+  if ((minv = find_microinv_byxs(this->microinvs_byxs,microinv,mlength,xs)) != NULL) {
+    minv->count += n_passing_counts;
+  } else {
+    this->microinvs_byxs = List_push(this->microinvs_byxs,(void *) Microinv_new(chrpos,microinv,mlength,signed_shift,nm,xs,n_passing_counts));
+  }
+
+  return;
+}
+
 
 
 static double
@@ -5297,7 +5948,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
   int type;
   int quality_score;
   int xs;
-  short block[8];
+  int block[4];
   __m128i foo;
 
 
@@ -5338,7 +5989,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 	pos = 0U;
 	p += (mlength - pos);
 	r += (mlength - pos);
-	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
 	Uintlist_head_set(npositions,pos);
       } else {
 	pos -= mlength;
@@ -5351,7 +6002,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 	pos += (mlength - max_softclip);
 	p += (mlength - max_softclip);
 	r += (mlength - max_softclip);
-	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
 	Uintlist_head_set(npositions,max_softclip);
       }
     }
@@ -5364,7 +6015,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
       /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
       p += mlength;
       r += mlength;
-      if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+      if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
       shift += ((strand == '+') ? +mlength : -mlength);
     } else if (type == 'H') {
       /* pos += mlength; -- SAM assumes genome coordinates are of clipped region */
@@ -5395,7 +6046,7 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 
       p += mlength;
       r += mlength;
-      if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+      if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
       shift += ((strand == '+') ? +mlength : -mlength);
 
     } else if (type == 'D') {
@@ -5438,11 +6089,40 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 
       pos += mlength;
 
+    } else if (type == 'X') {
+
+      if (print_indels_p == true) {
+	debug1(printf("Genomic pos is %u + %u = %u\n",chroffset,pos,chroffset+pos));
+	if (genome == NULL) {
+	  /* q = &(*p); */
+	  fprintf(stderr,"Need genome to print microinversions\n");
+	  exit(9);
+	} else {
+	  FREE(genomic);
+	  genomic = (char *) CALLOC(mlength+1,sizeof(char));
+	  Genome_fill_buffer_simple(genome,/*left*/chroffset + pos,mlength,genomic);
+	  /* printf("After (+): %s\n",genomic); */
+	  q = genomic;
+	}
+
+	alloci = (pos + 1U) - alloc_low;
+	debug1(printf("Processing microinv of length %d at shift %d, pos %u, alloci %d\n",
+		      mlength,shift,pos+1U,alloci));
+	this = alloc_tallies[alloci];
+
+	signed_shift = (strand == '+') ? shift : -shift;
+	revise_microinv(pos,/*microinv*/q,mlength,signed_shift,nm,xs,this,nreps);
+      }
+
+      p += mlength;
+      r += mlength;
+      pos += mlength;
+
     } else if (type == 'M' || (type == 'S' && max_softclip > 0)) {
       if (0 /* mlength < min_mlength */) {
 	p += mlength;
 	r += mlength;
-	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+	if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
 	pos += mlength;
 	shift += ((strand == '+') ? +mlength : -mlength);
 
@@ -5483,19 +6163,19 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 
 	  } else if (this->nmatches_passing == 0 && this->mismatches_byshift == NULL) {
 	    this->refnt = toupper(*q);
-	    debug1(printf("Line %d assigning %c at %u to tally %p\n",linei,this->refnt,pos+1U,this));
+	    debug1(printf("Line %d assigning %c at %u to tally %p at alloci %d\n",linei,this->refnt,pos+1U,this,alloci));
 	    
 	  } else if (this->refnt != toupper(*q)) {
-	    fprintf(stderr,"Two different genomic chars %c and %c at position %u\n",
-		    this->refnt,*q,pos+1U);
+	    fprintf(stderr,"Two different genomic chars %c and %c at position %u (chroffset %u)\n",
+		    this->refnt,*q,pos+1U,chroffset);
 	    fprintf(stderr,"Have seen %d matches and %d types of mismatches here so far\n",
 		    this->nmatches_passing,List_length(this->mismatches_byshift));
-	    abort();
+	    /* abort(); */
 	  }
 
 	  signed_shift = (strand == '+') ? shift : -shift;
 	  if (passing_counts) {
-	    n_passing_counts = block[r % 8];
+	    n_passing_counts = block[r % 4];
 	  } else {
 	    n_passing_counts = nreps;
 	  }
@@ -5503,6 +6183,12 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 	  debug1(printf("ncounts at r %d is %d\n",r,n_passing_counts));
 	  revise_position(/*querynt*/*p,/*genomicnt*/*q,nm,xs,signed_shift,
 			  this,right,ignore_query_Ns_p,readlevel_p,linei,n_passing_counts,n_total_counts);
+#if 0
+	  if (pos == 1801 - 1) {
+	    printf("At pos %d, have %d passing counts and %d total counts from read at chrpos_low %u\n",
+		   pos+1,n_passing_counts,n_total_counts,chrpos_low);
+	  }
+#endif
 	  if (readlevel_p == true && pos >= chrstart && pos <= chrend) {
 	    FREE(genomic);
 	    return;
@@ -5510,8 +6196,8 @@ revise_read (Tally_T *alloc_tallies, Genomicpos_T chrstart, Genomicpos_T chrend,
 
 	  p++;
 	  q++;
-	  if (++r % 8 == 0) {
-	    if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/8]);
+	  if (++r % 4 == 0) {
+	    if (passing_counts) _mm_store_si128((__m128i *) block,passing_counts[r/4]); /* 32 bits per passing count */
 	  }
 	  pos++;
 	  shift += ((strand == '+') ? +1 : -1);
@@ -5744,11 +6430,11 @@ revise_read_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high, Genomic
 	    this->refnt = toupper(*q);
 	    
 	  } else if (this->refnt != toupper(*q)) {
-	    fprintf(stderr,"Two different genomic chars %c and %c at position %u\n",
-		    this->refnt,*q,pos+1U);
+	    fprintf(stderr,"Two different genomic chars %c and %c at position %u (chroffset %u)\n",
+		    this->refnt,*q,pos+1U,chroffset);
 	    fprintf(stderr,"Have seen %d matches and %d types of mismatches here so far\n",
 		    this->nmatches_passing,List_length(this->mismatches_byshift));
-	    abort();
+	    /* abort(); */
 	  }
 
 	  revise_position(/*querynt*/*p,/*genomicnt*/*q,nm,xs,signed_shift,
@@ -5777,6 +6463,7 @@ revise_read_lh (Tally_T *alloc_tallies_low, Tally_T *alloc_tallies_high, Genomic
 }
 
 
+
 /* Also appears in gstruct.c */
 static bool
 best_mapping_p (Tableuint_T resolve_low_table, Tableuint_T resolve_high_table, char *acc,
@@ -5801,8 +6488,10 @@ best_mapping_p (Tableuint_T resolve_low_table, Tableuint_T resolve_high_table, c
 }
 
 
+#if 0
+/* 16 bits per passing count.  Fails for depths greater than 32767. */
 static void
-get_passing_counts (__m128i *passing_counts, int readlength, Bamline_T *bamlines, int nreps, int minimum_quality_score) {
+get_passing_counts_16bits (__m128i *passing_counts, int readlength, Bamline_T *bamlines, int nreps, int minimum_quality_score) {
   int i, r, b;
   char *quality_string, buffer[16];
   int x;
@@ -5829,7 +6518,7 @@ get_passing_counts (__m128i *passing_counts, int readlength, Bamline_T *bamlines
   }
 
   for (i = 0; i < nreps; i++) {
-    quality_string = Bamline_quality_string(bamlines[0]);
+    quality_string = Bamline_quality_string(bamlines[i]);
     /* printf("quality string: %s\n",quality_string); */
     b = 0; r = 0;
     while (r + 16 < readlength) {
@@ -5907,6 +6596,160 @@ get_passing_counts (__m128i *passing_counts, int readlength, Bamline_T *bamlines
   return;
 
 }
+#endif
+
+
+/* 32 bits per passing count */
+static void
+get_passing_counts (__m128i *passing_counts, int readlength, Bamline_T *bamlines, int nreps, int minimum_quality_score) {
+  int i, r, b;
+  char *quality_string, buffer[16];
+  int x;
+
+  __m128i block, cmp32, cmp8, threshold, ones;
+  __m128i foo;
+
+  threshold = _mm_set1_epi8(minimum_quality_score);
+  ones = _mm_set1_epi8(1);
+
+  /* Initialize passing_counts */
+  b = 0; r = 0;
+  while (r + 4 < readlength) {
+    passing_counts[b++] = _mm_set1_epi32(0);
+    r += 4;
+  }
+  if (r < readlength) {
+    passing_counts[b++] = _mm_set1_epi32(0);
+  }
+  assert(b == (readlength + 3)/4);
+
+  for (i = 0; i < nreps; i++) {
+    b = 0; r = 0;
+    if ((quality_string = Bamline_quality_string(bamlines[i])) == NULL) {
+      fprintf(stderr,"Warning: Quality string for read %s is NULL\n",Bamline_acc(bamlines[i]));
+
+      while (r + 16 < readlength) {
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	r += 16;
+      }
+
+      if (r < readlength) {
+	/* Handle the last 8 bytes */
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+
+	if (r + 4 < readlength) {
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	}
+	
+	if (r + 8 < readlength) {
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	}
+
+	if (r + 12 < readlength) {
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],ones); b++;
+	}
+      }
+
+    } else {
+      /* printf("quality string: %s\n",quality_string); */
+      while (r + 16 < readlength) {
+	block = _mm_loadu_si128((__m128i *) &(quality_string[r])); /* Put 16 bytes of quality string into block */
+
+	/* Count bytes where (threshold > quality).  "true": 0xFF => 0.
+	   "false": 0x00 => 1.  Equivalently, cmp8 contains a 1 whenever
+	   quality >= threshold. */
+	cmp8 = _mm_add_epi8(_mm_cmpgt_epi8(threshold,block),ones);
+
+	/* Tally the lower 4 bytes */
+	cmp32 = _mm_cvtepi8_epi32(cmp8);
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+
+	/* Tally the mid-lower 4 bytes */
+	cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,4));
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+
+	/* Tally the mid-upper 4 bytes */
+	cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,8));
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+
+	/* Tally the upper 4 bytes */
+	cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,12));
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+
+	r += 16;
+      }
+
+      if (r < readlength) {
+	/* Handle the last 8 bytes */
+	strncpy(buffer,&(quality_string[r]),readlength-r);
+	block = _mm_loadu_si128((__m128i *) buffer);
+	cmp8 = _mm_add_epi8(_mm_cmpgt_epi8(threshold,block),ones);
+
+	cmp32 = _mm_cvtepi8_epi32(cmp8);
+	passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+
+	if (r + 4 < readlength) {
+	  cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,4));
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+	}
+
+	if (r + 8 < readlength) {
+	  cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,8));
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+	}
+
+	if (r + 12 < readlength) {
+	  cmp32 = _mm_cvtepi8_epi32(_mm_srli_si128(cmp8,12));
+	  passing_counts[b] = _mm_add_epi32(passing_counts[b],cmp32); b++;
+	}
+      }
+    }
+  }
+
+#if 0
+  b = 0; r = 0;
+  while (r + 16 < readlength) {
+    for (x = 0; x < 16; x++) {
+      printf("%d ",quality_string[r+x]);
+    }
+    printf("\n");
+
+    foo = passing_counts[b++];
+    print_vector_16_dec(foo);
+    foo = passing_counts[b++];
+    print_vector_16_dec(foo);
+    printf("\n");
+
+    r += 16;
+  }
+
+  if (r < readlength) {
+    x = 0;
+    while (r + x < readlength) {
+      printf("%d ",quality_string[r+x]);
+      x++;
+    }
+    printf("\n");
+
+    foo = passing_counts[b++];
+    print_vector_16_dec(foo);
+    r += 8;
+    if (r < readlength) {
+      foo = passing_counts[b++];
+      print_vector_16_dec(foo);
+    }
+    printf("\n");
+  }
+
+  exit(0);
+#endif
+
+  return;
+
+}
 
 
 
@@ -5923,7 +6766,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
 	      bool ignore_lowend_p, bool ignore_highend_p,
 	      Tally_outputtype_T output_type, bool blockp, int blocksize,
-	      int quality_score_adj, int min_depth, int variant_strands,
+	      int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 	      bool genomic_diff_p, bool signed_counts_p, bool ignore_query_Ns_p,
 	      bool print_indels_p, bool print_totals_p, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p,
 	      bool want_genotypes_p, bool verbosep, bool readlevel_p, int max_softclip, bool print_noncovered_p,
@@ -5936,11 +6779,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   int delta, alloci;
   bool goodp;
   Bamline_T *bamlines, bamline, bamline_rep, prev_bamline = NULL;
-  char *rsequence;
+  char *rsequence, *read_rep, *cigar_string_rep;
   int readlength;
-  unsigned int linei = 0, linei_start, linei_end;
+  unsigned int linei = 0, linei_start, linei_end, k;
   int nlines;
-  int nreps;
+  int nreps, nreps_plus;
   __m128i *passing_counts, foo;
   int nvectors;
   int i;
@@ -5959,6 +6802,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
   print_indels_p = true;
   ignore_duplicates_p = true;
 #endif
+
+  debug0(printf("Bamtally_run called with chroffset %u\n",chroffset));
 
   /*
   fprintf(stderr,"Called with alloclength %d, minimum_mapq %d, good_unique_mapq %d, minimum_quality_score %d, maximum_nhits %d, need_concordant_p %d, need_unique_p %d, need_primary_p %d, ignore_duplicates_p %d, min_depth %d, variant_strands %d, ignore_query_Ns_p %d, blocksize %d, verbosep %d, readlevel_p %d, max_softclip %d\n",
@@ -6010,13 +6855,29 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					      desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 					      need_unique_p,need_primary_p,ignore_duplicates_p,
 					      need_concordant_p)) != NULL) {
-    for (linei_start = 0; linei_start < nlines; linei_start = linei_end) {
+    linei_start = 0;
+    while (linei_start < nlines) {
+      bamline_rep = bamlines[linei_start];
+#if 1
+      read_rep = Bamline_read(bamline_rep);
+      cigar_string_rep = Bamline_cigar_string(bamline_rep);
       linei_end = linei_start + 1;
-      while (linei_end < nlines && !strcmp(Bamline_read(bamlines[linei_start]),Bamline_read(bamlines[linei_end]))) {
+      if (Bamline_plusp(bamline_rep) == true) {
+	nreps_plus = 1;
+      } else {
+	nreps_plus = 0;
+      }
+      while (linei_end < nlines &&
+	     !strcmp(read_rep,Bamline_read(bamlines[linei_end])) &&
+	     !strcmp(cigar_string_rep,Bamline_cigar_string(bamlines[linei_end]))) {
+	if (Bamline_plusp(bamlines[linei_end]) == true) {
+	  nreps_plus += 1;
+	}
 	linei_end++;
       }
-
-      bamline_rep = bamlines[linei_start];
+#else
+      linei_end = linei_start + 1;
+#endif
       nreps = linei_end - linei_start;
       
       debug0(printf("\n"));
@@ -6029,13 +6890,21 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			 Bamline_acc(bamline_rep),Bamline_chrpos_low(bamline_rep),
 			 chroffset) == false) {
 	/* Skip */
+	for (k = linei_start; k < linei_end; k++) {
+	  bamline = bamlines[k];
+	  Bamline_free(&bamline);
+	}
+
       } else {
 	chrpos_low = Bamline_chrpos_low(bamline_rep);
 	chrpos_high = Bamline_chrpos_high(bamline_rep);
 
 	alloc_low = (chrpos_low < max_softclip) ? 0U : (chrpos_low - max_softclip);
 	alloc_high = alloc_low + alloclength + 2*max_softclip;
-	alloc_ptr = alloc_low;
+	if (alloc_low > alloc_ptr) {
+	  debug0(printf("Advancing alloc_ptr from %u to %u\n",alloc_ptr,alloc_low));
+	  alloc_ptr = alloc_low;
+	}
 
 	debug0(printf("    initialize alloc_low %u, alloc_high = %u, blockstart = %u, blockend = %u\n",
 		      alloc_low,alloc_high,blockstart,blockend));
@@ -6045,6 +6914,12 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	    fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		    Bamline_acc(bamline_rep),printchr,chrpos_low,chrpos_high,alloclength);
 	  }
+
+	  for (k = linei_start; k < linei_end; k++) {
+	    bamline = bamlines[k];
+	    Bamline_free(&bamline);
+	  }
+
 	} else {
 	  if (chrpos_high + max_softclip + 1U > alloc_ptr) {
 	    alloc_ptr = chrpos_high + max_softclip + 1U;
@@ -6062,7 +6937,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
 			max_softclip,linei+linei_start,/*passing_counts*/NULL,nreps);
 	  } else {
-	    nvectors = (readlength + 7)/8;
+	    nvectors = (readlength + 3)/4;
 	    passing_counts = (__m128i *) _mm_malloc(nvectors * sizeof(__m128i),16);
 	    get_passing_counts(passing_counts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
 	    revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline_rep),
@@ -6073,15 +6948,24 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			max_softclip,linei+linei_start,passing_counts,nreps);
 	    _mm_free(passing_counts);
 	  }
+	  alloci = chrpos_high - alloc_low;
+	  debug4(printf("chrpos_high is %u, so storing at alloci %d\n",chrpos_high,alloci));
+	  this = alloc_tallies[alloci];
+	  this->bamlines = List_push(this->bamlines,bamline_rep);
+	  this->bamline_nreps_plus = Intlist_push(this->bamline_nreps_plus,nreps_plus);
+	  this->bamline_nreps_minus = Intlist_push(this->bamline_nreps_minus,nreps - nreps_plus);
 	  goodp = true;
+
+	  for (k = linei_start + 1; k < linei_end; k++) {
+	    bamline = bamlines[k];
+	    Bamline_free(&bamline);
+	  }
 	}
       }
+
+      linei_start = linei_end;
     }
 
-    for (linei_start = 0; linei_start < nlines; linei_start++) {
-      bamline = bamlines[linei_start];
-      Bamline_free(&bamline);
-    }
     FREE(bamlines);
 
     linei += nlines;
@@ -6092,13 +6976,29 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 					      desired_read_group,minimum_mapq,good_unique_mapq,maximum_nhits,
 					      need_unique_p,need_primary_p,ignore_duplicates_p,
 					      need_concordant_p)) != NULL) {
-    for (linei_start = 0; linei_start < nlines; linei_start = linei_end) {
+    linei_start = 0;
+    while (linei_start < nlines) {
+      bamline_rep = bamlines[linei_start];
+#if 1
+      read_rep = Bamline_read(bamline_rep);
+      cigar_string_rep = Bamline_cigar_string(bamline_rep);
       linei_end = linei_start + 1;
-      while (linei_end < nlines && !strcmp(Bamline_read(bamlines[linei_start]),Bamline_read(bamlines[linei_end]))) {
+      if (Bamline_plusp(bamline_rep) == true) {
+	nreps_plus = 1;
+      } else {
+	nreps_plus = 0;
+      }
+      while (linei_end < nlines &&
+	     !strcmp(read_rep,Bamline_read(bamlines[linei_end])) &&
+	     !strcmp(cigar_string_rep,Bamline_cigar_string(bamlines[linei_end]))) {
+	if (Bamline_plusp(bamlines[linei_end]) == true) {
+	  nreps_plus += 1;
+	}
 	linei_end++;
       }
-
-      bamline_rep = bamlines[linei_start];
+#else
+      linei_end = linei_start + 1;
+#endif
       nreps = linei_end - linei_start;
 
       debug0(printf("*  alloc: %u..%u..%u  block: %u..%u..%u  lastpos: %u ",
@@ -6113,10 +7013,25 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			 Bamline_acc(bamline_rep),Bamline_chrpos_low(bamline_rep),
 			 chroffset) == false) {
 	/* Skip */
+	for (k = linei_start; k < linei_end; k++) {
+	  bamline = bamlines[k];
+	  Bamline_free(&bamline);
+	}
+
       } else if (ignore_lowend_p == true && Bamline_lowend_p(bamline_rep) == true) {
 	/* Skip */
+	for (k = linei_start; k < linei_end; k++) {
+	  bamline = bamlines[k];
+	  Bamline_free(&bamline);
+	}
+
       } else if (ignore_highend_p == true && Bamline_lowend_p(bamline_rep) == false) {
 	/* Skip */
+	for (k = linei_start; k < linei_end; k++) {
+	  bamline = bamlines[k];
+	  Bamline_free(&bamline);
+	}
+
       } else {
 	chrpos_low = Bamline_chrpos_low(bamline_rep);
 	chrpos_high = Bamline_chrpos_high(bamline_rep);
@@ -6129,15 +7044,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	    this = alloc_tallies[alloci];
 	    if (this->nmatches_passing > 0 || this->delcounts_plus + this->delcounts_minus > 0 ||
 		this->mismatches_byshift != NULL || this->insertions_byshift != NULL || this->deletions_byshift != NULL) {
-	      lastpos = transfer_position(&grand_total,alloc_tallies,block_tallies,&exonstart,lastpos,
-					  &blockptr,&blockstart,&blockend,
+	      lastpos = transfer_position(&grand_total,alloc_tallies,alloc_low,alloc_high,max_softclip,
+					  block_tallies,&exonstart,lastpos,&blockptr,&blockstart,&blockend,
 					  prev_block_tallies,&prev_blockptr,&prev_blockstart,&prev_blockend,
 					  *tally_matches,*tally_mismatches,
 					  &(*intervallist),&(*labellist),&(*datalist),
 					  chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 					  map_iit,output_type,blockp,blocksize,
-					  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-					  signed_counts_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
+					  quality_score_adj,min_depth,variant_strands,variant_pct,
+					  genomic_diff_p,signed_counts_p,print_totals_p,print_cycles_p,
+					  print_nm_scores_p,print_xs_scores_p,
 					  want_genotypes_p,readlevel_p,print_noncovered_p);
 	    }
 	  }
@@ -6145,8 +7061,8 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  debug0(printf("    reset alloc_low = chrpos_low - max_softclip\n"));
 	  alloc_low = (chrpos_low < max_softclip) ? 0U : chrpos_low - max_softclip;
 	  alloc_high = alloc_low + alloclength + 2*max_softclip;
-	  alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_plus = 0;
-	  alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_minus = 0;
+	  /* alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_plus = 0; */
+	  /* alloc_tallies[alloclength + 2*max_softclip]->n_fromleft_minus = 0; */
 	  
 	} else if (chrpos_low > alloc_low + max_softclip) {
 	  debug0(printf("Case 2: chrpos_low %u > alloc_low %u + max_softclip %d\n",chrpos_low,alloc_low,max_softclip));
@@ -6156,15 +7072,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	    this = alloc_tallies[alloci];
 	    if (this->nmatches_passing > 0 || this->delcounts_plus + this->delcounts_minus > 0 ||
 		this->mismatches_byshift != NULL || this->insertions_byshift != NULL || this->deletions_byshift != NULL) {
-	      lastpos = transfer_position(&grand_total,alloc_tallies,block_tallies,&exonstart,lastpos,
-					  &blockptr,&blockstart,&blockend,
+	      lastpos = transfer_position(&grand_total,alloc_tallies,alloc_low,alloc_high,max_softclip,
+					  block_tallies,&exonstart,lastpos,&blockptr,&blockstart,&blockend,
 					  prev_block_tallies,&prev_blockptr,&prev_blockstart,&prev_blockend,
 					  *tally_matches,*tally_mismatches,
 					  &(*intervallist),&(*labellist),&(*datalist),
 					  chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 					  map_iit,output_type,blockp,blocksize,
-					  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-					  signed_counts_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
+					  quality_score_adj,min_depth,variant_strands,variant_pct,
+					  genomic_diff_p,signed_counts_p,print_totals_p,print_cycles_p,
+					  print_nm_scores_p,print_xs_scores_p,
 					  want_genotypes_p,readlevel_p,print_noncovered_p);
 	    }
 	  }
@@ -6178,8 +7095,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	  for (alloci = 0; alloci < (int) (alloc_ptr - alloc_low - delta); alloci++) {
 	    Tally_transfer(&(alloc_tallies[alloci]),&(alloc_tallies[alloci+delta]));
 	  }
-	  alloc_tallies[alloc_ptr - alloc_low - delta]->n_fromleft_plus = alloc_tallies[alloc_ptr - alloc_low]->n_fromleft_plus;
-	  alloc_tallies[alloc_ptr - alloc_low - delta]->n_fromleft_minus = alloc_tallies[alloc_ptr - alloc_low]->n_fromleft_minus;
+#ifdef DEBUG4
+	  for (alloci = 0; alloci < (int) (alloc_high - alloc_low); alloci++) {
+	    if (List_length(alloc_tallies[alloci]->bamlines) > 0) {
+	      printf("alloci %d has %d bamlines\n",alloci,List_length(alloc_tallies[alloci]->bamlines));
+	    }
+	  }
+#endif
+
+	  /* alloc_tallies[alloc_ptr - alloc_low - delta]->n_fromleft_plus = alloc_tallies[alloc_ptr - alloc_low]->n_fromleft_plus; */
+	  /* alloc_tallies[alloc_ptr - alloc_low - delta]->n_fromleft_minus = alloc_tallies[alloc_ptr - alloc_low]->n_fromleft_minus; */
 	  for ( ; alloci < (int) (alloc_ptr - alloc_low); alloci++) {
 	    debug0(printf("Resetting alloci %d\n",alloci));
 	    Tally_clear(alloc_tallies[alloci]);
@@ -6204,6 +7129,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 	    fprintf(stderr,"read %s at %s:%u..%u is longer than allocated buffer ending at %u => skipping\n",
 		    Bamline_acc(bamline_rep),printchr,chrpos_low,chrpos_high,alloc_high);
 	  }
+	  for (k = linei_start; k < linei_end; k++) {
+	    bamline = bamlines[k];
+	    Bamline_free(&bamline);
+	  }
+
 	} else {
 	  if (chrpos_high + max_softclip + 1U > alloc_ptr) {
 	    alloc_ptr = chrpos_high + max_softclip + 1U;
@@ -6219,7 +7149,7 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			max_softclip,linei + linei_start,/*passing_counts*/NULL,nreps);
 	  } else {
 	    readlength = Bamline_readlength(bamline_rep);
-	    nvectors = (readlength + 7)/8;
+	    nvectors = (readlength + 3)/4;
 	    passing_counts = (__m128i *) _mm_malloc(nvectors * sizeof(__m128i),16);
 	    get_passing_counts(passing_counts,readlength,&(bamlines[linei_start]),nreps,minimum_quality_score);
 	    revise_read(alloc_tallies,chrstart,chrend,chrpos_low,Bamline_flag(bamline_rep),
@@ -6228,22 +7158,31 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
 			Bamline_nm(bamline_rep),Bamline_splice_strand(bamline_rep),Bamline_terminalp(bamline_rep),alloc_low,
 			genome,chroffset,ignore_query_Ns_p,print_indels_p,readlevel_p,
 			max_softclip,linei + linei_start,passing_counts,nreps);
+	    _mm_free(passing_counts);
 	  }
+
+	  alloci = chrpos_high - alloc_low;
+	  debug4(printf("chrpos_high is %u, so storing at alloci %d\n",chrpos_high,alloci));
+	  this = alloc_tallies[alloci];
+	  this->bamlines = List_push(this->bamlines,bamline_rep);
+	  this->bamline_nreps_plus = Intlist_push(this->bamline_nreps_plus,nreps_plus);
+	  this->bamline_nreps_minus = Intlist_push(this->bamline_nreps_minus,nreps - nreps_plus);
+
+	  for (k = linei_start + 1; k < linei_end; k++) {
+	    bamline = bamlines[k];
+	    Bamline_free(&bamline);
+	  }
+
 	}
       }
+
+      linei_start = linei_end;
     }
 
-    for (linei_start = 0; linei_start < nlines; linei_start++) {
-      bamline = bamlines[linei_start];
-      Bamline_free(&bamline);
-    }
     FREE(bamlines);
 
     linei += nlines;
   }
-
-  debug0(printf("end of reads\n"));
-  debug0(printf("    transfer from alloc_low %u up to alloc_ptr %u\n",alloc_low,alloc_ptr));
 
   debug0(printf("end of reads\n"));
   debug0(printf("    transfer from alloc_low %u up to alloc_ptr %u\n",alloc_low,alloc_ptr));
@@ -6252,15 +7191,16 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     this = alloc_tallies[alloci];
     if (this->nmatches_passing > 0 || this->delcounts_plus + this->delcounts_minus > 0 ||
 	this->mismatches_byshift != NULL || this->insertions_byshift != NULL || this->deletions_byshift != NULL) {
-      lastpos = transfer_position(&grand_total,alloc_tallies,block_tallies,&exonstart,lastpos,
-				  &blockptr,&blockstart,&blockend,
+      lastpos = transfer_position(&grand_total,alloc_tallies,alloc_low,alloc_high,max_softclip,
+				  block_tallies,&exonstart,lastpos,&blockptr,&blockstart,&blockend,
 				  prev_block_tallies,&prev_blockptr,&prev_blockstart,&prev_blockend,
 				  *tally_matches,*tally_mismatches,
 				  &(*intervallist),&(*labellist),&(*datalist),
 				  chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
 				  map_iit,output_type,blockp,blocksize,
-				  quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-				  signed_counts_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
+				  quality_score_adj,min_depth,variant_strands,variant_pct,
+				  genomic_diff_p,signed_counts_p,print_totals_p,print_cycles_p,
+				  print_nm_scores_p,print_xs_scores_p,
 				  want_genotypes_p,readlevel_p,print_noncovered_p);
     }
   }
@@ -6270,15 +7210,18 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     lastpos = print_runlength(block_tallies,&exonstart,lastpos,blockstart,blockptr,printchr);
   } else if (output_type == OUTPUT_TALLY) {
     tally_block(*tally_matches,*tally_mismatches,
-		block_tallies,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-		quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-		print_noncovered_p);
+		block_tallies,blockstart,blockptr,
+		alloc_tallies,alloc_low,alloc_high,max_softclip,
+		genome,printchr,chroffset,chrstart,
+		quality_score_adj,min_depth,variant_strands,variant_pct,
+		genomic_diff_p,print_noncovered_p);
   } else if (output_type == OUTPUT_IIT) {
     iit_block(&(*intervallist),&(*labellist),&(*datalist),
 	      block_tallies,blockstart,blockptr,
 	      prev_block_tallies,prev_blockstart,prev_blockptr,
+	      alloc_tallies,alloc_low,alloc_high,max_softclip,
 	      genome,printchr,chroffset,map_iit,
-	      quality_score_adj,min_depth,variant_strands,
+	      quality_score_adj,min_depth,variant_strands,variant_pct,
 	      print_cycles_p,print_nm_scores_p,print_xs_scores_p,print_noncovered_p);
   } else if (output_type == OUTPUT_TOTAL) {
     grand_total += block_total(block_tallies,blockstart,blockptr);
@@ -6289,9 +7232,11 @@ Bamtally_run (long int **tally_matches, long int **tally_mismatches,
     }
     print_block(block_tallies,blockstart,blockptr,
 		prev_block_tallies,prev_blockstart,prev_blockptr,
+		alloc_tallies,alloc_low,alloc_high,max_softclip,
 		genome,printchr,chroffset,map_iit,
-		blockp,quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-		signed_counts_p,print_totals_p,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
+		blockp,quality_score_adj,min_depth,variant_strands,variant_pct,
+		genomic_diff_p,signed_counts_p,print_totals_p,print_cycles_p,
+		print_nm_scores_p,print_xs_scores_p,
 		want_genotypes_p,readlevel_p,print_noncovered_p);
     if (print_noncovered_p == true) {
       debug0(printf("Printing zeroes from blockptr %u to chrend %u\n",blockptr,chrend));
@@ -6328,7 +7273,7 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 		 IIT_T map_iit, int alloclength,
 		 char *desired_read_group, int minimum_mapq, int good_unique_mapq, int maximum_nhits,
 		 bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-		 int blocksize, int quality_score_adj, int min_depth, int variant_strands,
+		 int blocksize, int quality_score_adj, int min_depth, int variant_strands, double variant_pct,
 		 bool genomic_diff_p, bool ignore_query_Ns_p, bool verbosep, bool readlevel_p,
 		 int max_softclip, bool print_noncovered_p) {
   Tally_T this_low, this_high;
@@ -6455,13 +7400,13 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	    this_low->mismatches_byshift != NULL || this_low->insertions_byshift != NULL || this_low->deletions_byshift != NULL ||
 	    this_high->nmatches_passing > 0 || this_high->delcounts_plus + this_high->delcounts_minus > 0 ||
 	    this_high->mismatches_byshift != NULL || this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
-	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
-			       &blockptr,&blockstart,&blockend,
+	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,alloc_low,alloc_high,max_softclip,
+			       block_tallies_low,block_tallies_high,&blockptr,&blockstart,&blockend,
 			       *tally_matches_low,*tally_mismatches_low,
 			       *tally_matches_high,*tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			       map_iit,blocksize,quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-			       print_noncovered_p);
+			       map_iit,blocksize,quality_score_adj,min_depth,variant_strands,variant_pct,
+			       genomic_diff_p,print_noncovered_p);
 	}
       }
 
@@ -6480,13 +7425,13 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	    this_low->mismatches_byshift != NULL || this_low->insertions_byshift != NULL || this_low->deletions_byshift != NULL ||
 	    this_high->nmatches_passing > 0 || this_high->delcounts_plus + this_high->delcounts_minus > 0 ||
 	    this_high->mismatches_byshift != NULL || this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
-	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
-			       &blockptr,&blockstart,&blockend,
+	  transfer_position_lh(alloc_tallies_low,alloc_tallies_high,alloc_low,alloc_high,max_softclip,
+			       block_tallies_low,block_tallies_high,&blockptr,&blockstart,&blockend,
 			       *tally_matches_low,*tally_mismatches_low,
 			       *tally_matches_high,*tally_mismatches_high,
 			       chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			       map_iit,blocksize,quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-			       print_noncovered_p);
+			       map_iit,blocksize,quality_score_adj,min_depth,variant_strands,variant_pct,
+			       genomic_diff_p,print_noncovered_p);
 	}
       }
 
@@ -6547,9 +7492,6 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 
   debug0(printf("end of reads\n"));
   debug0(printf("    transfer from alloc_low %u up to alloc_ptr %u\n",alloc_low,alloc_ptr));
-
-  debug0(printf("end of reads\n"));
-  debug0(printf("    transfer from alloc_low %u up to alloc_ptr %u\n",alloc_low,alloc_ptr));
   for (chrpos = alloc_low; chrpos < alloc_ptr; chrpos++) {
     alloci = chrpos - alloc_low;
     this_low = alloc_tallies_low[alloci];
@@ -6558,25 +7500,29 @@ Bamtally_run_lh (long int **tally_matches_low, long int **tally_mismatches_low,
 	this_low->mismatches_byshift != NULL || this_low->insertions_byshift != NULL || this_low->deletions_byshift != NULL ||
 	this_high->nmatches_passing > 0 || this_high->delcounts_plus + this_high->delcounts_minus > 0 ||
 	this_high->mismatches_byshift != NULL || this_high->insertions_byshift != NULL || this_high->deletions_byshift != NULL) {
-      transfer_position_lh(alloc_tallies_low,alloc_tallies_high,block_tallies_low,block_tallies_high,
-			   &blockptr,&blockstart,&blockend,
+      transfer_position_lh(alloc_tallies_low,alloc_tallies_high,alloc_low,alloc_high,max_softclip,
+			   block_tallies_low,block_tallies_high,&blockptr,&blockstart,&blockend,
 			   *tally_matches_low,*tally_mismatches_low,
 			   *tally_matches_high,*tally_mismatches_high,
 			   chrpos,alloci,genome,printchr,chroffset,chrstart,chrend,
-			   map_iit,blocksize,quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-			   print_noncovered_p);
+			   map_iit,blocksize,quality_score_adj,min_depth,variant_strands,variant_pct,
+			   genomic_diff_p,print_noncovered_p);
     }
   }
 
   debug0(printf("print block from blockstart %u to blockptr %u\n",blockstart,blockptr));
   tally_block(*tally_matches_low,*tally_mismatches_low,
-	      block_tallies_low,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-	      quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-	      print_noncovered_p);
+	      block_tallies_low,blockstart,blockptr,
+	      alloc_tallies_low,alloc_low,alloc_high,max_softclip,
+	      genome,printchr,chroffset,chrstart,
+	      quality_score_adj,min_depth,variant_strands,variant_pct,
+	      genomic_diff_p,print_noncovered_p);
   tally_block(*tally_matches_high,*tally_mismatches_high,
-	      block_tallies_high,blockstart,blockptr,genome,printchr,chroffset,chrstart,
-	      quality_score_adj,min_depth,variant_strands,genomic_diff_p,
-	      print_noncovered_p);
+	      block_tallies_high,blockstart,blockptr,
+	      alloc_tallies_high,alloc_low,alloc_high,max_softclip,
+	      genome,printchr,chroffset,chrstart,
+	      quality_score_adj,min_depth,variant_strands,variant_pct,
+	      genomic_diff_p,print_noncovered_p);
 
 
   for (i = 0; i < alloclength + 2*max_softclip + 1; i++) {
@@ -6606,7 +7552,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 	      char *desired_read_group, int minimum_mapq, int good_unique_mapq,
 	      int minimum_quality_score, int maximum_nhits,
 	      bool need_concordant_p, bool need_unique_p, bool need_primary_p, bool ignore_duplicates_p,
-	      int min_depth, int variant_strands, bool ignore_query_Ns_p,
+	      int min_depth, int variant_strands, double variant_pct, bool ignore_query_Ns_p,
 	      bool print_indels_p, int blocksize, bool verbosep, bool readlevel_p,
 	      int max_softclip, bool print_cycles_p, bool print_nm_scores_p, bool print_xs_scores_p,
 	      bool print_noncovered_p) {
@@ -6663,7 +7609,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
 		   need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
 		   /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
 		   /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
-		   /*quality_score_adj*/0,min_depth,variant_strands,
+		   /*quality_score_adj*/0,min_depth,variant_strands,variant_pct,
 		   /*genomic_diff_p*/false,/*signed_counts_p*/false,ignore_query_Ns_p,
 		   print_indels_p,/*print_totals_p*/false,print_cycles_p,print_nm_scores_p,print_xs_scores_p,
 		   /*want_genotypes_p*/false,verbosep,readlevel_p,max_softclip,
@@ -6710,7 +7656,7 @@ Bamtally_iit (Bamreader_T bamreader, char *desired_chr, char *bam_lacks_chr,
                    need_concordant_p,need_unique_p,need_primary_p,ignore_duplicates_p,
                    /*ignore_lowend_p*/false,/*ignore_highend_p*/false,
                    /*output_type*/OUTPUT_IIT,/*blockp*/false,blocksize,
-                   /*quality_score_adj*/0,min_depth,variant_strands,
+                   /*quality_score_adj*/0,min_depth,variant_strands,variant_pct,
                    /*genomic_diff_p*/false,/*signed_counts_p*/false,
                    ignore_query_Ns_p, print_indels_p,/*print_totals_p*/false,
                    print_cycles_p,print_nm_scores_p,/*print_xs_scores_p*/false,

@@ -215,8 +215,7 @@
 /* Define to 1 if your zlib library has a gzbuffer function. */
 #undef HAVE_ZLIB_GZBUFFER
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
 /* Define MAP_FAILED here if not available otherwise. */

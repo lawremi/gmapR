@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: samread.c 159529 2015-02-25 21:27:09Z twu $";
+static char rcsid[] = "$Id: samread.c 198585 2016-10-01 04:06:33Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -876,7 +876,7 @@ Samread_parse_cigar (Uintlist_T *npositions, int *readlength, char *cigar) {
       types = Intlist_push(types,(int) type);
     }
 
-    if (type == 'S' || type == 'M' || type == 'I') {
+    if (type == 'S' || type == 'M' || type == 'X' || type == 'I') {
       *readlength += npos;
     } else if (type == 'H') {
       *readlength += npos;
@@ -960,6 +960,9 @@ Samread_chrpos_high (Intlist_T types, Uintlist_T npositions, Genomicpos_T chrpos
     } else if (type == 'M') {
       chrpos_high += Uintlist_head(q);
 
+    } else if (type == 'X') {
+      chrpos_high += Uintlist_head(q);
+
     } else if (type == 'N') {
       chrpos_high += Uintlist_head(q);
 
@@ -1008,6 +1011,8 @@ Samread_get_query_coordinates (int *query5, int *query3, Intlist_T types, Uintli
     } else if (type == 'H') {
       /* Do nothing */
     } else if (type == 'M') {
+      validlength += Uintlist_head(q);
+    } else if (type == 'X') {
       validlength += Uintlist_head(q);
     } else if (type == 'N') {
       /* Do nothing */
@@ -1152,6 +1157,10 @@ get_substrings (int *querylength, int **query_starts, Genomicpos_T **genomic_sta
       querypos += npos;
 
     } else if (type == 'M') {
+      querypos += npos;
+      genomicpos += npos;
+
+    } else if (type == 'X') {
       querypos += npos;
       genomicpos += npos;
 
