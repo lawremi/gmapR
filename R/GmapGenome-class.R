@@ -52,6 +52,17 @@ setMethod("genomeName", "character", function(x) x)
 setMethod("genomeName", "BSgenome", function(x) providerVersion(x))
 setMethods("genomeName", list("RTLFile", "RsamtoolsFile"),
            function(x) file_path_sans_ext(basename(path(x)), TRUE))
+setMethod("genomeName", "ANY", function(x) {
+    if (hasMethod("seqinfo", class(x))) {
+        ans <- unique(genome(x))
+        if (length(ans) > 1L) {
+            stop("genome is ambiguous")
+        }
+        ans
+    } else {
+        stop("cannot derive a genome name")
+    }
+})
 
 file_path_is_absolute <- function(x) {
   ## hack that is unlikely to work on e.g. Windows
