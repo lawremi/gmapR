@@ -24,10 +24,10 @@ Collate: GmapBamReader-class.R GmapGenomeDirectory-class.R
         GmapGenome-class.R GmapSnpDirectory-class.R GmapSnps-class.R
         GmapParam-class.R GsnapParam-class.R
         GsnapOutput-class.R GmapOutput-class.R
-        atoiindex-command.R
+        atoiindex-command.R iit-format.R
         BamTallyParam-class.R bam_tally-command.R cmetindex-command.R
         get-genome-command.R gmap-command.R gmap_build-command.R
-        gsnap-command.R iit-format.R iit_store-command.R info.R
+        gsnap-command.R iit_store-command.R info.R
         snpindex-command.R system.R test_gmapR_package.R
         makeGmapGenomePackage.R TP53Genome.R utils.R asSystemCall.R
 biocViews: Alignment

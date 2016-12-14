@@ -7,13 +7,13 @@
 ### Raw tally result
 ###
 
-setClass("TallyIIT", representation(ptr = "externalptr",
-                                    genome = "GmapGenome",
+setClass("TallyIIT", representation(genome = "GmapGenome",
                                     bam = "BamFile",
                                     xs = "logical",
                                     read_pos = "logical",
                                     nm = "logical",
-                                    codon = "logical"))
+                                    codon = "logical"),
+         contains = "IIT")
 
 TallyIIT <- function(ptr, genome, bam, xs, read_pos, nm, codon) {
   new("TallyIIT", ptr = ptr, genome = genome, bam = bam, xs = xs,
