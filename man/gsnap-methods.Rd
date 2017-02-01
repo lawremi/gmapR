@@ -1,7 +1,7 @@
 \name{gsnap-methods}
 \docType{methods}
 \alias{gsnap-methods}
-\alias{gsnap,character,characterORNULL,GsnapParam-method}
+\alias{gsnap,character,character_OR_NULL,GsnapParam-method}
 \alias{gsnap}
 
 \title{Align a Set of Reads Using the GSNAP Aligner}
@@ -15,7 +15,7 @@
 }
 
 \usage{
-\S4method{gsnap}{character,characterORNULL,GsnapParam}(input_a, input_b, params,
+\S4method{gsnap}{character,character_OR_NULL,GsnapParam}(input_a, input_b, params,
                    output = file.path(getwd(),
                                       file_path_sans_ext(basename(input_a),
                                                          TRUE)),

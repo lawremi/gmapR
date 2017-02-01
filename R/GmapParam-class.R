@@ -5,13 +5,13 @@
 ### High-level interface to gmap.
 ###
 
-setClassUnion("GmapSnpsORNULL", c("GmapSnps", "NULL"))
+setClassUnion("GmapSnps_OR_NULL", c("GmapSnps", "NULL"))
 
 setClass("GmapAlignerParam",
          representation(genome = "GmapGenome",
-                        part = "characterORNULL",
+                        part = "character_OR_NULL",
                         batch = "character",
-                        snps = "GmapSnpsORNULL",
+                        snps = "GmapSnps_OR_NULL",
                         mode = "character",
                         nthreads = "integer",
                         npaths = "integer",

@@ -11,10 +11,10 @@
 ###
 
 setClass("IIT", representation(ptr = "externalptr"))
-setClassUnion("IITORNULL", c("IIT", "NULL"))
+setClassUnion("IIT_OR_NULL", c("IIT", "NULL"))
 
 setRefClass("IITFile",
-            fields=c(iit="IITORNULL"),
+            fields=c(iit="IIT_OR_NULL"),
             contains="RTLFile")
 
 IITFile <- function(resource) {

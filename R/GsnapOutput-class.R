@@ -7,25 +7,25 @@
 ### unique directory.
 ###
 
-setClassUnion("POSIXltORNULL", c("POSIXlt", "NULL"))
+setClassUnion("POSIXlt_OR_NULL", c("POSIXlt", "NULL"))
 
 .valid_GsnapOutput <- function(object) {
   if (length(samPaths(object)) == 0L && length(bamPaths(object)) == 0L)
     paste0("No GSNAP output at '", object@path, "'")
 }
 
-setClassUnion("GmapAlignerParamORNULL", c("GmapAlignerParam", "NULL"))
+setClassUnion("GmapAlignerParam_OR_NULL", c("GmapAlignerParam", "NULL"))
 
-setClassUnion("GsnapParamORNULL", c("GsnapParam", "NULL"))
-setIs("GsnapParamORNULL", "GmapAlignerParamORNULL")
+setClassUnion("GsnapParam_OR_NULL", c("GsnapParam", "NULL"))
+setIs("GsnapParam_OR_NULL", "GmapAlignerParam_OR_NULL")
 
 setClass("GmapAlignerOutput",
          representation(path = "character",
-                        param = "GmapAlignerParamORNULL",
-                        version = "POSIXltORNULL"))
+                        param = "GmapAlignerParam_OR_NULL",
+                        version = "POSIXlt_OR_NULL"))
          
 setClass("GsnapOutput",
-         representation(param = "GsnapParamORNULL"),
+         representation(param = "GsnapParam_OR_NULL"),
          contains="GmapAlignerOutput",
          validity = .valid_GsnapOutput)
 
@@ -114,7 +114,7 @@ setMethod("bamPaths", "GmapAlignerOutput", function(x) {
 newGmapAlignerOutput <- function(Class, path, param = NULL, version = NULL) {
     if (!is.character(path) || any(is.na(path)))
         stop("'path' must be a character vector without any NA's")
-    if (!is(version, "POSIXltORNULL")) {
+    if (!is(version, "POSIXlt_OR_NULL")) {
         if (is.character(version))
             version <- parseGsnapVersion(version)
         else stop("'version' must be a version string, POSIXlt object or NULL")

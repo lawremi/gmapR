@@ -9,7 +9,7 @@
 setGeneric("gsnap", function(input_a, input_b = NULL, params, ...)
            standardGeneric("gsnap"))
 
-setMethod("gsnap", c("character", "characterORNULL", "GsnapParam"),
+setMethod("gsnap", c("character", "character_OR_NULL", "GsnapParam"),
           function(input_a, input_b, params,
                    output = file.path(getwd(),
                      file_path_sans_ext(basename(input_a), TRUE)),

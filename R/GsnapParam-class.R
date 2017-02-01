@@ -8,13 +8,13 @@
 ### list.
 ###
 
-setClassUnion("integerORNULL", c("integer", "NULL"))
+setClassUnion("integer_OR_NULL", c("integer", "NULL"))
 
 setClass("GsnapParam",
-         representation(max_mismatches = "integerORNULL",
+         representation(max_mismatches = "integer_OR_NULL",
                         suboptimal_levels = "integer",
                         novelsplicing = "logical",
-                        splicing = "characterORNULL",
+                        splicing = "character_OR_NULL",
                         terminal_threshold = "integer",
                         gmap_mode = "character",
                         clip_overlap = "logical"),
@@ -205,12 +205,12 @@ setAs("GsnapParam", "list", function(from) {
 
 as.list.GmapAlignerParam <- function(x, ...) as(x, "list")
 
-setAs("ANY", "characterORNULL", function(from) {
+setAs("ANY", "character_OR_NULL", function(from) {
   if (is.null(from))
     NULL
   else as.character(from)
 })
-setAs("ANY", "integerORNULL", function(from) {
+setAs("ANY", "integer_OR_NULL", function(from) {
   if (is.null(from))
     NULL
   else as.integer(from)

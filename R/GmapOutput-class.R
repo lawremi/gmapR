@@ -7,8 +7,8 @@
 ### unique directory.
 ###
 
-setClassUnion("GmapParamORNULL", c("GmapParam", "NULL"))
-setIs("GmapParamORNULL", "GmapAlignerParamORNULL")
+setClassUnion("GmapParam_OR_NULL", c("GmapParam", "NULL"))
+setIs("GmapParam_OR_NULL", "GmapAlignerParam_OR_NULL")
 
 .valid_GmapOutput <- function(object) {
     if (length(paths(object)) == 0L)
@@ -17,8 +17,8 @@ setIs("GmapParamORNULL", "GmapAlignerParamORNULL")
 
 setClass("GmapOutput",
          representation(path = "character",
-                        param = "GmapParamORNULL",
-                        version = "POSIXltORNULL"),
+                        param = "GmapParam_OR_NULL",
+                        version = "POSIXlt_OR_NULL"),
          contains="GmapAlignerOutput",
          validity = .valid_GmapOutput)
 
