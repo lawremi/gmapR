@@ -178,7 +178,10 @@ setReplaceMethod("spliceSites", c("GmapGenome", "TxDb"),
 
 setMethod("getSeq", "GmapGenome", function(x, which = seqinfo(x)) {
   if (!.gmapGenomeCreated(x))
-    stop("Genome index does not exist")
+      stop("Genome index does not exist")
+  if (is.character(which)) {
+      which <- seqinfo(x)[which]
+  }
   which <- as(which, "GRanges")
   merge(seqinfo(x), seqinfo(which)) # for the checks
   ans <- .Call(R_Genome_getSeq, path(directory(x)), genome(x),
