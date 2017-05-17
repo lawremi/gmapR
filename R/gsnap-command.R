@@ -21,9 +21,10 @@ setMethod("gsnap", c("character", "character_OR_NULL", "GsnapParam"),
             if (any(is.na(input_a)) || any(is.na(input_b)))
               stop("'input_a' and 'input_b' must not contain NA's")
             if (length(input_a) > 1L) {
-              return(GsnapOutputList(mapply(gsnap, input_a, input_b,
-                                            MoreArgs = list(params, output,
-                                              consolidate, ...))))
+                args <- list(params, consolidate, ...)
+                return(GsnapOutputList(mapply(gsnap, input_a, input_b,
+                                              output=output,
+                                              MoreArgs = args)))
             }
             
             output_dir <- dirname(output)
