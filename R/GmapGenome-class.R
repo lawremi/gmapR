@@ -121,16 +121,7 @@ setReplaceMethod("referenceSequence",
                  signature(x = "GmapGenome", value = "ANY"),
                  function(x, name, ..., value)
                  {
-                   gmap_db_tmp_dir <- file.path(tempdir(), "gmap_db_tmp_dir")
-                   dir.create(gmap_db_tmp_dir, recursive=TRUE)
-                   cur_wd <- getwd()
-                   on.exit({unlink(gmap_db_tmp_dir, recursive=TRUE)
-                            setwd(cur_wd)})
-                   setwd(gmap_db_tmp_dir)
-
-                   db <- gmap_build(value, x, ...)
-                   
-                   db
+                   gmap_build(value, x, ...)
                  })
 
 setGeneric("snps<-", function(x, name, ..., value) standardGeneric("snps<-"))

@@ -45,7 +45,15 @@ setMethod("gmap_build", c("DNAStringSet", "GmapGenome"),
 
 setMethod("gmap_build", c("character", "GmapGenome"),
           function(x, genome, kmer = 15L, ...) {
+            gmap_db_tmp_dir <- file.path(tempdir(), "gmap_db_tmp_dir")
+            dir.create(gmap_db_tmp_dir, recursive=TRUE)
+            cur_wd <- getwd()
+            on.exit({unlink(gmap_db_tmp_dir, recursive=TRUE)
+                setwd(cur_wd)})
+            setwd(gmap_db_tmp_dir)
+
             gz <- file_ext(x) == "gz"
+            x <- normalizePath(x, mustWork=TRUE)
             .gmap_build(db = genome(genome), dir = path(directory(genome)),
                         kmer = kmer, sort = "none", gunzip = gz, .fasta = x, ...)
             genome
