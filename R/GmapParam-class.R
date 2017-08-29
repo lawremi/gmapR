@@ -21,7 +21,7 @@ setClass("GmapAlignerParam",
                         extra = "list"))
 
 setClass("GmapParam",
-         representation(suboptimal_score = "integer",
+         representation(suboptimal_score = "integer_OR_NULL",
                         splicing = "logical",
                         format = "character"),
          contains="GmapAlignerParam")
@@ -31,7 +31,7 @@ setClass("GmapParam",
 ###
 
 GmapParam <- function(genome, unique_only = FALSE,
-                      suboptimal_score = 0L, mode = "standard",
+                      suboptimal_score = NULL, mode = "standard",
                       snps = NULL,
                       npaths = if (unique_only) 1L else 100L,
                       quiet_if_excessive = unique_only, nofails = unique_only,
