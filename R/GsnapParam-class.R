@@ -8,8 +8,6 @@
 ### list.
 ###
 
-setClassUnion("integer_OR_NULL", c("integer", "NULL"))
-
 setClass("GsnapParam",
          representation(max_mismatches = "integer_OR_NULL",
                         suboptimal_levels = "integer",

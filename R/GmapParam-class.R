@@ -7,6 +7,8 @@
 
 setClassUnion("GmapSnps_OR_NULL", c("GmapSnps", "NULL"))
 
+setClassUnion("integer_OR_NULL", c("integer", "NULL"))
+
 setClass("GmapAlignerParam",
          representation(genome = "GmapGenome",
                         part = "character_OR_NULL",
