@@ -8,7 +8,7 @@
 
 setClass("BamTallyParam",
          representation(genome = "GmapGenome",
-                        which = "GenomicRanges",
+                        which = "GenomicRanges_OR_GRangesList",
                         desired_read_group = "character_OR_NULL",
                         minimum_mapq = "integer",
                         concordant_only = "logical",
@@ -32,8 +32,8 @@ setClass("BamTallyParam",
 ###
 
 normArgWhich <- function(x, genome) {
-  if (!is(x, "GenomicRanges"))
-    stop("'which' must be a GenomicRanges")
+  if (!is(x, "GenomicRanges_OR_GRangesList"))
+    stop("'which' must be a GenomicRanges or GRangesList")
   si <- seqinfo(genome)
   seqinfo(x, new2old = match(seqlevels(si), seqlevels(x))) <-
     merge(si, seqinfo(x))
