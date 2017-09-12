@@ -14,7 +14,7 @@
 }
 
 \usage{
-  BamTallyParam(genome, which = GenomicRanges_OR_GRangesList(),
+  BamTallyParam(genome, which = GRanges(),
                 desired_read_group = NULL,
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
