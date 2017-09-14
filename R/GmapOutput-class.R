@@ -27,7 +27,7 @@ setClass("GmapOutput",
 ###
 
 setMethod("alignmentCategories", "GmapOutput", function(x) {
-              c("uniq", "mult", "chimera", "nomapping")
+              c("uniq", "mult", "nomapping", "circular")
           })
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
