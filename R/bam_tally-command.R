@@ -152,7 +152,8 @@ variantSummary <- function(x, read_pos_breaks = NULL,
   gr <- with(tally,
              VRanges(seqnames,
                      IRanges(pos,
-                             width = ifelse(nchar(alt) == 0, nchar(ref), 1L)),
+                             width = ifelse(nchar(alt) == 0 & !is.na(alt),
+                                            nchar(ref), 1L)),
                      ref, alt,
                      count.total, count.ref, count,
                      seqlengths = seqlengths(genome)))
@@ -173,7 +174,7 @@ checkTallyConsistency <- function(x) {
 }
 
 normalizeIndelAlleles <- function(x, genome) {
-  is.indel <- nchar(ref(x)) == 0L | nchar(alt(x)) == 0L
+  is.indel <- nchar(ref(x)) == 0L | (nchar(alt(x)) == 0L & !is.na(alt(x)))
   if (any(is.indel)) {
     indels <- x[is.indel]
     flanks <- flank(indels, 1)
