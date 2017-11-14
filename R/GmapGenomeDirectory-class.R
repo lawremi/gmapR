@@ -46,6 +46,12 @@ GmapGenomeDirectory <- function(path = getDefaultGmapGenomePath(),
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+### Coerce
+###
+
+setMethod("as.character", "GmapGenomeDirectory", function(x) path(x))
+
+### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### Show
 ###
 
