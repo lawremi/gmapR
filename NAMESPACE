@@ -1,6 +1,7 @@
 useDynLib(gmapR, .registration = TRUE)
 
-importFrom(Rsamtools, path, bamPaths, "bamWhich<-", BamFile, BamFileList,
+importFrom(BiocGenerics, path)
+importFrom(Rsamtools, bamPaths, "bamWhich<-", BamFile, BamFileList,
            BamSampler)
 importFrom(tools, file_path_as_absolute, file_ext, file_path_sans_ext,
            list_files_with_exts)
@@ -12,7 +13,8 @@ import(GenomicRanges)
 import(GenomeInfoDb)
 import(BiocParallel)
 importMethodsFrom(GenomeInfoDb, genome)
-importFrom(utils, packageVersion)
+importFrom(stats, setNames)
+importFrom(utils, packageVersion, read.table, str)
 importFrom(Biostrings, getSeq, readDNAStringSet, DNAStringSet)
 importMethodsFrom(GenomicRanges, seqnames, strand)
 importMethodsFrom(Rsamtools, asBam)
