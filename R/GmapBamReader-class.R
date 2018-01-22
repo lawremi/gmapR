@@ -19,15 +19,15 @@ setMethod("path", "GmapBamReader", function(object) object@path)
 
 ## setReplaceMethod("bamWhich", c("GmapBamReader", "ANY"),
 ##                  function(object, value) {
-##                    bamWhich(object) <- as(value, "RangesList")
+##                    bamWhich(object) <- as(value, "IntegerRangesList")
 ##                    object
 ##                  })
 
-## setReplaceMethod("bamWhich", c("GmapBamReader", "RangesList"),
+## setReplaceMethod("bamWhich", c("GmapBamReader", "IntegerRangesList"),
 ##                  function(object, value) {
 ##                    if (length(value) != 1L || length(value[[1]]) != 1L)
-##                      stop("'value' must be a RangesList with a single, ",
-##                           "length-one element")
+##                      stop("'value' must be an IntegerRangesList with a ",
+##                           "single, length-one element")
 ##                    .Call(R_Bamread_limit_region, object, names(value),
 ##                          start(value[[1]]), end(value[[1]]))
 ##                  })

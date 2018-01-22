@@ -28,7 +28,7 @@
 }
 \arguments{
   \item{genome}{A \code{GmapGenome} object, or something coercible to one.}
-  \item{which}{A \code{RangesList} or something coercible to
+  \item{which}{A \code{IntegerRangesList} or something coercible to
     one that limits the tally to that range or set of ranges. By
     default, the entire genome is processed.
   }
