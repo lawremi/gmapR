@@ -41,8 +41,8 @@ destDir = ".", license = "Artistic-2.0", pkgName)
 library(gmapR)
 
 if (!require(BSgenome.Dmelanogaster.UCSC.dm3)) {
-  library(BiocInstaller)
-  biocLite("BSgenome.Dmelanogaster.UCSC.dm3")
+  library(BiocManager)
+  BiocManager::install("BSgenome.Dmelanogaster.UCSC.dm3")
   library(BSgenome.Dmelanogaster.UCSC.dm3)
 }
 

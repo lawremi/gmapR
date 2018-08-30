@@ -125,8 +125,9 @@ example demonstrates:
 library(gmapR)
 
 if (!suppressWarnings(require(BSgenome.Dmelanogaster.UCSC.dm3))) {
-  source("http://bioconductor.org/biocLite.R")
-  biocLite("BSgenome.Dmelanogaster.UCSC.dm3")
+  if (!requireNamespace("BiocManager", quietly=TRUE))
+      install.packages("BiocManager")
+  BiocManager::install("BSgenome.Dmelanogaster.UCSC.dm3")
   library(BSgenome.Dmelanogaster.UCSC.dm3)
 }
 
@@ -348,8 +349,9 @@ object:
 
 <<create_hg19_GmapGenome, eval=FALSE>>=
 if (!suppressWarnings(require(BSgenome.Hsapiens.UCSC.hg19))) {
-  source("http://bioconductor.org/biocLite.R")
-  biocLite("BSgenome.Hsapiens.UCSC.hg19")
+  if (!requireNamespace("BiocManager", quietly=TRUE))
+      install.packages("BiocManager")
+  BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
   library(BSgenome.Hsapiens.UCSC.hg19)
 }
 gmapGenome <- GmapGenome(genome=Hsapiens,
