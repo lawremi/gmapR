@@ -10,7 +10,7 @@
 cmetindex <- function(db, use_snps = NULL) {
   if (!is(db, "GmapGenome"))
     stop("'db' must be a GmapGenome object")
-  .cmetindex(genome(db), directory(db), directory(db), use_snps = use_snps)
+  .cmetindex(genome(db), directory(db), use_snps = use_snps)
 }
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
