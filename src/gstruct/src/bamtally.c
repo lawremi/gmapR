@@ -5782,7 +5782,9 @@ revise_position (char querynt, char genomicnt, int nm, int xs, int signed_shift,
 	this->matches_byshift_minus[-signed_shift] += n_passing_counts;
       }
 
-      this->matches_bynm[nm] += n_passing_counts;
+      if (nm < this->n_matches_bynm) {
+	  this->matches_bynm[nm] += n_passing_counts;
+      }
       this->matches_byxs[xs] += n_passing_counts;
     }
 
