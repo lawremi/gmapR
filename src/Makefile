@@ -13,8 +13,21 @@ GSTRUCT_INCLUDE_DIR = $(INCLUDE_DIR)/gstruct
 
 SAMTOOLS_LIB = samtools/libbam.a
 
+PATCH_O = samtools_patch.o
+KNETFILE_O = knetfile.o
+BAMOBJ_0 = \
+  bgzf.o kstring.o bam_aux.o bam.o bam_import.o sam.o bam_index.o	\
+  bam_pileup.o bam_lpileup.o bam_md.o razf.o faidx.o \
+  $(KNETFILE_O) bam_sort.o sam_header.o bam_reheader.o kprobaln.o $(PATCH_O)
+BAMOBJ=$(BAMOBJ_0:%=samtools/%)
+DFLAGS = -D_USE_KNETFILE -D_FILE_OFFSET_BITS=64 \
+  -U_FORTIFY_SOURCE -DBGZF_CACHE \
+  -Dfprintf=_samtools_fprintf \
+  -Dexit=_samtools_exit \
+  -Dabort=_samtools_abort
+
 PKG_CPPFLAGS += -I$(INCLUDE_DIR)
-PKG_CFLAGS += -g -O3
+PKG_CFLAGS += -g -O3 $(DFLAGS)
 PKG_LIBS += $(GSTRUCT_LIB) $(SAMTOOLS_LIB) -lz
 
 SHLIB = gmapR.so
@@ -28,22 +41,14 @@ $(OBJECTS): $(GSTRUCT_INCLUDE_DIR) $(OBJECTS:%.o=%.c)
 
 $(GSTRUCT_LIB) $(GSTRUCT_INCLUDE_DIR): gstruct
 
-RSAMTOOLS_PATH := $(shell R_LIBS=$(R_LIBRARY_DIR) $(R_HOME)/bin/Rscript \
-		    --vanilla -e 'cat(system.file(package="Rsamtools"))')
-${R_SRC_DIR}/samtools: $(RSAMTOOLS_PATH)
-## gmap/gstruct assume samtools headers and libs are in one directory,
-## so we need to create one and populate it with links to Rsamtools.
-	rm -rf samtools; mkdir samtools
-	ln -sf $(RSAMTOOLS_PATH)/usrlib/$(R_ARCH)/libbam.a samtools/libbam.a
-	for header in $(RSAMTOOLS_PATH)/include/samtools/*.h; do \
-	  ln -sf $$header samtools/$(notdir $(header)); \
-	done
+$(SAMTOOLS_LIB): $(BAMOBJ)
+	$(AR) -crus $@ $(BAMOBJ)
 
-$(SUBDIRS): %: %/Makefile
+$(SUBDIRS): %: %/Makefile $(SAMTOOLS_LIB)
 	cd $@; \
 	$(MAKE) install
 
-gstruct/Makefile: gstruct/configure ${R_SRC_DIR}/samtools 
+gstruct/Makefile: gstruct/configure
 	cd $(dir $@); \
         CFLAGS="-g -O3" \
 	./configure --enable-static --disable-shared \

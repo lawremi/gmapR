@@ -113,5 +113,5 @@ src/gstruct/src/libgstruct_1.0_la-ucharlist.lo
 src/gstruct/src/libgstruct_1.0_la-uintlist.lo
 src/gstruct/src/libgstruct_1.0_la-uinttable.lo
 src/gstruct/src/stamp-h1
-src/samtools/
 inst/user
+inst/usr
