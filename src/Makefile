@@ -27,7 +27,6 @@ DFLAGS = -D_USE_KNETFILE -D_FILE_OFFSET_BITS=64 \
   -Dabort=_samtools_abort
 
 PKG_CPPFLAGS += -I$(INCLUDE_DIR)
-PKG_CFLAGS += -g -O3 $(DFLAGS)
 PKG_LIBS += $(GSTRUCT_LIB) $(SAMTOOLS_LIB) -lz
 
 SHLIB = gmapR.so
@@ -38,6 +37,9 @@ $(SHLIB): $(OBJECTS) $(GSTRUCT_LIB)
 	$(SHLIB_LINK) -o $@ $(OBJECTS) $(ALL_LIBS)
 
 $(OBJECTS): $(GSTRUCT_INCLUDE_DIR) $(OBJECTS:%.o=%.c)
+
+samtools/%.o: samtools/%.c
+	$(CC) $(ALL_CPPFLAGS) $(ALL_CFLAGS) $(DFLAGS) -c $< -o $@
 
 $(GSTRUCT_LIB) $(GSTRUCT_INCLUDE_DIR): gstruct
 
@@ -69,6 +71,5 @@ clean:
 	for dir in $(SUBDIRS); do \
 	  $(MAKE) -C $$dir distclean; \
 	done
-	rm -rf samtools $(PREFIX)
 	rm -f *.o *.so *.dll
 
