@@ -18,7 +18,7 @@ setMethod("gsnap", c("character", "character_OR_NULL", "GsnapParam"),
             if (!is.null(input_b) && length(input_a) != length(input_b))
               stop("If 'input_b' is non-NULL, it must have the same length",
                    " as 'input_a'")
-            if (any(is.na(input_a)) || any(is.na(input_b)))
+            if (anyNA(input_a) || anyNA(input_b))
               stop("'input_a' and 'input_b' must not contain NA's")
             if (length(input_a) > 1L) {
                 args <- list(params, consolidate, ...)
