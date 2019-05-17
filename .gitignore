@@ -115,3 +115,4 @@ src/gstruct/src/libgstruct_1.0_la-uinttable.lo
 src/gstruct/src/stamp-h1
 inst/user
 inst/usr
+/src/samtools/libbam.a
