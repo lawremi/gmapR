@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: tally.c 198589 2016-10-01 04:22:06Z twu $";
+static char rcsid[] = "$Id: tally.c 219277 2019-05-21 00:57:27Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -68,6 +68,55 @@ Mismatch_free (Mismatch_T *old) {
   return;
 }
 #endif
+
+
+
+Softclip_jcn_T
+Softclip_jcn_new (Genomicpos_T chrpos, int shift, int ncounts) {
+  Softclip_jcn_T new = (Softclip_jcn_T) MALLOC(sizeof(*new));
+
+  new->chrpos = chrpos;
+  new->shift = shift;
+  new->count = ncounts;
+
+  return new;
+}
+
+void
+Softclip_jcn_free (Softclip_jcn_T *old) {
+  FREE(*old);
+  return;
+}
+
+int
+Softclip_jcn_count_cmp (const void *a, const void *b) {
+  Softclip_jcn_T x = * (Softclip_jcn_T *) a;
+  Softclip_jcn_T y = * (Softclip_jcn_T *) b;
+
+  if (x->count > y->count) {
+    return -1;
+  } else if (x->count < y->count) {
+    return +1;
+  } else {
+    return 0;
+  }
+}
+
+Softclip_jcn_T
+find_softclip_jcn_byshift (List_T softclip_jcns, int shift) {
+  List_T p;
+  Softclip_jcn_T soft;
+
+  for (p = softclip_jcns; p != NULL; p = List_next(p)) {
+    soft = (Softclip_jcn_T) List_head(p);
+    if (soft->shift == shift) {
+      return soft;
+    }
+  }
+  return (Softclip_jcn_T) NULL;
+}
+
+
 
 
 Insertion_T
@@ -555,10 +604,19 @@ Tally_new () {
   T new = (T) MALLOC(sizeof(*new));
 
   new->refnt = ' ';
+  new->depth_passing = 0;
+  new->depth_total = 0;
+
   new->nmatches_passing = 0;
   new->nmatches_total = 0;
   new->nmismatches_passing = 0;
   new->nmismatches_total = 0;
+
+  new->nsoftclip_nts_low_passing = 0;
+  new->nsoftclip_nts_low_total = 0;
+  new->nsoftclip_nts_high_passing = 0;
+  new->nsoftclip_nts_high_total = 0;
+
   new->delcounts_plus = 0;
   new->delcounts_minus = 0;
   /* new->n_fromleft_plus = 0; */
@@ -573,16 +631,15 @@ Tally_new () {
   new->list_matches_bynm = (List_T) NULL;
   new->list_matches_byxs = (List_T) NULL;
 
-  new->n_matches_byshift_plus = INITIAL_READLENGTH+1;
-  new->n_matches_byshift_minus = INITIAL_READLENGTH+1;
-  new->matches_byshift_plus = (int *) CALLOC(new->n_matches_byshift_plus,sizeof(int));
-  new->matches_byshift_minus = (int *) CALLOC(new->n_matches_byshift_minus,sizeof(int));
+  new->max_byshift_plus = 0;
+  new->max_byshift_minus = 0;
+  new->matches_byshift_plus = (int *) CALLOC(new->max_byshift_plus + 1,sizeof(int));
+  new->matches_byshift_minus = (int *) CALLOC(new->max_byshift_minus + 1,sizeof(int));
 
-  new->n_matches_bynm = INITIAL_READLENGTH+1;
-  new->matches_bynm = (int *) CALLOC(new->n_matches_bynm,sizeof(int));
+  new->max_nm = 0;
+  new->matches_bynm = (int *) CALLOC(new->max_nm + 1,sizeof(int));
 
-  new->n_matches_byxs = 3+1;	/* for 0, 1, and 2 */
-  new->matches_byxs = (int *) CALLOC(new->n_matches_byxs,sizeof(int));
+  new->matches_byxs = (int *) CALLOC(/* for 0, 1, and 2*/ 3,sizeof(int));
 
 #ifdef USE_MISMATCHPOOL
   new->mismatchpool = Mismatchpool_new();
@@ -591,6 +648,17 @@ Tally_new () {
   new->mismatches_byshift = (List_T) NULL;
   new->mismatches_bynm = (List_T) NULL;
   new->mismatches_byxs = (List_T) NULL;
+
+  new->softclip_nts_low_byshift = (List_T) NULL;
+  new->softclip_nts_low_bynm = (List_T) NULL;
+  new->softclip_nts_low_byxs = (List_T) NULL;
+
+  new->softclip_nts_high_byshift = (List_T) NULL;
+  new->softclip_nts_high_bynm = (List_T) NULL;
+  new->softclip_nts_high_byxs = (List_T) NULL;
+
+  new->softclip_jcns_low_byshift = (List_T) NULL;
+  new->softclip_jcns_high_byshift = (List_T) NULL;
 
   new->insertions_byshift = (List_T) NULL;
   new->insertions_bynm = (List_T) NULL;
@@ -619,6 +687,7 @@ Tally_clear (T this) {
   List_T ptr;
   Match_T match;
   Mismatch_T mismatch;
+  Softclip_jcn_T soft;
   Insertion_T ins;
   Deletion_T del;
   Microinv_T minv;
@@ -627,10 +696,19 @@ Tally_clear (T this) {
 
 
   this->refnt = ' ';
+  this->depth_passing = 0;
+  this->depth_total = 0;
+
   this->nmatches_passing = 0;
   this->nmatches_total = 0;
   this->nmismatches_passing = 0;
   this->nmismatches_total = 0;
+
+  this->nsoftclip_nts_low_passing = 0;
+  this->nsoftclip_nts_low_total = 0;
+  this->nsoftclip_nts_high_passing = 0;
+  this->nsoftclip_nts_high_total = 0;
+
   this->delcounts_plus = 0;
   this->delcounts_minus = 0;
   /* this->n_fromleft_plus = 0; */
@@ -639,11 +717,12 @@ Tally_clear (T this) {
   if (this->use_array_p == true) {
 #if 1
     /* Note: these memset instructions are necessary to get correct results */
-    memset((void *) this->matches_byshift_plus,0,this->n_matches_byshift_plus * sizeof(int));
-    memset((void *) this->matches_byshift_minus,0,this->n_matches_byshift_minus * sizeof(int));
-    memset((void *) this->matches_bynm,0,this->n_matches_bynm * sizeof(int));
-    memset((void *) this->matches_byxs,0,this->n_matches_byxs * sizeof(int));
+    memset((void *) this->matches_byshift_plus,0,(this->max_byshift_plus + 1) * sizeof(int));
+    memset((void *) this->matches_byshift_minus,0,(this->max_byshift_minus + 1) * sizeof(int));
+    memset((void *) this->matches_bynm,0,(this->max_nm + 1) * sizeof(int));
+    memset((void *) this->matches_byxs,0,/* for 0, 1, and 2 */3 * sizeof(int));
 #endif
+
     this->use_array_p = false;
 
   } else {
@@ -696,7 +775,68 @@ Tally_clear (T this) {
   }
   List_free(&(this->mismatches_byxs));
   this->mismatches_byxs = (List_T) NULL;
+
+
+  for (ptr = this->softclip_nts_low_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_low_byshift));
+  this->softclip_nts_low_byshift = (List_T) NULL;
+
+  for (ptr = this->softclip_nts_low_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_low_bynm));
+  this->softclip_nts_low_bynm = (List_T) NULL;
+
+  for (ptr = this->softclip_nts_low_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_low_byxs));
+  this->softclip_nts_low_byxs = (List_T) NULL;
+
+
+  for (ptr = this->softclip_nts_high_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_high_byshift));
+  this->softclip_nts_high_byshift = (List_T) NULL;
+
+  for (ptr = this->softclip_nts_high_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_high_bynm));
+  this->softclip_nts_high_bynm = (List_T) NULL;
+
+  for (ptr = this->softclip_nts_high_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&(this->softclip_nts_high_byxs));
+  this->softclip_nts_high_byxs = (List_T) NULL;
 #endif
+
+
+  for (ptr = this->softclip_jcns_low_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    soft = (Softclip_jcn_T) List_head(ptr);
+    Softclip_jcn_free(&soft);
+  }
+  List_free(&(this->softclip_jcns_low_byshift));
+  this->softclip_jcns_low_byshift = (List_T) NULL;
+
+
+  for (ptr = this->softclip_jcns_high_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    soft = (Softclip_jcn_T) List_head(ptr);
+    Softclip_jcn_free(&soft);
+  }
+  List_free(&(this->softclip_jcns_high_byshift));
+  this->softclip_jcns_high_byshift = (List_T) NULL;
+
 
 
   for (ptr = this->insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {
@@ -799,21 +939,64 @@ Tally_transfer (T *dest, T *src) {
   temp = *dest;
   *dest = *src;
 
+#if 0
+  /* Should be handled by Tally_clear(*src) */
+  /* Not clear why we have to delete readevid, but not the other lists */
+  for (ptr = temp->readevidence; ptr != NULL; ptr = List_next(ptr)) {
+    readevid = (Readevid_T) List_head(ptr);
+    Readevid_free(&readevid);
+  }
+  List_free(&(temp->readevidence));
+  temp->readevidence = (List_T) NULL;
+
+  if (temp->use_array_p == true) {
+    temp->use_array_p = false;
+  }
+#endif
+
+  *src = temp;
+  Tally_clear(*src);
+
+  return;
+}
+
+
+
+#if 0
+void
+Tally_transfer_slow (T *dest, T *src) {
+  T temp;
+  Readevid_T readevid;
+  List_T ptr;
+
+
+  temp = *dest;
+  *dest = *src;
+
   temp->refnt = ' ';
+  temp->depth_passing = 0;
+  temp->depth_total = 0;
+
   temp->nmatches_passing = 0;
   temp->nmatches_total = 0;
   temp->nmismatches_passing = 0;
   temp->nmismatches_total = 0;
+
+  temp->nsoftclip_nts_low_passing = 0;
+  temp->nsoftclip_nts_low_total = 0;
+  temp->nsoftclip_nts_high_passing = 0;
+  temp->nsoftclip_nts_high_total = 0;
+
   temp->delcounts_plus = 0;
   temp->delcounts_minus = 0;
   /* temp->n_fromleft_plus = 0; */
   /* temp->n_fromleft_minus = 0; */
 
   if (temp->use_array_p == true) {
-    memset((void *) temp->matches_byshift_plus,0,temp->n_matches_byshift_plus * sizeof(int));
-    memset((void *) temp->matches_byshift_minus,0,temp->n_matches_byshift_minus * sizeof(int));
-    memset((void *) temp->matches_bynm,0,temp->n_matches_bynm * sizeof(int));
-    memset((void *) temp->matches_byxs,0,temp->n_matches_byxs * sizeof(int));
+    memset((void *) temp->matches_byshift_plus,0,(temp->max_byshift_plus + 1) * sizeof(int));
+    memset((void *) temp->matches_byshift_minus,0,(temp->max_byshift_minus + 1) * sizeof(int));
+    memset((void *) temp->matches_bynm,0,(temp->max_nm + 1) * sizeof(int));
+    memset((void *) temp->matches_byxs,0,/* for 0, 1, and 2 */3 * sizeof(int));
     temp->use_array_p = false;
   }
   temp->list_matches_byshift = (List_T) NULL;
@@ -823,6 +1006,17 @@ Tally_transfer (T *dest, T *src) {
   temp->mismatches_byshift = (List_T) NULL;
   temp->mismatches_bynm = (List_T) NULL;
   temp->mismatches_byxs = (List_T) NULL;
+
+  temp->softclip_nts_low_byshift = (List_T) NULL;
+  temp->softclip_nts_low_bynm = (List_T) NULL;
+  temp->softclip_nts_low_byxs = (List_T) NULL;
+
+  temp->softclip_nts_high_byshift = (List_T) NULL;
+  temp->softclip_nts_high_bynm = (List_T) NULL;
+  temp->softclip_nts_high_byxs = (List_T) NULL;
+
+  temp->softclip_jcns_low_byshift = (List_T) NULL;
+  temp->softclip_jcns_high_byshift = (List_T) NULL;
 
   temp->insertions_byshift = (List_T) NULL;
   temp->insertions_bynm = (List_T) NULL;
@@ -852,6 +1046,7 @@ Tally_transfer (T *dest, T *src) {
 
   return;
 }
+#endif
 
 
 
@@ -860,6 +1055,7 @@ Tally_free (T *old) {
   List_T ptr;
   Match_T match;
   Mismatch_T mismatch;
+  Softclip_jcn_T soft;
   Insertion_T ins;
   Deletion_T del;
   Microinv_T minv;
@@ -929,7 +1125,68 @@ Tally_free (T *old) {
   }
   List_free(&((*old)->mismatches_byxs));
   (*old)->mismatches_byxs = (List_T) NULL;
+
+
+  for (ptr = (*old)->softclip_nts_low_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_low_byshift));
+  (*old)->softclip_nts_low_byshift = (List_T) NULL;
+
+  for (ptr = (*old)->softclip_nts_low_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_low_bynm));
+  (*old)->softclip_nts_low_bynm = (List_T) NULL;
+
+  for (ptr = (*old)->softclip_nts_low_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_low_byxs));
+  (*old)->softclip_nts_low_byxs = (List_T) NULL;
+
+
+  for (ptr = (*old)->softclip_nts_high_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_high_byshift));
+  (*old)->softclip_nts_high_byshift = (List_T) NULL;
+
+  for (ptr = (*old)->softclip_nts_high_bynm; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_high_bynm));
+  (*old)->softclip_nts_high_bynm = (List_T) NULL;
+
+  for (ptr = (*old)->softclip_nts_high_byxs; ptr != NULL; ptr = List_next(ptr)) {
+    mismatch = (Mismatch_T) List_head(ptr);
+    Mismatch_free(&mismatch);
+  }
+  List_free(&((*old)->softclip_nts_high_byxs));
+  (*old)->softclip_nts_high_byxs = (List_T) NULL;
 #endif
+
+
+  for (ptr = (*old)->softclip_jcns_low_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    soft = (Softclip_jcn_T) List_head(ptr);
+    Softclip_jcn_free(&soft);
+  }
+  List_free(&((*old)->softclip_jcns_low_byshift));
+  /* (*old)->softclip_jcns_low_byshift = (List_T) NULL; */
+
+
+  for (ptr = (*old)->softclip_jcns_high_byshift; ptr != NULL; ptr = List_next(ptr)) {
+    soft = (Softclip_jcn_T) List_head(ptr);
+    Softclip_jcn_free(&soft);
+  }
+  List_free(&((*old)->softclip_jcns_high_byshift));
+  /* (*old)->softclip_jcns_high_byshift = (List_T) NULL; */
+
 
 
   for (ptr = (*old)->insertions_byshift; ptr != NULL; ptr = List_next(ptr)) {

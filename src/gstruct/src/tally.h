@@ -26,6 +26,26 @@ Mismatch_new (char nt, int shift, int nm, int xs, int ncounts);
 extern void
 Mismatch_free (Mismatch_T *old);
 
+typedef struct Softclip_jcn_T *Softclip_jcn_T;
+struct Softclip_jcn_T {
+  Genomicpos_T chrpos;
+  int shift;			/* Used to record shifts */
+  long int count;
+
+  long int count_plus;		/* Used by unique elements */
+  long int count_minus;		/* Used by unique elements */
+};
+
+
+Softclip_jcn_T
+Softclip_jcn_new (Genomicpos_T chrpos, int shift, int ncounts);
+extern void
+Softclip_jcn_free (Softclip_jcn_T *old);
+extern int
+Softclip_jcn_count_cmp (const void *a, const void *b);
+
+
+
 typedef struct Insertion_T *Insertion_T;
 struct Insertion_T {
   Genomicpos_T chrpos;
@@ -152,11 +172,18 @@ Readevid_cmp (const void *a, const void *b);
 typedef struct Tally_T *Tally_T;
 struct Tally_T {
   char refnt;
+  int depth_passing;
+  int depth_total;
+
   int nmatches_passing;
   int nmismatches_passing;
+  int nsoftclip_nts_low_passing;
+  int nsoftclip_nts_high_passing;
 
   int nmatches_total;		/* Kept for informational purposes */
   int nmismatches_total;	/* Kept for informational purposes */
+  int nsoftclip_nts_low_total;	/* Kept for informational purposes */
+  int nsoftclip_nts_high_total;	/* Kept for informational purposes */
 
   int delcounts_plus;
   int delcounts_minus;
@@ -184,21 +211,31 @@ struct Tally_T {
 #endif
 
   /* Includes only passing quality scores */
-  int n_matches_byshift_plus;
+  int max_byshift_plus;
   int *matches_byshift_plus;
-  int n_matches_byshift_minus;
+  int max_byshift_minus;
   int *matches_byshift_minus;
 
-  int n_matches_bynm;
+  int max_nm;
   int *matches_bynm;
 
-  int n_matches_byxs;
   int *matches_byxs;
 
   /* Includes only passing quality scores */
   List_T mismatches_byshift;
   List_T mismatches_bynm;
   List_T mismatches_byxs;
+
+  List_T softclip_nts_low_byshift;
+  List_T softclip_nts_low_bynm;
+  List_T softclip_nts_low_byxs;
+
+  List_T softclip_nts_high_byshift;
+  List_T softclip_nts_high_bynm;
+  List_T softclip_nts_high_byxs;
+
+  List_T softclip_jcns_low_byshift;
+  List_T softclip_jcns_high_byshift;
 
   List_T insertions_byshift;
   List_T insertions_bynm;

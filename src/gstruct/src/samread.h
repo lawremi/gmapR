@@ -1,4 +1,4 @@
-/* $Id: samread.h 159529 2015-02-25 21:27:09Z twu $ */
+/* $Id: samread.h 219290 2019-05-21 01:14:10Z twu $ */
 #ifndef SAMREAD_INCLUDED
 #define SAMREAD_INCLUDED
 #include <stdio.h>
@@ -37,7 +37,7 @@ extern char
 Samread_splice_strand (char *auxinfo);
 
 extern Intlist_T
-Samread_parse_cigar (Uintlist_T *npositions, int *readlength, char *cigar);
+Samread_parse_cigar (Uintlist_T *npositions, int *readlength, int *softclip_length, char *cigar);
 
 extern void
 Samread_print_cigar (Intlist_T types, Uintlist_T npositions);

@@ -1,3 +1,4 @@
-source("~/gabe/checkedout/gmapR/scripts/getGmapGstructSourceCode.R")
-fixMakefile()
-updateGSTRUCTSrc()
+source("scripts/getGmapGstructSourceCode.R")
+enableMaintainerMode()
+updateGSTRUCTSrc() # or updateGMAPSrc()
+disableMaintainerMode()

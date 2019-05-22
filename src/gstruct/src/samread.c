@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: samread.c 198585 2016-10-01 04:06:33Z twu $";
+static char rcsid[] = "$Id: samread.c 219290 2019-05-21 01:14:10Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -31,8 +31,9 @@ Samread_get_acc (unsigned int *flag, char *line) {
   p = line;
   while (*p != '\0' && *p != '\t') p++;
   length = (p - line)/sizeof(char);
-  acc = (char *) CALLOC(length+1,sizeof(char));
+  acc = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(acc,line,length);
+  acc[length] = '\0';
 
   if (*p == '\0') {
     fprintf(stderr,"Can't parse flag part of %s\n",line);
@@ -61,8 +62,9 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   p = line;
   while (!isspace(*p)) p++;
   length = (p - line)/sizeof(char);
-  *acc = (char *) CALLOC(length+1,sizeof(char));
+  *acc = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*acc,line,length);
+  (*acc)[length] = '\0';
 
   if (*p != '\0') {		/* Skip over tab */
     p++;
@@ -85,8 +87,10 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  *chr = (char *) CALLOC(length+1,sizeof(char));
+  *chr = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*chr,p,length);
+  (*chr)[length] = '\0';
+
   debug(printf("  chr = %s\n",*chr));
   if (*q != '\0') {
     q++;
@@ -131,8 +135,10 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  *cigar = (char *) CALLOC(length+1,sizeof(char));
+  *cigar = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*cigar,p,length);
+  (*cigar)[length] = '\0';
+
   debug(printf("  cigar = %s\n",*cigar));
   
 
@@ -144,8 +150,10 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  *mate_chr = (char *) CALLOC(length+1,sizeof(char));
+  *mate_chr = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*mate_chr,p,length);
+  (*mate_chr)[length] = '\0';
+
   debug(printf("  mate_chr = %s\n",*mate_chr));
   if (*q == '\0') {
     fprintf(stderr,"Can't parse mate chr part of %s\n",line);
@@ -188,20 +196,25 @@ Samread_parse_line (char **acc, unsigned int *flag, int *mapq, char **chr, Genom
   if (*q == '\t') q++;
   debug(printf("  readlength = %d\n",*readlength));
 
-  *read = (char *) CALLOC((*readlength)+1,sizeof(char));
+  *read = (char *) MALLOC(((*readlength)+1)*sizeof(char));
   strncpy(*read,p,*readlength);
+  (*read)[*readlength] = '\0';
+
   debug(printf("  read = %s\n",*read));
 
   p = q;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  *quality_string = (char *) CALLOC((*readlength)+1,sizeof(char));
+  *quality_string = (char *) MALLOC(((*readlength)+1)*sizeof(char));
   if (length == *readlength) {
     strncpy(*quality_string,p,length);
+    (*quality_string)[length] = '\0';
+
   } else {
     for (i = 0; i < *readlength; i++) {
       (*quality_string)[i] = ' ';
     }
+    (*quality_string)[length] = '\0';
   }
 
   if (*q == '\t') q++;
@@ -276,8 +289,9 @@ Samread_chr (char *line) {
   while (!isspace(*p)) p++;
   length = (p - line)/sizeof(char);
 #if 0
-  *acc = (char *) CALLOC(length+1,sizeof(char));
+  *acc = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*acc,line,length);
+  (*acc)[length] = '\0';
 #endif
 
   if (*p != '\0') {		/* Skip over tab */
@@ -301,8 +315,10 @@ Samread_chr (char *line) {
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  chr = (char *) CALLOC(length+1,sizeof(char));
+  chr = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(chr,p,length);
+  chr[length] = '\0';
+
   debug(printf("  chr = %s\n",chr));
   if (*q != '\0') {
     q++;
@@ -327,8 +343,9 @@ Samread_chrinfo (Genomicpos_T *chrpos, char **cigar, char *line) {
   while (!isspace(*p)) p++;
   length = (p - line)/sizeof(char);
 #if 0
-  *acc = (char *) CALLOC(length+1,sizeof(char));
+  *acc = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*acc,line,length);
+  (*acc)[length] = '\0';
 #endif
 
   if (*p != '\0') {		/* Skip over tab */
@@ -352,8 +369,10 @@ Samread_chrinfo (Genomicpos_T *chrpos, char **cigar, char *line) {
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  chr = (char *) CALLOC(length+1,sizeof(char));
+  chr = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(chr,p,length);
+  chr[length] = '\0';
+
   debug(printf("  chr = %s\n",chr));
   if (*q != '\0') {
     q++;
@@ -397,12 +416,11 @@ Samread_chrinfo (Genomicpos_T *chrpos, char **cigar, char *line) {
   q = p;
   while (!isspace(*q)) q++;
   length = (q - p)/sizeof(char);
-  *cigar = (char *) CALLOC(length+1,sizeof(char));
+  *cigar = (char *) MALLOC((length+1)*sizeof(char));
   strncpy(*cigar,p,length);
+  (*cigar)[length] = '\0';
+
   debug(printf("  cigar = %s\n",*cigar));
-
-
-
 
   return chr;
 }
@@ -844,13 +862,14 @@ Samread_splice_strand (char *auxinfo) {
 
 
 Intlist_T
-Samread_parse_cigar (Uintlist_T *npositions, int *readlength, char *cigar) {
+Samread_parse_cigar (Uintlist_T *npositions, int *readlength, int *softclip_length, char *cigar) {
   Intlist_T types = NULL;
   unsigned int npos;
   char *p, type;
 
   *npositions = (Uintlist_T) NULL;
   *readlength = 0;
+  *softclip_length = 0;
 
   if (cigar[0] == '*') {
     return (Intlist_T) NULL;
@@ -876,7 +895,12 @@ Samread_parse_cigar (Uintlist_T *npositions, int *readlength, char *cigar) {
       types = Intlist_push(types,(int) type);
     }
 
-    if (type == 'S' || type == 'M' || type == 'X' || type == 'I') {
+    if (type == 'S') {
+      if (npos > *softclip_length) {
+	*softclip_length = npos;
+      }
+      *readlength += npos;
+    } else if (type == 'M' || type == 'X' || type == 'I') {
       *readlength += npos;
     } else if (type == 'H') {
       *readlength += npos;
@@ -1070,9 +1094,10 @@ Samread_get_chromosomes (char *nextchar, Uintlist_T *chrlengths, FILE *input) {
 	q++;
       }
       length = (q - p)/sizeof(char);
-      chr = (char *) CALLOC(length+1,sizeof(char));
+      chr = (char *) MALLOC((length+1)*sizeof(char));
       strncpy(chr,p,length);
       chr[length] = '\0';
+
       chromosomes = List_push(chromosomes,(void *) chr);
 
       p = q;

@@ -1,4 +1,4 @@
-/* $Id: bamread.h 198589 2016-10-01 04:22:06Z twu $ */
+/* $Id: bamread.h 219284 2019-05-21 01:02:18Z twu $ */
 #ifndef BAMREAD_INCLUDED
 #define BAMREAD_INCLUDED
 /* Cannot use bool, since it appears to conflict with samtools */
@@ -86,6 +86,8 @@ extern Genomicpos_T
 Bamline_mate_chrpos_low (Bamline_T this);
 extern int
 Bamline_insert_length (Bamline_T this);
+extern int
+Bamline_nmult (Bamline_T this);
 
 extern char *
 Bamline_cigar_string (Bamline_T this);
@@ -98,6 +100,8 @@ extern Intlist_T
 Bamline_diffcigar (int *min_overhang, Uintlist_T *npositions, Uintlist_T *chrpositions, Bamline_T this);
 extern int
 Bamline_cigar_querylength (Bamline_T this);
+extern int
+Bamline_cigar_outer_softclip_length (Bamline_T this);
 extern void
 Bamread_print_cigar (FILE *fp, Bamline_T this);
 extern char *
@@ -116,6 +120,8 @@ extern bool
 Bamline_terminalp (Bamline_T this);
 extern char *
 Bamline_read_group (Bamline_T this);
+extern bool
+Bamline_exon_overlap_p (Bamline_T this, Genomicpos_T chrstart, Genomicpos_T chrend);
 extern void
 Bamline_print (FILE *fp, Bamline_T this, unsigned int newflag, int quality_score_adj);
 extern void

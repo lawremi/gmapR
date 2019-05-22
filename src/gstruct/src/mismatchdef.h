@@ -10,7 +10,8 @@ struct T {
   int shift;			/* Used to record shifts */
   int nm;
   int xs;			/* +1 for +, -1 for -, 0 for others */
-  long int count;
+
+  long int count;		/* Includes normal and softclipped */
 
   long int count_plus;		/* Used by unique elements */
   long int count_minus;		/* Used by unique elements */

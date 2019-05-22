@@ -1,10 +1,11 @@
-/* $Id: iit-read.h 80796 2012-12-05 21:49:53Z twu $ */
+/* $Id: iit-read.h 219287 2019-05-21 01:04:15Z twu $ */
 #ifndef IIT_READ_INCLUDED
 #define IIT_READ_INCLUDED
 #include <stdio.h>
 #include "bool.h"
 #include "uintlist.h"
 #include "list.h"
+#include "intlist.h"
 #include "interval.h"
 
 typedef enum {READ_ALL, READ_ONE, READ_NONE} Divread_T;
@@ -39,6 +40,8 @@ extern unsigned int
 IIT_totallength (T this);
 extern Interval_T
 IIT_interval (T this, int index);
+extern Interval_T
+IIT_interval_for_divno (T this, int divno, int index);
 extern unsigned int
 IIT_interval_low (T this, int index);
 extern unsigned int
@@ -159,6 +162,8 @@ IIT_get_signed (int *nmatches, T this, char *divstring, unsigned int x, unsigned
 extern int *
 IIT_get_signed_with_divno (int *nmatches, T this, int divno, unsigned int x, unsigned int y, bool sortp,
 			   int sign);
+extern int
+IIT_get_next (T this, int divno, unsigned int y);
 extern void
 IIT_get_flanking (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
 		  T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int sign);
@@ -209,6 +214,22 @@ IIT_string_from_position (unsigned int *chrpos, unsigned int position,
 extern void
 IIT_print_header (FILE *fp, T this, int *matches, int nmatches, bool map_bothstrands_p,
 		  char *chr, bool reversep, bool relativep, unsigned int left, bool print_comment_p);
+
+
+/* Determines if x..y overlaps an exon or coding region */
+extern bool
+IIT_gene_overlapp (T map_iit, int index, unsigned int x, unsigned int y);
+
+extern int *
+IIT_unique_positions_given_others (int *nexons, T map_iit, int index0, int *matches, int nmatches);
+extern int *
+IIT_unique_splicep_given_others (int *nintrons, T map_iit, int index0, int *matches, int nmatches);
+extern int
+IIT_total_nbases (T map_iit, int *matches, int nmatches);
+extern int *
+IIT_exonlengths (int *nexons, T map_iit, int index0);
+extern int
+IIT_nintrons (T map_iit, int index0);
 
 
 #undef T

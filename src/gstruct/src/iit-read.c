@@ -1,4 +1,4 @@
-static char rcsid[] = "$Id: iit-read.c 185885 2016-03-14 18:23:39Z twu $";
+static char rcsid[] = "$Id: iit-read.c 219287 2019-05-21 01:04:15Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -40,7 +40,7 @@ static char rcsid[] = "$Id: iit-read.c 185885 2016-03-14 18:23:39Z twu $";
 #include "access.h"
 #include "fopen.h"
 #include "uintlist.h"
-#include "intlist.h"
+
 
 /* Note: if sizeof(int) or sizeof(unsigned int) are not 4, then the below code is faulty */
 
@@ -196,6 +196,14 @@ IIT_interval (T this, int index) {
   assert(index <= this->total_nintervals);
   return &(this->intervals[0][index-1]); /* Convert to 0-based */
 }
+
+/* Need to use for search on alphas (IIT_get_next and probably IIT_get_flanking) */
+Interval_T
+IIT_interval_for_divno (T this, int divno, int index) {
+  assert(index <= this->nintervals[divno]);
+  return &(this->intervals[divno][index-1]); /* Convert to 0-based */
+}
+
 
 unsigned int
 IIT_interval_low (T this, int index) {
@@ -4569,6 +4577,44 @@ coord_search_high (T this, int divno, unsigned int x) {
 }
 
 
+/* Specialized version of IIT_get_flanking, for 1 right flank */
+/* Returns a relative index, requiring use of IIT_interval_for_divno */
+int
+IIT_get_next (T this, int divno, unsigned int y) {
+  int lambda;
+  Interval_T interval;
+
+#if 0
+  for (lambda = 1; lambda <= this->nintervals[divno]; lambda++) {
+    interval = &(this->intervals[divno][this->alphas[divno][lambda]-1]);
+    printf("lambda %d %d: %u..%u\n",
+	   lambda,this->alphas[divno][lambda],Interval_low(interval),Interval_high(interval));
+  }
+  printf("\n");
+#endif
+
+
+  /* Look at alphas for right flank */
+  lambda = coord_search_low(this,divno,y);
+  debug2(printf("coord_search_low lambda = %d\n",lambda));
+
+  while (lambda <= this->nintervals[divno]) {
+    interval = &(this->intervals[divno][this->alphas[divno][lambda]-1]);
+    debug2(printf("Looking at %u..%u\n",Interval_low(interval),Interval_high(interval)));
+    if (Interval_low(interval) <= y) {
+      debug2(printf("Advancing because interval_low %u <= %u\n",Interval_low(interval),y));
+      lambda++;
+    } else {
+      debug2(printf("Returning %d\n\n",this->alphas[divno][lambda]));
+      return this->alphas[divno][lambda];
+    }
+  }
+
+  debug2(printf("Returning -1\n\n"));
+  return -1;
+}
+
+
 void
 IIT_get_flanking (int **leftflanks, int *nleftflanks, int **rightflanks, int *nrightflanks,
 		  T this, char *divstring, unsigned int x, unsigned int y, int nflanking, int sign) {
@@ -5600,6 +5646,618 @@ IIT_print_header (FILE *fp, T this, int *matches, int nmatches, bool map_bothstr
   }
 
   return;
+}
+
+
+bool
+IIT_gene_overlapp (T map_iit, int index, unsigned int x, unsigned int y) {
+  unsigned int exonstart, exonend;
+  int observed_genestrand;
+  char *annot, *restofheader, *p;
+  bool allocp = false;
+
+  observed_genestrand = IIT_interval_sign(map_iit,index);
+  annot = IIT_annotation(&restofheader,map_iit,index,&allocp);
+  /* printf("%s\n",annot); */
+
+  /* Skip header */
+  p = annot;
+  while (*p != '\0' && *p != '\n') {
+    p++;
+  }
+  if (*p == '\n') p++;
+    
+  if (observed_genestrand > 0) {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+	fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	abort();
+      } else {
+	/* Advance to next exon */
+	while (*p != '\0' && *p != '\n') p++;
+	if (*p == '\n') p++;
+	  
+	if (exonend < x) {
+	  /* No overlap */
+	} else if (exonstart > y) {
+	  /* No overlap */
+	} else {
+	  if (allocp) FREE(annot);
+	  return true;
+	}
+      }
+	
+    }
+      
+  } else {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+	fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	abort();
+      } else {
+	/* Advance to next exon */
+	while (*p != '\0' && *p != '\n') p++;
+	if (*p == '\n') p++;
+
+	if (exonstart < x) {
+	  /* No overlap */
+	} else if (exonend > y) {
+	  /* No overlap */
+	} else {
+	  if (allocp) FREE(annot);
+	  return true;
+	}
+      }
+    }
+  }
+  
+  if (allocp) FREE(annot);
+  return false;
+}
+
+
+/* Needed for a second round of gene expression assignment */
+int *
+IIT_unique_positions_given_others (int *nexons, T map_iit, int index0, int *matches, int nmatches) {
+  int *array;
+  Intlist_T uniques = (Intlist_T) NULL;
+  int nunique;
+  Interval_T interval0;
+  int index;
+  int i;
+  unsigned int exonstart0, exonend0, exonstart, exonend, pos;
+  char *annot, *restofheader, *p, *q;
+  char **pointers;
+  int npointers, ptri;
+  bool allocp = false;
+  bool uniquep;
+
+
+  interval0 = &(map_iit->intervals[0][index0-1]);
+
+  pointers = MALLOC(nmatches * sizeof(char *));
+  npointers = 0;
+  for (i = 0; i < nmatches; i++) {
+    index = matches[i];
+    if (index != index0) {
+      annot = IIT_annotation(&restofheader,map_iit,index,&allocp);
+      
+      /* Skip header */
+      p = annot;
+      while (*p != '\0' && *p != '\n') {
+	p++;
+      }
+      if (*p == '\n') p++;
+
+      pointers[npointers++] = p;
+    }
+  }
+  /* FREE(matches); */
+
+  annot = IIT_annotation(&restofheader,map_iit,index0,&allocp);
+  /* Skip header */
+  p = annot;
+  while (*p != '\0' && *p != '\n') {
+    p++;
+  }
+  if (*p == '\n') p++;
+
+  nunique = -1;
+  if (Interval_sign(interval0) > 0) {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u",&exonstart0,&exonend0) != 2) {
+	fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	abort();
+      } else {
+	if (nunique >= 0) {
+	  uniques = Intlist_push(uniques,nunique);
+	}
+	nunique = 0;
+	
+	for (pos = exonstart0; pos <= exonend0; pos++) {
+	  uniquep = true;
+	  for (ptri = 0; ptri < npointers; ptri++) {
+	    q = pointers[ptri];
+	    if (*q == '\0') {
+	      /* Skip */
+	      exonstart = exonend = -1U;
+	    } else if (sscanf(q,"%u %u",&exonstart,&exonend) != 2) {
+	      fprintf(stderr,"Can't parse exon coordinates in %s\n",q);
+	      abort();
+	    }
+
+	    /* Advance to appropriate exon if necessary */
+	    while (pos > exonend) {
+	      while (*q != '\0' && *q != '\n') q++;
+	      if (*q == '\n') q++;
+
+	      if (*q == '\0') {
+		exonstart = exonend = -1U;
+	      } else if (sscanf(q,"%u %u",&exonstart,&exonend) != 2) {
+		fprintf(stderr,"Can't parse exon coordinates in %s\n",q);
+		abort();
+	      }
+	    }
+
+	    if (pos >= exonstart && pos <= exonend) {
+	      uniquep = false;
+	    }
+	      
+	    pointers[ptri] = q;
+	  }
+	  if (uniquep == true) {
+	    nunique += 1;
+	  }
+	}
+
+	/* Advance to the next exon */
+	while (*p != '\0' && *p != '\n') p++;
+	if (*p == '\n') p++;
+      }
+    }
+
+  } else {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u",&exonstart0,&exonend0) != 2) {
+	fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	abort();
+      } else {
+	if (nunique >= 0) {
+	  uniques = Intlist_push(uniques,nunique);
+	}
+	nunique = 0;
+	
+	for (pos = exonstart0; pos >= exonend0; --pos) {
+	  uniquep = true;
+	  for (ptri = 0; ptri < npointers; ptri++) {
+	    q = pointers[ptri];
+	    if (*q == '\0') {
+	      /* Skip */
+	      exonstart = exonend = 0;
+	    } else if (sscanf(q,"%u %u",&exonstart,&exonend) != 2) {
+	      fprintf(stderr,"Can't parse exon coordinates in %s\n",q);
+	      abort();
+	    }
+
+	    /* Advance to appropriate exon if necessary */
+	    while (pos < exonend) {
+	      while (*q != '\0' && *q != '\n') q++;
+	      if (*q == '\n') q++;
+
+	      if (*q == '\0') {
+		exonstart = exonend = 0;
+	      } else if (sscanf(q,"%u %u",&exonstart,&exonend) != 2) {
+		fprintf(stderr,"Can't parse exon coordinates in %s\n",q);
+		abort();
+	      }
+	    }
+
+	    if (pos <= exonstart && pos >= exonend) {
+	      uniquep = false;
+	    }
+	      
+	    pointers[ptri] = q;
+	  }
+	  if (uniquep == true) {
+	    nunique += 1;
+	  }
+	}
+
+	/* Advance to the next exon */
+	while (*p != '\0' && *p != '\n') p++;
+	if (*p == '\n') p++;
+      }
+    }
+  }
+
+
+  if (nunique >= 0) {
+    uniques = Intlist_push(uniques,nunique);
+  }
+  uniques = Intlist_reverse(uniques);
+  array = Intlist_to_array(&(*nexons),uniques);
+  Intlist_free(&uniques);
+
+  FREE(pointers);
+  return array;
+}
+
+
+
+
+/* Can handle only genes with the same direction as the given gene */
+/* Values or either 1 (unique) or 0 (not unique) */
+int *
+IIT_unique_splicep_given_others (int *nintrons, T map_iit, int index0, int *matches, int nmatches) {
+  int *array;
+  Intlist_T uniques = (Intlist_T) NULL;
+  Interval_T interval0;
+  int index;
+  int i;
+  unsigned int exonstart0, intronstart0, intronend0, exonend0,
+    exonstart, intronstart, intronend, exonend;
+  char *annot, *restofheader, *p, *q;
+  char **pointers;
+  int npointers, ptri;
+  bool allocp = false;
+  bool uniquep, firstp;
+
+
+  interval0 = &(map_iit->intervals[0][index0-1]);
+
+  pointers = MALLOC(nmatches * sizeof(char *));
+  npointers = 0;
+  for (i = 0; i < nmatches; i++) {
+    index = matches[i];
+    if (index != index0) {
+      annot = IIT_annotation(&restofheader,map_iit,index,&allocp);
+      
+      /* Skip header */
+      p = annot;
+      while (*p != '\0' && *p != '\n') {
+	p++;
+      }
+      if (*p == '\n') p++;
+
+      pointers[npointers++] = p;
+    }
+  }
+  /* FREE(matches); */
+
+  annot = IIT_annotation(&restofheader,map_iit,index0,&allocp);
+  /* Skip header */
+  p = annot;
+  while (*p != '\0' && *p != '\n') {
+    p++;
+  }
+  if (*p == '\n') p++;
+
+  firstp = true;
+  if (Interval_sign(interval0) > 0) {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u\n%u %u",&exonstart0,&intronstart0,&intronend0,&exonend0) != 4) {
+	/* Passed last intron */
+	while (*p != '\0') p++;
+      } else {
+	if (firstp == false) {
+	  uniques = Intlist_push(uniques,(int) uniquep);
+	}
+	firstp = false;
+	
+	uniquep = true;
+	for (ptri = 0; ptri < npointers; ptri++) {
+	  q = pointers[ptri];
+	  if (*q == '\0') {
+	    /* Skip */
+	    intronstart = intronend = -1U;
+	  } else if (sscanf(q,"%u %u\n%u %u",&exonstart,&intronstart,&intronend,&exonend) != 4) {
+	    /* Passed last intron */
+	    intronstart = intronend = 0;
+	    while (*q != '\0') q++;
+	  }
+
+	  /* Advance to appropriate exon if necessary */
+	  while (intronstart0 > intronstart) {
+	    while (*q != '\0' && *q != '\n') q++;
+	    if (*q == '\n') q++;
+	    
+	    if (*q == '\0') {
+	      intronstart = intronend = -1U;
+	    } else if (sscanf(q,"%u %u\n%u %u",&exonstart,&intronstart,&intronend,&exonend) != 4) {
+	      intronstart = intronend = 0;
+	      while (*q != '\0') q++;
+	    }
+	  }
+
+	  if (intronstart == intronstart0 && intronend == intronend0) {
+	    uniquep = false;
+	  }
+	      
+	  pointers[ptri] = q;
+	}
+      }
+
+      /* Advance to the next exon */
+      while (*p != '\0' && *p != '\n') p++;
+      if (*p == '\n') p++;
+    }
+
+  } else {
+    while (*p != '\0') {
+      if (sscanf(p,"%u %u\n%u %u",&exonstart0,&intronstart0,&intronend0,&exonend0) != 4) {
+	/* Passed last intron */
+	while (*p != '\0') p++;
+      } else {
+	if (firstp == false) {
+	  uniques = Intlist_push(uniques,(int) uniquep);
+	}
+	firstp = false;
+	
+	uniquep = true;
+	for (ptri = 0; ptri < npointers; ptri++) {
+	  q = pointers[ptri];
+	  if (*q == '\0') {
+	    /* Skip */
+	    intronstart = intronend = 0;
+	  } else if (sscanf(q,"%u %u\n%u %u",&exonstart,&intronstart,&intronend,&exonend) != 4) {
+	    /* Passed last intron */
+	    intronstart = intronend = 0;
+	    while (*q != '\0') q++;
+	  }
+
+	  /* Advance to appropriate exon if necessary */
+	  while (intronstart0 < intronstart) {
+	    while (*q != '\0' && *q != '\n') q++;
+	    if (*q == '\n') q++;
+
+	    if (*q == '\0') {
+	      intronstart = intronend = 0;
+	    } else if (sscanf(q,"%u %u\n%u %u",&exonstart,&intronstart,&intronend,&exonend) != 4) {
+	      intronstart = intronend = 0;
+	      while (*q != '\0') q++;
+	    }
+	  }
+
+	  if (intronstart == intronstart0 && intronend == intronend0) {
+	    uniquep = false;
+	  }
+	      
+	  pointers[ptri] = q;
+	}
+      }
+
+      /* Advance to the next exon */
+      while (*p != '\0' && *p != '\n') p++;
+      if (*p == '\n') p++;
+    }
+  }
+
+  if (firstp == false) {
+    uniques = Intlist_push(uniques,(int) uniquep);
+  }
+  uniques = Intlist_reverse(uniques);
+  array = Intlist_to_array(&(*nintrons),uniques);
+  Intlist_free(&uniques);
+
+  FREE(pointers);
+  return array;
+}
+
+
+int
+IIT_total_nbases (T map_iit, int *matches, int nmatches) {
+  int nbases = 0;
+  int index;
+  int i;
+  unsigned int exonstart, exonend;
+  char *annot, *restofheader, *p;
+  unsigned int *positions, min_exonstart, max_exonstart;
+  char **pointers;
+  int nvalid;
+  bool allocp = false;
+
+
+  pointers = MALLOC(nmatches * sizeof(char *));
+  positions = MALLOC(nmatches * sizeof(unsigned int));
+  for (i = 0; i < nmatches; i++) {
+    index = matches[i];
+    annot = IIT_annotation(&restofheader,map_iit,index,&allocp);
+      
+    /* Skip header */
+    p = annot;
+    while (*p != '\0' && *p != '\n') {
+      p++;
+    }
+    if (*p == '\n') p++;
+
+    pointers[i] = p;
+    if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+      fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+      abort();
+    } else {
+      positions[i] = exonstart;
+    }
+  }
+
+
+  nvalid = nmatches;
+  if (exonstart < exonend) {
+    while (nvalid > 0) {
+      nvalid = nmatches;
+      min_exonstart = (unsigned int) -1;
+      for (i = 0; i < nmatches; i++) {
+	if (positions[i] == 0) {
+	  nvalid -= 1;
+	} else if (positions[i] < min_exonstart) {
+	  min_exonstart = positions[i];
+	}
+      }
+
+      if (nvalid > 0) {
+	nbases += 1;
+	for (i = 0; i < nmatches; i++) {
+	  if (positions[i] == 0) {
+	    /* Skip */
+	  } else if (positions[i] == min_exonstart) {
+	    p = pointers[i];
+	    if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+	      fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	      abort();
+	    } else if (exonend > min_exonstart) {
+	      positions[i] += 1;
+	    } else {
+	      /* Advance to next exon */
+	      while (*p != '\0' && *p != '\n') p++;
+	      if (*p == '\n') p++;
+	      pointers[i] = p;
+
+	      if (*p == '\0') {
+		positions[i] = 0;
+	      } else if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+		fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+		abort();
+	      } else {
+		positions[i] = exonstart;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+    
+  } else {
+    while (nvalid > 0) {
+      nvalid = nmatches;
+      max_exonstart = (unsigned int) 0;
+      for (i = 0; i < nmatches; i++) {
+	if (positions[i] == 0) {
+	  nvalid -= 1;
+	} else if (positions[i] > max_exonstart) {
+	  max_exonstart = positions[i];
+	}
+      }
+      
+      if (nvalid > 0) {
+	nbases += 1;
+	for (i = 0; i < nmatches; i++) {
+	  if (positions[i] == 0) {
+	    /* Skip */
+	  } else if (positions[i] == max_exonstart) {
+	    p = pointers[i];
+	    if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+	      fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+	      abort();
+	    } else if (exonend < max_exonstart) {
+	      positions[i] -= 1;
+	    } else {
+	      /* Advance to next exon */
+	      while (*p != '\0' && *p != '\n') p++;
+	      if (*p == '\n') p++;
+	      pointers[i] = p;
+
+	      if (*p == '\0') {
+		positions[i] = 0;
+	      } else if (sscanf(p,"%u %u",&exonstart,&exonend) != 2) {
+		fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+		abort();
+	      } else {
+		positions[i] = exonstart;
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  FREE(positions);
+  FREE(pointers);
+  return nbases;
+}
+
+
+
+/* Needed for a second round of gene expression assignment */
+int *
+IIT_exonlengths (int *nexons, T map_iit, int index0) {
+  int *array;
+  Intlist_T exonlist = NULL;
+  unsigned int exonstart0, exonend0;
+  char *annot, *restofheader, *p;
+  bool allocp = false;
+
+
+  annot = IIT_annotation(&restofheader,map_iit,index0,&allocp);
+  /* Skip header */
+  p = annot;
+  while (*p != '\0' && *p != '\n') {
+    p++;
+  }
+  if (*p == '\n') p++;
+
+  while (*p != '\0') {
+    if (sscanf(p,"%u %u",&exonstart0,&exonend0) != 2) {
+      fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+      abort();
+    } else if (exonstart0 < exonend0) {
+      exonlist = Intlist_push(exonlist,exonend0 - exonstart0 + 1);
+    } else {
+      exonlist = Intlist_push(exonlist,exonstart0 - exonend0 + 1);
+    }
+
+    while (*p != '\0' && *p != '\n') {
+      p++;
+    }
+    if (*p == '\n') p++;
+  }
+
+  if (allocp) {
+    FREE(annot);
+  }
+
+  exonlist = Intlist_reverse(exonlist);
+  array = Intlist_to_array(&(*nexons),exonlist);
+  Intlist_free(&exonlist);
+
+  return array;
+}
+
+
+int
+IIT_nintrons (T map_iit, int index0) {
+  int nintrons = -1;
+  unsigned int exonstart0, exonend0;
+  char *annot, *restofheader, *p;
+  bool allocp = false;
+
+
+  annot = IIT_annotation(&restofheader,map_iit,index0,&allocp);
+  /* Skip header */
+  p = annot;
+  while (*p != '\0' && *p != '\n') {
+    p++;
+  }
+  if (*p == '\n') p++;
+
+  while (*p != '\0') {
+    if (sscanf(p,"%u %u",&exonstart0,&exonend0) != 2) {
+      fprintf(stderr,"Can't parse exon coordinates in %s\n",p);
+      abort();
+    } else {
+      nintrons += 1;
+    }
+
+    while (*p != '\0' && *p != '\n') {
+      p++;
+    }
+    if (*p == '\n') p++;
+  }
+
+  if (allocp) {
+    FREE(annot);
+  }
+
+  return nintrons;
 }
 
 
