@@ -205,6 +205,13 @@ normArgSingleInteger <- function(x) {
     stop("'", name, "' should be a single, non-NA integer")
   x
 }
+normArgSingleNumber <- function(x) {
+    name <- deparse(substitute(x))
+    x <- as.numeric(x)
+    if (!isSingleNumber(x))
+        stop("'", name, "' should be a single, non-NA number")
+    x
+}
 normArgTRUEorFALSE <- function(x) {
   name <- deparse(substitute(x))
   if (!isTRUEorFALSE(x))
@@ -227,11 +234,11 @@ normArgSingleCharacterOrNULL <- function(x) {
                          maximum_nhits = 1000000L,
                          concordant_only = FALSE, unique_only = FALSE,
                          primary_only = FALSE, ignore_duplicates = FALSE,
-                         min_depth = 0L, variant_strand = 0L,
+                         min_depth = 0L, variant_strand = 0L, variant_pct = 0,
                          ignore_query_Ns = FALSE,
                          indels = FALSE,
                          blocksize = 1000L, verbosep = FALSE,
-                         include_soft_clips = 0L,
+                         min_softclip = 0L, max_softclip = 0L,
                          exon_iit = NULL, xs = FALSE, read_pos = FALSE,
                          min_base_quality = 0L, noncovered = FALSE, nm = FALSE)
 {
@@ -258,11 +265,13 @@ normArgSingleCharacterOrNULL <- function(x) {
         normArgTRUEorFALSE(ignore_duplicates),
         normArgSingleInteger(min_depth),
         normArgSingleInteger(variant_strand),
+        normArgSingleNumber(variant_pct),
         normArgTRUEorFALSE(ignore_query_Ns),
         normArgTRUEorFALSE(indels),
         normArgSingleInteger(blocksize),
         normArgTRUEorFALSE(verbosep),
-        normArgSingleInteger(include_soft_clips),
+        normArgSingleInteger(min_softclip),
+        normArgSingleInteger(max_softclip),
         normArgSingleCharacterOrNULL(exon_iit),
         normArgTRUEorFALSE(xs),
         normArgTRUEorFALSE(read_pos),

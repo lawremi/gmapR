@@ -1317,7 +1317,7 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
     fprintf(fp,"^");
     for (p = this->insertions_byshift; p != NULL; p = List_next(p)) {
       ins = (Insertion_T) List_head(p);
-      fprintf(fp,"%s %ld ref:%ld",
+      fprintf(fp,"%s %ld ref:%d",
 	      ins->segment,ins->count,
 	      insertion_refcount(&refcount_plus,ins,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     }
@@ -1329,7 +1329,7 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
     fprintf(fp,"_");
     for (p = this->deletions_byshift; p != NULL; p = List_next(p)) {
       del = (Deletion_T) List_head(p);
-      fprintf(fp,"%s %ld ref:%ld",
+      fprintf(fp,"%s %ld ref:%d",
 	      del->segment,del->count,
 	      deletion_refcount(&refcount_plus,del,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     }
@@ -1341,7 +1341,7 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
     fprintf(fp,"x");
     for (p = this->microinvs_byshift; p != NULL; p = List_next(p)) {
       minv = (Microinv_T) List_head(p);
-      fprintf(fp,"%s %ld ref:%ld",
+      fprintf(fp,"%s %ld ref:%d",
 	      minv->segment,minv->count,
 	      minv_refcount(&refcount_plus,minv,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     }
@@ -1360,7 +1360,7 @@ print_allele_counts_simple (FILE *fp, Tally_T this, Genome_T genome, Genomicpos_
   }
 
   if (this->delcounts_plus + this->delcounts_minus > 0) {
-    fprintf(fp," _%ld",this->delcounts_plus + this->delcounts_minus);
+    fprintf(fp," _%d",this->delcounts_plus + this->delcounts_minus);
   }
 
   return;
@@ -1617,7 +1617,7 @@ print_zeroes (Genomicpos_T start, Genomicpos_T end, char *printchr, int blocksiz
       blockstart = chrpos;
       blockend = chrpos + blocksize;
       if (blockp == true) {
-	printf(">%ld %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
+	printf(">%d %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
       }
       for (chrpos0 = blockstart; chrpos0 < blockend; chrpos0++) {
 	if (blockp == false) {
@@ -1632,7 +1632,7 @@ print_zeroes (Genomicpos_T start, Genomicpos_T end, char *printchr, int blocksiz
       blockstart = chrpos;
       blockend = end;
       if (blockp == true) {
-	printf(">%ld %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
+	printf(">%d %s:%u..%u\n",/*total*/0,printchr,blockstart,blockend-1U);
       }
       for (chrpos0 = blockstart; chrpos0 < blockend; chrpos0++) {
 	if (blockp == false) {
@@ -3772,9 +3772,9 @@ print_softclip_jcns_low (Tally_T this, char *printchr, Genomicpos_T chrpos,
   }
 
   if (signed_counts_p == false) {
-    printf("%ld",count_plus + count_minus);
+    printf("%d",count_plus + count_minus);
   } else {
-    printf("%ld|%ld",count_plus,count_minus);
+    printf("%d|%d",count_plus,count_minus);
   }
 
   if (print_cycles_p == true) {
@@ -3826,9 +3826,9 @@ print_softclip_jcns_high (Tally_T this, char *printchr, Genomicpos_T chrpos,
   }
 
   if (signed_counts_p == false) {
-    printf("%ld",count_plus + count_minus);
+    printf("%d",count_plus + count_minus);
   } else {
-    printf("%ld|%ld",count_plus,count_minus);
+    printf("%d|%d",count_plus,count_minus);
   }
 
   if (print_cycles_p == true) {
@@ -4036,10 +4036,10 @@ print_insertions (Tally_T this, char *printchr, Genomicpos_T chrpos,
       }
     }
     if (signed_counts_p == false) {
-      printf(" ref:%ld",insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
+      printf(" ref:%d",insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     } else {
       refcount = insertion_refcount(&refcount_plus,ins0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip);
-      printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
+      printf(" ref:%d|%d",refcount_plus,refcount - refcount_plus);
     }
   }
 
@@ -4255,10 +4255,10 @@ print_deletions (Tally_T this, char *printchr, Genomicpos_T chrpos,
       }
     }
     if (signed_counts_p == false) {
-      printf(" ref:%ld",deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
+      printf(" ref:%d",deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     } else {
       refcount = deletion_refcount(&refcount_plus,del0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip);
-      printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
+      printf(" ref:%d|%d",refcount_plus,refcount - refcount_plus);
     }
   }
 
@@ -4475,10 +4475,10 @@ print_microinversions (Tally_T this, char *printchr, Genomicpos_T chrpos,
     }
 
     if (signed_counts_p == false) {
-      printf(" ref:%ld",minv_refcount(&refcount_plus,minv0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
+      printf(" ref:%d",minv_refcount(&refcount_plus,minv0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip));
     } else {
       refcount = minv_refcount(&refcount_plus,minv0,alloc_tallies,alloc_low,alloc_high,min_softclip,max_softclip);
-      printf(" ref:%ld|%ld",refcount_plus,refcount - refcount_plus);
+      printf(" ref:%d|%d",refcount_plus,refcount - refcount_plus);
     }
   }
 
@@ -4545,10 +4545,10 @@ print_matches (Tally_T this, long int total_matches_plus, long int total_matches
       for (shift = 0; shift <= this->max_byshift_minus; shift++) {
 	if (this->matches_byshift_minus[shift] > 0) {
 	  if (firstp == true) {
-	    printf("(%ld@%d",this->matches_byshift_minus[shift],-shift);
+	    printf("(%d@%d",this->matches_byshift_minus[shift],-shift);
 	    firstp = false;
 	  } else {
-	    printf(",%ld@%d",this->matches_byshift_minus[shift],-shift);
+	    printf(",%d@%d",this->matches_byshift_minus[shift],-shift);
 	  }
 	  this->matches_byshift_minus[shift] = 0; /* clear */
 	}
@@ -4556,10 +4556,10 @@ print_matches (Tally_T this, long int total_matches_plus, long int total_matches
       for (shift = this->max_byshift_plus; shift >= 0; shift--) {
 	if (this->matches_byshift_plus[shift] > 0) {
 	  if (firstp == true) {
-	    printf("(%ld@%d",this->matches_byshift_plus[shift],shift);
+	    printf("(%d@%d",this->matches_byshift_plus[shift],shift);
 	    firstp = false;
 	  } else {
-	    printf(",%ld@%d",this->matches_byshift_plus[shift],shift);
+	    printf(",%d@%d",this->matches_byshift_plus[shift],shift);
 	  }
 	  this->matches_byshift_plus[shift] = 0; /* clear */
 	}
@@ -4588,10 +4588,10 @@ print_matches (Tally_T this, long int total_matches_plus, long int total_matches
       for (nm = 0; nm <= this->max_nm; nm++) {
 	if (this->matches_bynm[nm] > 0) {
 	  if (firstp == true) {
-	    printf("(%ldNM%d",this->matches_bynm[nm],nm);
+	    printf("(%dNM%d",this->matches_bynm[nm],nm);
 	    firstp = false;
 	  } else {
-	    printf(",%ldNM%d",this->matches_bynm[nm],nm);
+	    printf(",%dNM%d",this->matches_bynm[nm],nm);
 	  }
 	  this->matches_bynm[nm] = 0; /* clear */
 	}
@@ -4633,10 +4633,10 @@ print_matches (Tally_T this, long int total_matches_plus, long int total_matches
       for (xs = 0; xs < 3; xs++) {
 	if (this->matches_byxs[xs] > 0) {
 	  if (firstp == true) {
-	    printf("(%ldXS",this->matches_byxs[xs]);
+	    printf("(%dXS",this->matches_byxs[xs]);
 	    firstp = false;
 	  } else {
-	    printf(",%ldXS",this->matches_byxs[xs]);
+	    printf(",%dXS",this->matches_byxs[xs]);
 	  }
 	  switch (xs) {
 	  case 0: printf("0"); break;

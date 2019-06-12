@@ -167,12 +167,12 @@ am__dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_SOURCES_DIST =  \
 	iit-read.c iit-read.h complement.h chrom.c chrom.h \
 	genomicpos.c genomicpos.h md5.c md5.h sequence.c sequence.h \
 	genome.c genome.h uinttable.c uinttable.h table.c table.h \
-	chrnum.c chrnum.h bamread.c bamread.h samread.c samread.h \
-	parserange.c parserange.h tableuint.c tableuint.h iit-write.c \
-	iit-write.h ucharlist.c ucharlist.h matchdef.h matchpool.c \
-	matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h \
-	tally.c tally.h translation.c translation.h bamtally.c \
-	bamtally.h datadir.c datadir.h
+	chrnum.c chrnum.h samflags.h bamread.c bamread.h samread.c \
+	samread.h parserange.c parserange.h tableuint.c tableuint.h \
+	iit-write.c iit-write.h ucharlist.c ucharlist.h matchdef.h \
+	matchpool.c matchpool.h mismatchdef.h mismatchpool.c \
+	mismatchpool.h tally.c tally.h translation.c translation.h \
+	expr.c expr.h bamtally.c bamtally.h datadir.c datadir.h
 am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-assert.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mem.lo \
@@ -203,6 +203,7 @@ am__objects_1 = libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-mismatchpool.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-tally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-translation.lo \
+	libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo \
 	libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.lo
 @HAVE_SAMTOOLS_LIB_TRUE@dist_libgstruct_@LIBGSTRUCT_API_VERSION@_la_OBJECTS =  \
@@ -228,13 +229,14 @@ am__dist_bam_tally_SOURCES_DIST = fopen.h bool.h types.h bam.h bgzf.h \
 	access.h iitdef.h iit-read.c iit-read.h chrom.c chrom.h \
 	genomicpos.c genomicpos.h md5.c md5.h complement.h sequence.c \
 	sequence.h genome.c genome.h uinttable.c uinttable.h table.c \
-	table.h chrnum.c chrnum.h bamread.c bamread.h samread.c \
-	samread.h parserange.c parserange.h tableuint.c tableuint.h \
-	iit-write.c iit-write.h ucharlist.c ucharlist.h matchdef.h \
-	matchpool.c matchpool.h mismatchdef.h mismatchpool.c \
-	mismatchpool.h tally.c tally.h translation.c translation.h \
-	bamtally.c bamtally.h datadir.c datadir.h getopt.c getopt1.c \
-	getopt.h bamtally_main.c
+	table.h chrnum.c chrnum.h samflags.h bamread.c bamread.h \
+	samread.c samread.h parserange.c parserange.h tableuint.c \
+	tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
+	matchdef.h matchpool.c matchpool.h mismatchdef.h \
+	mismatchpool.c mismatchpool.h tally.c tally.h translation.c \
+	translation.h expr.c expr.h bamtally.c bamtally.h datadir.c \
+	datadir.h getline.c getline.h getopt.c getopt1.c getopt.h \
+	bamtally_main.c
 am__objects_2 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-mem.$(OBJEXT) bam_tally-intlist.$(OBJEXT) \
 	bam_tally-list.$(OBJEXT) bam_tally-littleendian.$(OBJEXT) \
@@ -250,7 +252,8 @@ am__objects_2 = bam_tally-except.$(OBJEXT) bam_tally-assert.$(OBJEXT) \
 	bam_tally-iit-write.$(OBJEXT) bam_tally-ucharlist.$(OBJEXT) \
 	bam_tally-matchpool.$(OBJEXT) bam_tally-mismatchpool.$(OBJEXT) \
 	bam_tally-tally.$(OBJEXT) bam_tally-translation.$(OBJEXT) \
-	bam_tally-bamtally.$(OBJEXT) bam_tally-datadir.$(OBJEXT) \
+	bam_tally-expr.$(OBJEXT) bam_tally-bamtally.$(OBJEXT) \
+	bam_tally-datadir.$(OBJEXT) bam_tally-getline.$(OBJEXT) \
 	bam_tally-getopt.$(OBJEXT) bam_tally-getopt1.$(OBJEXT) \
 	bam_tally-bamtally_main.$(OBJEXT)
 @HAVE_SAMTOOLS_LIB_TRUE@dist_bam_tally_OBJECTS = $(am__objects_2)
@@ -492,12 +495,12 @@ BAM_TALLY_FILES = fopen.h bool.h types.h bam.h bgzf.h \
  md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ samflags.h bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
  matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
- translation.c translation.h bamtally.c bamtally.h \
+ translation.c translation.h expr.c expr.h bamtally.c bamtally.h \
  datadir.c datadir.h \
- getopt.c getopt1.c getopt.h bamtally_main.c
+ getline.c getline.h getopt.c getopt1.c getopt.h bamtally_main.c
 
 @HAVE_SAMTOOLS_LIB_TRUE@bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_CFLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
 @HAVE_SAMTOOLS_LIB_TRUE@bam_tally_LDFLAGS = $(AM_LDFLAGS) $(STATIC_LDFLAG) $(PTHREAD_CFLAGS) $(SAMTOOLS_LDFLAGS)
@@ -513,10 +516,10 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  md5.c md5.h sequence.c sequence.h genome.c genome.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ samflags.h bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
  matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
- translation.c translation.h bamtally.c bamtally.h \
+ translation.c translation.h expr.c expr.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 
@@ -707,8 +710,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-chrom.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-datadir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-except.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-expr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genome.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-genomicpos.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-getline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-getopt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-getopt1.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bam_tally-iit-read.Po@am__quote@
@@ -741,6 +746,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-chrom.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-datadir.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-except.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genome.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-genomicpos.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-iit-read.Plo@am__quote@
@@ -995,6 +1001,13 @@ libgstruct_@LIBGSTRUCT_API_VERSION@_la-translation.lo: translation.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='translation.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-translation.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-translation.lo `test -f 'translation.c' || echo '$(srcdir)/'`translation.c
+
+libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo: expr.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo `test -f 'expr.c' || echo '$(srcdir)/'`expr.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.Tpo $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='expr.c' object='libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-expr.lo `test -f 'expr.c' || echo '$(srcdir)/'`expr.c
 
 libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgstruct_@LIBGSTRUCT_API_VERSION@_la_CFLAGS) $(CFLAGS) -MT libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo -MD -MP -MF $(DEPDIR)/libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.Tpo -c -o libgstruct_@LIBGSTRUCT_API_VERSION@_la-bamtally.lo `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c
@@ -1430,6 +1443,20 @@ bam_tally-translation.obj: translation.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-translation.obj `if test -f 'translation.c'; then $(CYGPATH_W) 'translation.c'; else $(CYGPATH_W) '$(srcdir)/translation.c'; fi`
 
+bam_tally-expr.o: expr.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-expr.o -MD -MP -MF $(DEPDIR)/bam_tally-expr.Tpo -c -o bam_tally-expr.o `test -f 'expr.c' || echo '$(srcdir)/'`expr.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-expr.Tpo $(DEPDIR)/bam_tally-expr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='expr.c' object='bam_tally-expr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-expr.o `test -f 'expr.c' || echo '$(srcdir)/'`expr.c
+
+bam_tally-expr.obj: expr.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-expr.obj -MD -MP -MF $(DEPDIR)/bam_tally-expr.Tpo -c -o bam_tally-expr.obj `if test -f 'expr.c'; then $(CYGPATH_W) 'expr.c'; else $(CYGPATH_W) '$(srcdir)/expr.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-expr.Tpo $(DEPDIR)/bam_tally-expr.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='expr.c' object='bam_tally-expr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-expr.obj `if test -f 'expr.c'; then $(CYGPATH_W) 'expr.c'; else $(CYGPATH_W) '$(srcdir)/expr.c'; fi`
+
 bam_tally-bamtally.o: bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-bamtally.o -MD -MP -MF $(DEPDIR)/bam_tally-bamtally.Tpo -c -o bam_tally-bamtally.o `test -f 'bamtally.c' || echo '$(srcdir)/'`bamtally.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-bamtally.Tpo $(DEPDIR)/bam_tally-bamtally.Po
@@ -1457,6 +1484,20 @@ bam_tally-datadir.obj: datadir.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='datadir.c' object='bam_tally-datadir.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-datadir.obj `if test -f 'datadir.c'; then $(CYGPATH_W) 'datadir.c'; else $(CYGPATH_W) '$(srcdir)/datadir.c'; fi`
+
+bam_tally-getline.o: getline.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-getline.o -MD -MP -MF $(DEPDIR)/bam_tally-getline.Tpo -c -o bam_tally-getline.o `test -f 'getline.c' || echo '$(srcdir)/'`getline.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-getline.Tpo $(DEPDIR)/bam_tally-getline.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getline.c' object='bam_tally-getline.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-getline.o `test -f 'getline.c' || echo '$(srcdir)/'`getline.c
+
+bam_tally-getline.obj: getline.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-getline.obj -MD -MP -MF $(DEPDIR)/bam_tally-getline.Tpo -c -o bam_tally-getline.obj `if test -f 'getline.c'; then $(CYGPATH_W) 'getline.c'; else $(CYGPATH_W) '$(srcdir)/getline.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/bam_tally-getline.Tpo $(DEPDIR)/bam_tally-getline.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='getline.c' object='bam_tally-getline.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -c -o bam_tally-getline.obj `if test -f 'getline.c'; then $(CYGPATH_W) 'getline.c'; else $(CYGPATH_W) '$(srcdir)/getline.c'; fi`
 
 bam_tally-getopt.o: getopt.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(bam_tally_CFLAGS) $(CFLAGS) -MT bam_tally-getopt.o -MD -MP -MF $(DEPDIR)/bam_tally-getopt.Tpo -c -o bam_tally-getopt.o `test -f 'getopt.c' || echo '$(srcdir)/'`getopt.c

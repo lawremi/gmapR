@@ -19,11 +19,11 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                 SEXP maximum_nhits_R,
                 SEXP need_concordant_p_R, SEXP need_unique_p_R,
                 SEXP need_primary_p_R, SEXP ignore_duplicates_p_R,
-                SEXP min_depth_R, SEXP variant_strands_R,
+                SEXP min_depth_R, SEXP variant_strands_R, SEXP variant_pct_R,
                 SEXP ignore_query_Ns_p_R,
                 SEXP print_indels_p_R,
                 SEXP blocksize_R, 
-                SEXP verbosep_R, SEXP max_softclip_R,
+                SEXP verbosep_R, SEXP min_softclip_R, SEXP max_softclip_R,
                 SEXP exon_iit_file_R,
                 SEXP print_xs_scores_p_R, SEXP print_cycles_p_R,
                 SEXP minimum_quality_score_R, SEXP noncovered_R,
@@ -34,6 +34,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
     genome_dir_R == R_NilValue ? NULL : CHAR(asChar(genome_dir_R));
   const char *db = CHAR(asChar(db_R));
   int alloclength = asInteger(alloclength_R);
+  int pastlength = alloclength;
   const char *desired_read_group =
     desired_read_group_R == R_NilValue ? NULL :
     CHAR(asChar(desired_read_group_R));
@@ -46,10 +47,12 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
   bool ignore_duplicates_p = asLogical(ignore_duplicates_p_R);
   int min_depth = asInteger(min_depth_R);
   int variant_strands = asInteger(variant_strands_R);
+  double variant_pct = asReal(variant_pct_R);
   bool ignore_query_Ns_p = asLogical(ignore_query_Ns_p_R);
   bool print_indels_p = asLogical(print_indels_p_R);
   int blocksize = asInteger(blocksize_R);
   int verbosep = asLogical(verbosep_R);
+  int min_softclip = asInteger(min_softclip_R);
   int max_softclip = asInteger(max_softclip_R);
   bool print_xs_scores_p = asLogical(print_xs_scores_p_R);
   bool print_cycles_p = asLogical(print_cycles_p_R);
@@ -79,7 +82,7 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  genome,
                                  chromosome_iit,
                                  map_iit,
-                                 alloclength,
+                                 alloclength, pastlength,
                                  (char *)desired_read_group,
                                  minimum_mapq, good_unique_mapq,
                                  minimum_quality_score,
@@ -87,10 +90,11 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
                                  need_unique_p, need_primary_p,
                                  ignore_duplicates_p,
                                  min_depth, variant_strands,
-				 /* TODO: variant_pct */ 0,
+				 variant_pct,
 				 ignore_query_Ns_p,
                                  print_indels_p, blocksize, verbosep,
-                                 /*readlevel_p*/false, max_softclip,
+                                 /*readlevel_p*/false,
+				 min_softclip, max_softclip,
                                  print_cycles_p,
                                  print_nm_scores_p,
                                  print_xs_scores_p, noncovered_p);

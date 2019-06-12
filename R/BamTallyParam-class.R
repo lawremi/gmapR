@@ -17,9 +17,11 @@ setClass("BamTallyParam",
                         ignore_duplicates = "logical",
                         min_depth = "integer",
                         variant_strand = "integer",
+                        variant_pct = "numeric",
                         ignore_query_Ns = "logical",
                         indels = "logical",
-                        include_soft_clips = "integer",
+                        min_softclip = "integer",
+                        max_softclip = "integer",
                         exon_iit = "character_OR_NULL",
                         xs = "logical",
                         read_pos = "logical",
@@ -103,9 +105,9 @@ BamTallyParam <- function(genome, which = GRanges(),
                           desired_read_group = NULL, minimum_mapq = 0L,
                           concordant_only = FALSE, unique_only = FALSE,
                           primary_only = FALSE, ignore_duplicates = FALSE,
-                          min_depth = 0L, variant_strand = 0L,
+                          min_depth = 0L, variant_strand = 0L, variant_pct = 0,
                           ignore_query_Ns = FALSE,
-                          indels = FALSE, include_soft_clips = 0L,
+                          indels = FALSE, min_softclip = 0L, max_softclip = 0L,
                           exon_iit = NULL, IIT_BPPARAM = NULL,
                           xs = FALSE, read_pos = FALSE,
                           min_base_quality = 0L, noncovered = FALSE,
@@ -127,12 +129,18 @@ BamTallyParam <- function(genome, which = GRanges(),
     stop("min_depth must be a single, non-negative, non-NA number")
   if (!variant_strand %in% c(0, 1, 2))
     stop("variant_strand must be one of 0, 1, or 2")
+  if (variant_pct < 0)
+    stop("variant_pct must be non-negative")
   if (!isTRUEorFALSE(ignore_query_Ns))
     stop("ignore_query_Ns must be TRUE or FALSE")
   if (!isTRUEorFALSE(indels))
     stop("indels must be TRUE or FALSE")
-  if (include_soft_clips < 0)
-    stop("include_soft_clips must be non-negative")
+  if (max_softclip < 0L)
+    stop("max_softclip must be non-negative")
+  if (min_softclip < 0L)
+    stop("min_softclip must be non-negative")
+  if (max_softclip < min_softclip)
+    stop("max_softclip must be at least equal to min_softclip")
   if (!isTRUEorFALSE(xs))
     stop("xs must be TRUE or FALSE")
   if (!isTRUEorFALSE(read_pos))
@@ -149,7 +157,7 @@ BamTallyParam <- function(genome, which = GRanges(),
   params$which <- normArgWhich(which, params$genome)
   params$exon_iit = normArgCdsIIT(params$exon_iit, BPPARAM = IIT_BPPARAM)
   integer_params <- c("minimum_mapq", "min_depth", "variant_strand",
-                      "include_soft_clips")
+                      "min_softclip", "max_softclip")
   params[integer_params] <- lapply(params[integer_params], as.integer)
   params = params[names(params) != "IIT_BPPARAM"]
   do.call(new, c("BamTallyParam", params))  

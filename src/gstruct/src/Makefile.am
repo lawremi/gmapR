@@ -23,12 +23,12 @@ BAM_TALLY_FILES = fopen.h bool.h types.h bam.h bgzf.h \
  md5.c md5.h complement.h sequence.c sequence.h genome.c genome.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ samflags.h bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
  matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
- translation.c translation.h bamtally.c bamtally.h \
+ translation.c translation.h expr.c expr.h bamtally.c bamtally.h \
  datadir.c datadir.h \
- getopt.c getopt1.c getopt.h bamtally_main.c
+ getline.c getline.h getopt.c getopt1.c getopt.h bamtally_main.c
 
 if HAVE_SAMTOOLS_LIB
 bam_tally_CFLAGS = $(AM_CFLAGS) $(PTHREAD_CFLAGS) $(SIMD_CFLAGS) $(POPCNT_FLAGS) $(SAMTOOLS_CFLAGS) -DTARGET=\"$(target)\" -DGMAPDB=\"$(GMAPDB)\"
@@ -48,10 +48,10 @@ LIBGSTRUCT_LA_FILES = config.h fopen.h bool.h types.h \
  md5.c md5.h sequence.c sequence.h genome.c genome.h \
  uinttable.c uinttable.h table.c table.h \
  chrnum.c chrnum.h \
- bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
+ samflags.h bamread.c bamread.h samread.c samread.h parserange.c parserange.h \
  tableuint.c tableuint.h iit-write.c iit-write.h ucharlist.c ucharlist.h \
  matchdef.h matchpool.c matchpool.h mismatchdef.h mismatchpool.c mismatchpool.h tally.c tally.h \
- translation.c translation.h bamtally.c bamtally.h \
+ translation.c translation.h expr.c expr.h bamtally.c bamtally.h \
  datadir.c datadir.h
 
 # Do not add SAMTOOLS LIBS here

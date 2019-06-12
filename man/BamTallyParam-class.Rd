@@ -19,9 +19,9 @@
                 minimum_mapq = 0L,
                 concordant_only = FALSE, unique_only = FALSE,
                 primary_only = FALSE, ignore_duplicates = FALSE,
-                min_depth = 0L, variant_strand = 0L,
+                min_depth = 0L, variant_strand = 0L, variant_pct = 0,
                 ignore_query_Ns = FALSE,
-                indels = FALSE, include_soft_clips = 0L,
+                indels = FALSE, min_softclip = 0L, max_softclip = 0L,
                 exon_iit = NULL, IIT_BPPARAM = NULL,
                 xs = FALSE, read_pos = FALSE,
                 min_base_quality = 0L, noncovered = FALSE, nm = FALSE)
@@ -52,6 +52,8 @@
     only positions where a variant was seen on at least one strand, and
     2 requires the variant be seen on both strands. Setting this to 1
     is a good way to save resources.}
+  \item{variant_pct}{The minimum alternate allele fraction
+    for a variant to be reported for a strand.} 
   \item{ignore_query_Ns}{Whether to ignore the N base pairs when
     counting. Can save a lot of resources when processing low quality data.}
   \item{indels}{Whether to return indel counts. The \code{ref} and
@@ -60,7 +62,8 @@
     always spans the sequence in \code{ref}; so e.g. a deletion extends
     one nt upstream of the actual deleted sequence.
   }
-  \item{include_soft_clips}{Maximum length of soft clips that are
+  \item{min_softclip, max_softclip}{
+    Minimum and maximum length of soft clips that are
     considered for counting. Soft-clipping is often useful (for GSNAP at
     least) during alignment, and it should be preserved in the
     output. However, soft clipping can preferentially occur in regions

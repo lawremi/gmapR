@@ -8,9 +8,9 @@ test_BamTallyParam <- function() {
                minimum_mapq = 0L,
                concordant_only = FALSE, unique_only = FALSE,
                primary_only = FALSE, ignore_duplicates = FALSE,
-               min_depth = 0L, variant_strand = 0L,
+               min_depth = 0L, variant_strand = 0L, variant_pct = 0,
                ignore_query_Ns = FALSE,
-               indels = FALSE, include_soft_clips = 0L,
+               indels = FALSE, min_softclip = 0L, max_softclip = 0L,
                xs = FALSE, read_pos = FALSE, min_base_quality = 0L,
                noncovered = FALSE, nm = FALSE)
   which <- TP53Which()
