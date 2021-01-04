@@ -50,8 +50,8 @@ setGeneric("genomeName", function(x) standardGeneric("genomeName"))
 
 setMethod("genomeName", "character", function(x) x)
 setMethod("genomeName", "BSgenome", function(x) providerVersion(x))
-setMethods("genomeName", list("RTLFile", "RsamtoolsFile"),
-           function(x) file_path_sans_ext(basename(path(x)), TRUE))
+setMethod("genomeName", "BiocFile",
+          function(x) file_path_sans_ext(basename(path(x)), TRUE))
 setMethod("genomeName", "ANY", function(x) {
     if (hasMethod("seqinfo", class(x))) {
         ans <- unique(genome(x))
