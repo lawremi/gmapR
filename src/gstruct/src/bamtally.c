@@ -21,6 +21,9 @@ static char rcsid[] = "$Id: bamtally.c 219300 2019-05-21 18:32:50Z twu $";
 #ifdef HAVE_SSE4_1
 #include <smmintrin.h>
 #endif
+#ifdef __ARM_NEON
+#include "sse2neon.h"
+#endif
 
 #include "except.h"
 #include "assert.h"
