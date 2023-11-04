@@ -16127,6 +16127,7 @@ $as_echo_n "checking for working mmap with MAP_FIXED... " >&6; }
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -16289,6 +16290,7 @@ $as_echo_n "checking for working mmap with MAP_VARIABLE... " >&6; }
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
 
