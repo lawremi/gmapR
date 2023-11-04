@@ -31,6 +31,7 @@ AC_MSG_CHECKING([for working mmap with MAP_VARIABLE])
 
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <unistd.h>
 
