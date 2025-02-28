@@ -48,12 +48,11 @@ $(SAMTOOLS_LIB): $(BAMOBJ)
 
 $(SUBDIRS): %: %/Makefile $(SAMTOOLS_LIB)
 	cd $@; \
-	$(MAKE) install
+	$(MAKE) CC="$(CC)" install
 
 gstruct/Makefile: gstruct/configure
 	cd $(dir $@); \
-        CFLAGS="-g -O3" \
-	./configure --enable-static --disable-shared \
+        ./configure --enable-static --disable-shared \
 	            --prefix=${PREFIX} --includedir=${GSTRUCT_INCLUDE_DIR} \
 	            --libdir=${PREFIX}/${LIBnn} \
 	            --with-samtools-lib=${R_SRC_DIR}/samtools \
