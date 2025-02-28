@@ -2,7 +2,7 @@
 AC_DEFUN([ACX_SSE2_SHIFT_DEFECT], [
   AC_REQUIRE([AC_CANONICAL_HOST])
   AC_LANG_SAVE
-  AC_LANG_C
+  AC_LANG([C])
 
   AC_MSG_CHECKING(compiler is defective and requires an immediate in sse2 shift commands)
   AC_COMPILE_IFELSE(

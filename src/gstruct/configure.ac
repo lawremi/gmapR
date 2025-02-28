@@ -3,7 +3,7 @@
 
 # $Id: configure.ac,v 1.46 2010-07-21 22:05:35 twu Exp $
 
-AC_PREREQ(2.57)
+AC_PREREQ([2.72])
 
 ## We want to get the version number from file 'VERSION' (rather than
 ## specifying the version info in 'configure.ac'.  Hence, we need a bit
@@ -16,11 +16,11 @@ AC_PREREQ(2.57)
 #m4_define([PKG_VERSION],m4_esyscmd([cat VERSION]))
 m4_define([PKG_VERSION],esyscmd([cat VERSION]))
 
-AC_INIT([gstruct],PKG_VERSION,[Thomas Wu <twu@gene.com>])
+AC_INIT([gstruct],[PKG_VERSION],[Thomas Wu <twu@gene.com>])
 AC_MSG_CHECKING(package version)
 AC_MSG_RESULT(PKG_VERSION)
 
-AM_MAINTAINER_MODE([enable])
+AM_MAINTAINER_MODE([disable])
 
 ### Read defaults
 
@@ -76,7 +76,7 @@ fi
 
 
 AC_CONFIG_SRCDIR([src/bamtally.c])
-AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_AUX_DIR([config])
 # For autotest: AC_CONFIG_TESTDIR([tests],[tests:src:util])
 
@@ -85,25 +85,21 @@ AC_CONFIG_MACRO_DIR([config])
 AC_SUBST([LIBGSTRUCT_SO_VERSION], [1:0:0])
 AC_SUBST([LIBGSTRUCT_API_VERSION], [1.0])
 
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_TARGET
 AC_SYS_LARGEFILE
 AC_ARG_PROGRAM
 
-#AM_INIT_AUTOMAKE([no-dependencies])
-#AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AM_INIT_AUTOMAKE
 
 AM_CONDITIONAL(FULLDIST,test "x$enable_fulldist" = xyes)
 AC_ARG_ENABLE([fulldist],
-	       AC_HELP_STRING([--enable-fulldist],
-                              [For use by program maintainer]),
+	       AS_HELP_STRING([--enable-fulldist],[For use by program maintainer]),
 	      [enable_fulldist="yes"],
               [enable_fulldist="no"])
 
 AM_CONDITIONAL(MAINTAINER,test "x$enable_maintainer" = xyes)
 AC_ARG_ENABLE([maintainer],
-	       AC_HELP_STRING([--enable-maintainer],
-                              [For use by program maintainer]),
+	       AS_HELP_STRING([--enable-maintainer],[For use by program maintainer]),
 	      [enable_maintainer="yes"],
               [enable_maintainer="no"])
 
@@ -114,12 +110,11 @@ ACX_EXPAND(BINDIR,$bindir)
 AC_SUBST(BINDIR)
 AC_MSG_RESULT($BINDIR)
 
-# Works in conjunction with AC_PROG_LIBTOOL
+# Works in conjunction with LT_INIT
 #LT_INIT([disable-static])
 AC_MSG_CHECKING(whether to link statically)
 AC_ARG_ENABLE([static-linking],
-               AC_HELP_STRING([--enable-static-linking],
-                              [Link binaries statically (default=no)]),
+               AS_HELP_STRING([--enable-static-linking],[Link binaries statically (default=no)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -145,7 +140,7 @@ ACX_PATH_PERL
 
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_LIBTOOL
+LT_INIT
 
 # Generates X_CFLAGS, X_LIBS, X_DISPLAY_MISSING, X_EXTRA_LIBS, X_PRE_LIBS
 AC_PATH_XTRA
@@ -159,8 +154,7 @@ AC_PATH_PROG([QSUB],[qsub])
 # Genome directory
 AC_MSG_CHECKING(gmap program directory, specified by user)
 AC_ARG_WITH([gmap],
-            AC_HELP_STRING([--with-gmap=DIR],
-                           [Default GMAP program directory]),
+            AS_HELP_STRING([--with-gmap=DIR],[Default GMAP program directory]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" = x; then
@@ -197,8 +191,7 @@ AC_CHECK_LIB(m, rint)
 # HAVE_PTHREAD won't be defined
 AC_MSG_CHECKING(for pthreads feature)
 AC_ARG_ENABLE([pthreads],
-              AC_HELP_STRING([--enable-pthreads],
-                             [Enable pthreads (default=yes)]),
+              AS_HELP_STRING([--enable-pthreads],[Enable pthreads (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -219,7 +212,6 @@ esac
 
 
 # Checks for header files.
-AC_HEADER_STDC
 AC_HEADER_DIRENT
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h string.h strings.h unistd.h sys/types.h])
 
@@ -269,8 +261,7 @@ ACX_FUNC_FOPEN_TEXT
 
 AC_MSG_CHECKING(for builtin popcount/clz/ctz features)
 AC_ARG_ENABLE([builtin-popcount],
-              AC_HELP_STRING([--enable-builtin-popcount],
-                             [Enable -mpopcnt if it __builtin_popcount compiles and runs (default=yes).  May want to disable if compiling on one machine and running on another.]),
+              AS_HELP_STRING([--enable-builtin-popcount],[Enable -mpopcnt if it __builtin_popcount compiles and runs (default=yes).  May want to disable if compiling on one machine and running on another.]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -298,8 +289,7 @@ ACX_ASM_BSR
 
 AC_MSG_CHECKING(whether sse2 is enabled)
 AC_ARG_ENABLE([sse2],
-	      AC_HELP_STRING([--enable-sse2],
-                             [Enable sse2 simd commands if they compile and run (default=yes).]),
+	      AS_HELP_STRING([--enable-sse2],[Enable sse2 simd commands if they compile and run (default=yes).]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -327,8 +317,7 @@ fi
 
 AC_MSG_CHECKING(whether ssse3 is enabled)
 AC_ARG_ENABLE([ssse3],
-	      AC_HELP_STRING([--enable-ssse3],
-                             [Enable ssse3 simd commands if they compile and run (default=yes).  Requires that sse2 be enabled.]),
+	      AS_HELP_STRING([--enable-ssse3],[Enable ssse3 simd commands if they compile and run (default=yes).  Requires that sse2 be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_sse2_ext" = no; then
@@ -357,8 +346,7 @@ fi
 
 AC_MSG_CHECKING(whether sse4.1 is enabled)
 AC_ARG_ENABLE([sse4.1],
-	      AC_HELP_STRING([--enable-sse4.1],
-                             [Enable sse4.1 simd commands if they compile and run (default=yes).  Requires that ssse3 be enabled.]),
+	      AS_HELP_STRING([--enable-sse4.1],[Enable sse4.1 simd commands if they compile and run (default=yes).  Requires that ssse3 be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_ssse3_ext" = no; then
@@ -386,8 +374,7 @@ fi
 
 AC_MSG_CHECKING(whether sse4.2 is enabled)
 AC_ARG_ENABLE([sse4.2],
-	      AC_HELP_STRING([--enable-sse4.2],
-                             [Enable sse4.2 simd commands if they compile and run (default=yes).  Requires that sse4.1 be enabled.]),
+	      AS_HELP_STRING([--enable-sse4.2],[Enable sse4.2 simd commands if they compile and run (default=yes).  Requires that sse4.1 be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_sse41_ext" = no; then
@@ -415,8 +402,7 @@ fi
 
 AC_MSG_CHECKING(whether avx is enabled)
 AC_ARG_ENABLE([avx],
-	      AC_HELP_STRING([--enable-avx],
-                             [Enable avx simd commands if they compile and run (default=yes).  Requires that sse4.2 be enabled.]),
+	      AS_HELP_STRING([--enable-avx],[Enable avx simd commands if they compile and run (default=yes).  Requires that sse4.2 be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_sse42_ext" = no; then
@@ -444,8 +430,7 @@ fi
 
 AC_MSG_CHECKING(whether avx2 is enabled)
 AC_ARG_ENABLE([avx2],
-	      AC_HELP_STRING([--enable-avx2],
-                             [Enable avx2 simd commands if they compile and run (default=yes).  Requires that avx be enabled.]),
+	      AS_HELP_STRING([--enable-avx2],[Enable avx2 simd commands if they compile and run (default=yes).  Requires that avx be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_avx_ext" = no; then
@@ -473,8 +458,7 @@ fi
 
 AC_MSG_CHECKING(whether simd is enabled)
 AC_ARG_ENABLE([simd],
-	      AC_HELP_STRING([--enable-simd],
-                             [Enable simd commands in general if they compile and run (default=yes).]),
+	      AS_HELP_STRING([--enable-simd],[Enable simd commands in general if they compile and run (default=yes).]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -497,8 +481,7 @@ esac
 # Genome directory
 AC_MSG_CHECKING(gmapdb)
 AC_ARG_WITH([gmapdb],
-            AC_HELP_STRING([--with-gmapdb=DIR],
-                           [Default GMAP database directory]),
+            AS_HELP_STRING([--with-gmapdb=DIR],[Default GMAP database directory]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" = x; then
@@ -513,8 +496,7 @@ AC_MSG_RESULT($GMAPDB)
 # Determine whether to make binaries
 AC_MSG_CHECKING(whether to make binaries)
 AC_ARG_ENABLE([binaries],
-              AC_HELP_STRING([--enable-binaries],
-                             [Enable building of binaries (default=yes)]),
+              AS_HELP_STRING([--enable-binaries],[Enable building of binaries (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -536,8 +518,7 @@ AM_CONDITIONAL([MAKE_BINARIES], [test "x$binaries" = xtrue])
 
 AC_MSG_CHECKING(for zlib support)
 AC_ARG_ENABLE([zlib],
-              AC_HELP_STRING([--enable-zlib],
-                             [Enable zlib support (option needed for uncompressing gzip files) (default=yes)]),
+              AS_HELP_STRING([--enable-zlib],[Enable zlib support (option needed for uncompressing gzip files) (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -585,8 +566,7 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_MSG_CHECKING(for samtools program)
 AC_ARG_WITH([samtools-program],
-            AC_HELP_STRING([--with-samtools-program=FILE],
-                           [Full path of samtools program]),
+            AS_HELP_STRING([--with-samtools-program=FILE],[Full path of samtools program]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" != x; then
@@ -594,8 +574,7 @@ if test x"$answer" != x; then
   AC_MSG_RESULT(provided by --with-samtools-program)
 else
   AC_ARG_WITH([samtools],
-              AC_HELP_STRING([--with-samtools=DIR],
-                             [Location of samtools bin, include, and lib subdirs]),
+              AS_HELP_STRING([--with-samtools=DIR],[Location of samtools bin, include, and lib subdirs]),
               [answer="$withval"],
               [answer=""])
   if test x"$answer" != x; then
@@ -613,8 +592,7 @@ fi
 
 #AC_MSG_CHECKING(for samtools headers)
 #AC_ARG_WITH([samtools-headers],
-#            AC_HELP_STRING([--with-samtools-headers=DIR],
-#                           [Directory containing samtools *.h header files]),
+#            AS_HELP_STRING([--with-samtools-headers=DIR],[#                           Directory containing samtools *.h header files]),
 #            [answer="$withval"],
 #            [answer=""])
 #if test x"$answer" != x; then
@@ -622,8 +600,7 @@ fi
 #  AC_MSG_RESULT(provided by --with-samtools-headers)
 #else
 #  AC_ARG_WITH([samtools],
-#              AC_HELP_STRING([--with-samtools=DIR],
-#                             [Location of samtools bin, include, and lib subdirs]),
+#              AS_HELP_STRING([--with-samtools=DIR],[#                             Location of samtools bin, include, and lib subdirs]),
 #              [answer="$withval"],
 #              [answer=""])
 #  if test x"$answer" != x; then
@@ -645,8 +622,7 @@ AC_SUBST(SAMTOOLS_CFLAGS)
 
 AC_MSG_CHECKING(for samtools library)
 AC_ARG_WITH([samtools-lib],
-            AC_HELP_STRING([--with-samtools-lib=DIR],
-                           [Directory containing samtools libbam.a library]),
+            AS_HELP_STRING([--with-samtools-lib=DIR],[Directory containing samtools libbam.a library]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" != x; then
@@ -656,8 +632,7 @@ if test x"$answer" != x; then
   AC_MSG_RESULT(provided by --with-samtools-lib)
 else
   AC_ARG_WITH([samtools],
-              AC_HELP_STRING([--with-samtools=DIR],
-                             [Location of samtools bin, include, and lib subdirs]),
+              AS_HELP_STRING([--with-samtools=DIR],[Location of samtools bin, include, and lib subdirs]),
               [answer="$withval"],
               [answer=""])
   if test x"$answer" != x; then

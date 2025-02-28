@@ -1,12 +1,12 @@
 AC_DEFUN([ACX_MMAP_FIXED], [
 AC_REQUIRE([AC_CANONICAL_HOST])
 AC_LANG_SAVE
-AC_LANG_C
+AC_LANG([C])
 acx_mmap_fixed_ok=no
 
 AC_MSG_CHECKING([for working mmap with MAP_FIXED])
 
-        AC_TRY_LINK([
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([
 /* Thanks to Mike Haertel and Jim Avera for this test.
    Here is a matrix of mmap possibilities:
 	mmap private not fixed
@@ -78,7 +78,7 @@ char *malloc ();
 ],
 [
   char *data, *data2, *data3;
-  int i, pagesize;
+  size_t i, pagesize;
   int fd;
 
   pagesize = getpagesize ();
@@ -106,7 +106,7 @@ char *malloc ();
   data2 = (char *) malloc (2 * pagesize);
   if (!data2)
     exit (1);
-  data2 += (pagesize - ((int) data2 & (pagesize - 1))) & (pagesize - 1);
+  data2 += (pagesize - ((size_t) data2 & (pagesize - 1))) & (pagesize - 1);
   if (data2 != mmap (data2, pagesize, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_FIXED, fd, 0L))
     exit (1);
@@ -129,7 +129,7 @@ char *malloc ();
       exit (1);
   close (fd);
   exit (0);
-],
+])],
 	              [acx_mmap_fixed_ok=yes])
 
 AC_MSG_RESULT($acx_mmap_fixed_ok)

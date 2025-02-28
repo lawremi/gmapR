@@ -3,7 +3,7 @@
 
 # $Id: configure.ac,v 1.46 2010-07-21 22:05:35 twu Exp $
 
-AC_PREREQ(2.57)
+AC_PREREQ([2.72])
 
 ## We want to get the version number from file 'VERSION' (rather than
 ## specifying the version info in 'configure.ac'.  Hence, we need a bit
@@ -16,11 +16,11 @@ AC_PREREQ(2.57)
 #m4_define([PKG_VERSION],m4_esyscmd([cat VERSION]))
 m4_define([PKG_VERSION],esyscmd([cat VERSION]))
 
-AC_INIT([gmap],PKG_VERSION,[Thomas Wu <twu@gene.com>])
+AC_INIT([gmap],[PKG_VERSION],[Thomas Wu <twu@gene.com>])
 AC_MSG_CHECKING(package version)
 AC_MSG_RESULT(PKG_VERSION)
 
-AM_MAINTAINER_MODE([enable])
+AM_MAINTAINER_MODE([disable])
 
 ### Read defaults
 AC_MSG_CHECKING(CONFIG_SITE)
@@ -52,30 +52,27 @@ fi
 
 
 AC_CONFIG_SRCDIR([src/gmap.c])
-AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_AUX_DIR([config])
 # For autotest: AC_CONFIG_TESTDIR([tests],[tests:src:util])
 
 AC_CONFIG_MACRO_DIR([config])
 
-AC_CANONICAL_SYSTEM
+AC_CANONICAL_TARGET
 AC_SYS_LARGEFILE
 AC_ARG_PROGRAM
 
-#AM_INIT_AUTOMAKE([no-dependencies])
-AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
+AM_INIT_AUTOMAKE
 
 AM_CONDITIONAL(FULLDIST,test "x$enable_fulldist" = xyes)
 AC_ARG_ENABLE([fulldist],
-	       AC_HELP_STRING([--enable-fulldist],
-                              [For use by program maintainer]),
+	       AS_HELP_STRING([--enable-fulldist],[For use by program maintainer]),
 	      [enable_fulldist="yes"],
               [enable_fulldist="no"])
 
 AM_CONDITIONAL(MAINTAINER,test "x$enable_maintainer" = xyes)
 AC_ARG_ENABLE([maintainer],
-	       AC_HELP_STRING([--enable-maintainer],
-                              [For use by program maintainer]),
+	       AS_HELP_STRING([--enable-maintainer],[For use by program maintainer]),
 	      [enable_maintainer="yes"],
               [enable_maintainer="no"])
 
@@ -86,11 +83,10 @@ ACX_EXPAND(BINDIR,$bindir)
 AC_SUBST(BINDIR)
 AC_MSG_RESULT($BINDIR)
 
-# Works in conjunction with AC_PROG_LIBTOOL -- Commented out because no libraries being built
+# Works in conjunction with LT_INIT -- Commented out because no libraries being built
 #AC_MSG_CHECKING(whether to link statically)
 #AC_ARG_ENABLE([static-linking],
-#               AC_HELP_STRING([--enable-static-linking],
-#                              [Link binaries statically (default=no)]),
+#               AS_HELP_STRING([--enable-static-linking],[#                              Link binaries statically (default=no)]),
 #              [answer="$enableval"],
 #              [answer=""])
 #case x"$answer" in
@@ -115,7 +111,7 @@ AC_MSG_RESULT($BINDIR)
 ACX_PATH_PERL
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_LIBTOOL
+LT_INIT
 
 # Checks for libraries.
 AC_CHECK_LIB(m, rint)
@@ -133,8 +129,7 @@ AC_CHECK_LIB(m, rint)
 # HAVE_PTHREAD won't be defined
 AC_MSG_CHECKING(for pthreads feature)
 AC_ARG_ENABLE([pthreads],
-              AC_HELP_STRING([--enable-pthreads],
-                             [Enable pthreads (default=yes)]),
+              AS_HELP_STRING([--enable-pthreads],[Enable pthreads (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -154,8 +149,6 @@ case x"$answer" in
 esac	
 
 
-# Checks for header files.
-AC_HEADER_STDC
 AC_HEADER_DIRENT
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h string.h strings.h unistd.h sys/types.h])
 
@@ -183,8 +176,7 @@ AC_FUNC_FSEEKO
 
 AC_MSG_CHECKING(whether mmap is enabled)
 AC_ARG_ENABLE([mmap],
-	      AC_HELP_STRING([--enable-mmap],
-                             [Enable mmap (default=yes).  Recommend that you do not disable this unless absolutely necessary.]),
+	      AS_HELP_STRING([--enable-mmap],[Enable mmap (default=yes).  Recommend that you do not disable this unless absolutely necessary.]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -228,8 +220,7 @@ ACX_FUNC_FOPEN_TEXT
 
 AC_MSG_CHECKING(for popcnt feature)
 AC_ARG_ENABLE([popcnt],
-              AC_HELP_STRING([--enable-popcnt],
-                             [Enable -mpopcnt if it compiles and runs (default=yes).  May want to disable if compiling on one machine and running on another.]),
+              AS_HELP_STRING([--enable-popcnt],[Enable -mpopcnt if it compiles and runs (default=yes).  May want to disable if compiling on one machine and running on another.]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -252,8 +243,7 @@ ACX_ASM_BSR
 
 AC_MSG_CHECKING(whether sse2 is enabled)
 AC_ARG_ENABLE([sse2],
-	      AC_HELP_STRING([--enable-sse2],
-                             [Enable sse2 simd commands if they compile and run (default=yes).]),
+	      AS_HELP_STRING([--enable-sse2],[Enable sse2 simd commands if they compile and run (default=yes).]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -276,8 +266,7 @@ esac
 if test "$ax_cv_want_sse2_ext" = yes; then
 AC_MSG_CHECKING(whether user has declared a defective SSE2 compiler)
 AC_ARG_WITH([defective-sse2-compiler],
-            AC_HELP_STRING([--with-defective-sse2-compiler],
-                           [Using an old compiler that requires an immediate shift in slli and srli]),
+            AS_HELP_STRING([--with-defective-sse2-compiler],[Using an old compiler that requires an immediate shift in slli and srli]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" = x; then
@@ -291,8 +280,7 @@ fi
 
 AC_MSG_CHECKING(whether sse4.1 is enabled)
 AC_ARG_ENABLE([sse4.1],
-	      AC_HELP_STRING([--enable-sse4.1],
-                             [Enable sse4.1 simd commands if they compile and run (default=yes).  Requires that sse2 be enabled.]),
+	      AS_HELP_STRING([--enable-sse4.1],[Enable sse4.1 simd commands if they compile and run (default=yes).  Requires that sse2 be enabled.]),
               [answer="$enableval"],
               [answer=""])
 if test "$ax_cv_want_sse2_ext" = no; then
@@ -319,8 +307,7 @@ fi
 
 AC_MSG_CHECKING(whether simd is enabled)
 AC_ARG_ENABLE([simd],
-	      AC_HELP_STRING([--enable-simd],
-                             [Enable simd commands in general if they compile and run (default=yes).]),
+	      AS_HELP_STRING([--enable-simd],[Enable simd commands in general if they compile and run (default=yes).]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -342,8 +329,7 @@ esac
 # Genome directory
 AC_MSG_CHECKING(gmapdb)
 AC_ARG_WITH([gmapdb],
-            AC_HELP_STRING([--with-gmapdb=DIR],
-                           [Default GMAP database directory]),
+            AS_HELP_STRING([--with-gmapdb=DIR],[Default GMAP database directory]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" = x; then
@@ -368,8 +354,7 @@ AC_MSG_RESULT($MAX_READLENGTH)
 
 AC_MSG_CHECKING(for zlib support)
 AC_ARG_ENABLE([zlib],
-              AC_HELP_STRING([--enable-zlib],
-                             [Enable zlib support (option needed for uncompressing gzip files) (default=yes)]),
+              AS_HELP_STRING([--enable-zlib],[Enable zlib support (option needed for uncompressing gzip files) (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -417,8 +402,7 @@ AC_SUBST(ZLIB_LIBS)
 
 AC_MSG_CHECKING(for bzlib support)
 AC_ARG_ENABLE([bzlib],
-              AC_HELP_STRING([--enable-bzlib],
-                             [Enable bzlib support (option needed for uncompressing bzip2 files) (default=yes)]),
+              AS_HELP_STRING([--enable-bzlib],[Enable bzlib support (option needed for uncompressing bzip2 files) (default=yes)]),
               [answer="$enableval"],
               [answer=""])
 case x"$answer" in
@@ -458,8 +442,7 @@ AC_SUBST(BZLIB_LIBS)
 
 AC_MSG_CHECKING(for goby library)
 AC_ARG_WITH([goby],
-            AC_HELP_STRING([--with-goby=DIR],
-                           [Location of Goby header files (in DIR/include) and library files (in DIR/lib) (optional)]),
+            AS_HELP_STRING([--with-goby=DIR],[Location of Goby header files (in DIR/include) and library files (in DIR/lib) (optional)]),
             [answer="$withval"],
             [answer=""])
 if test x"$answer" = x; then

@@ -3,7 +3,7 @@
 define([_ACX_FUNC_FOPEN], [
 AC_CACHE_CHECK([whether fopen accepts "$1" mode],
                [cvx_cv_func_fopen_$1],
-               [AC_TRY_RUN([
+               [AC_RUN_IFELSE([AC_LANG_SOURCE([
 #include <stdio.h>
 int
 main () {
@@ -11,7 +11,7 @@ main () {
   fprintf(fp,"\n");
   fclose(fp);
   return 0;
-}],
+}])],
                   [cvx_cv_func_fopen_$1=yes],
                   [cvx_cv_func_fopen_$1=no],
                   [cvx_cv_func_fopen_$1=no])])
