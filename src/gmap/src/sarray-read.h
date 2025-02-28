@@ -1,6 +1,9 @@
 /* $Id: sarray-read.h 109412 2013-09-27 19:27:59Z twu $ */
 #ifndef SARRAY_READ_INCLUDED
 #define SARRAY_READ_INCLUDED
+
+#ifndef LARGE_GENOMES /* suffix arrays do not support large genomes */
+
 #include "access.h"
 #include "genome.h"
 #include "compress.h"
@@ -40,6 +43,7 @@ Sarray_search_greedy (int *found_score, List_T *subs, List_T *indels, List_T *si
 		      bool first_read_p);
 
 #undef T
+#endif /* LARGE_GENOMES */
 #endif
 
 

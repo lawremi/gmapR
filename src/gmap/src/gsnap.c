@@ -140,8 +140,9 @@ static Genome_T genomebits_alt = NULL;
 
 static bool use_sarray_p = true; /* if present */
 static bool use_only_sarray_p = false;
+#ifndef LARGE_GENOMES
 static Sarray_T sarray = NULL;
-
+#endif
 static bool fastq_format_p = false;
 static bool creads_format_p = false;
 static Stopwatch_T stopwatch = NULL;
@@ -2237,9 +2238,13 @@ main (int argc, char *argv[]) {
     genomebits = Genome_new(genomesubdir,fileroot,/*snps_root*/NULL,/*genometype*/GENOME_BITS,
 			    uncompressedp,genome_access);
     if (use_sarray_p == true) {
+#ifndef LARGE_GENOMES
       if ((sarray = Sarray_new(genomesubdir,fileroot,/*snps_root*/NULL,sarray_access)) == NULL) {
 	use_sarray_p = false;
       }
+#else
+      use_sarray_p = false;
+#endif
     }
 
     if (use_only_sarray_p == true) {
@@ -2336,10 +2341,14 @@ main (int argc, char *argv[]) {
     genomebits_alt = Genome_new(snpsdir,fileroot,snps_root,/*genometype*/GENOME_BITS,
 			       uncompressedp,genome_access);
     if (use_sarray_p == true) {
+#ifndef LARGE_GENOMES
       fprintf(stderr,"Note: Suffix arrays will bias against SNP-tolerant alignment.  For bias-free alignment, set --use-sarray=0\n");
       if ((sarray = Sarray_new(genomesubdir,fileroot,/*snps_root*/NULL,sarray_access)) == NULL) {
 	use_sarray_p = false;
       }
+#else
+      use_sarray_p = false;
+#endif
     }
 
     if (use_only_sarray_p == true) {
@@ -2687,12 +2696,14 @@ main (int argc, char *argv[]) {
 
 
   Genome_setup(genomecomp,genomecomp_alt,mode,circular_typeint);
+#ifndef LARGE_GENOMES
   if (sarray != NULL) {
     Sarray_setup(sarray,genomecomp,chromosome_iit,circular_typeint,shortsplicedist,
 		 localsplicing_penalty,
 		 max_deletionlength,max_end_deletions,max_middle_insertions,max_end_insertions,
 		 splicesites,splicetypes,splicedists,nsplicesites);
   }
+#endif
   if (genomebits == NULL) {
     Genome_hr_setup(Genome_blocks(genomecomp),/*snp_blocks*/genomecomp_alt ? Genome_blocks(genomecomp_alt) : NULL,
 		    query_unk_mismatch_p,genome_unk_mismatch_p,mode,/*genomebits_avail_p*/false);
@@ -2900,9 +2911,11 @@ main (int argc, char *argv[]) {
   if (dbversion != NULL) {
     FREE(dbversion);
   }
+#ifndef LARGE_GENOMES
   if (sarray != NULL) {
     Sarray_free(&sarray);
   }
+#endif
   if (genomecomp_alt != NULL) {
     Genome_free(&genomecomp_alt);
     Genome_free(&genomebits_alt);

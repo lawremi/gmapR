@@ -2,6 +2,8 @@ static char rcsid[] = "$Id: sarray-read.c 154459 2014-12-02 19:57:01Z twu $";
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+#ifndef LARGE_GENOMES /* suffix arrays do not support large genomes */
+
 #ifndef HAVE_MEMCPY
 #define memcpy(d,s,n) bcopy((s),(d),(n))
 #endif
@@ -3968,3 +3970,4 @@ Sarray_search_greedy (int *found_score, List_T *subs, List_T *indels, List_T *si
   return;
 }
 
+#endif /* LARGE_GENOMES */
