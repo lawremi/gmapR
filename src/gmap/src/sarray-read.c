@@ -100,7 +100,7 @@ struct T {
   Univcoord_T *lcp;
 #endif
   UINT4 *lcpptrs;
-  Univcoord_T *lcpcomp;
+  UINT4 *lcpcomp;
   Univcoord_T n_plus_one;
 
   Sarrayptr_T *saindex;
@@ -130,7 +130,7 @@ Sarray_lcpptrs (Sarray_T this) {
 }
 
 /* For benchmarking */
-Univcoord_T *
+UINT4 *
 Sarray_lcpcomp (Sarray_T this) {
   return this->lcpcomp;
 }
@@ -586,7 +586,7 @@ Sarray_new (char *directory, char *fileroot, char *snps_root, Access_mode_T acce
 	FREE(new);
 	return (T) NULL;
       } else {
-	new->lcpcomp = (Univcoord_T *) Access_mmap_and_preload(&new->lcpcomp_fd,&new->lcpcomp_len,&npages,&seconds,
+	new->lcpcomp = (UINT4 *) Access_mmap_and_preload(&new->lcpcomp_fd,&new->lcpcomp_len,&npages,&seconds,
 							 filename,sizeof(UINT4));
 	FREE(filename);
       }
@@ -2044,11 +2044,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
   double best_prob, prob;
   Substring_T donor, acceptor;
 
-  #ifdef LARGE_GENOMES
-  Uint8list_T ambcoords, ambcoords_left, ambcoords_right;
-  #else
   Uintlist_T ambcoords, ambcoords_left, ambcoords_right;
-  #endif
   Intlist_T amb_knowni, amb_nmismatches;
 
   int segmenti_donor_knownpos[MAX_READLENGTH+1], segmentj_acceptor_knownpos[MAX_READLENGTH+1],
@@ -2171,7 +2167,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
     indel_pos = queryend_same + 1;
     debug7(printf("same is at %u from %d to %d\n",left,querystart_same,queryend_same));
 
-    array = (Univcoord_T *)Uintlist_to_array(&n,difflist);
+    array = Uintlist_to_array(&n,difflist);
     qsort(array,n,sizeof(Univcoord_T),Univcoord_compare);
     Uintlist_free(&difflist);
     debug7(printf("Have %d matching diffs\n",n));
@@ -2436,7 +2432,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -2464,9 +2460,8 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
+
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
 		Stage3end_free(&hit);
@@ -2494,7 +2489,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -2522,9 +2517,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
 
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
@@ -2640,7 +2633,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 	      
@@ -2667,9 +2660,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 											Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
 
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
@@ -2698,7 +2689,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -2725,9 +2716,8 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 											Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
+
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
 		Stage3end_free(&hit);
@@ -2759,7 +2749,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
     indel_pos = querystart_same;
     debug7(printf("same is at %u from %d to %d\n",left,querystart_same,queryend_same));
     
-    array = (Univcoord_T *)Uintlist_to_array(&n,difflist);
+    array = Uintlist_to_array(&n,difflist);
     qsort(array,n,sizeof(Univcoord_T),Univcoord_compare);
     Uintlist_free(&difflist);
     debug7(printf("Have %d matching diffs\n",n));
@@ -3024,7 +3014,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -3052,9 +3042,8 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
+
 
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
@@ -3083,7 +3072,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -3111,9 +3100,8 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
+
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
 		Stage3end_free(&hit);
@@ -3219,7 +3207,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -3247,9 +3235,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
 
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];
@@ -3278,7 +3264,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 	    if (j == i + 1) {
 	      *singlesplicing = List_push(*singlesplicing,(void *) hit);
 	    } else {
-	      ambcoords = NULL;
+	      ambcoords = (Uintlist_T) NULL;
 	      amb_knowni = (Intlist_T) NULL;
 	      amb_nmismatches = (Intlist_T) NULL;
 
@@ -3306,9 +3292,7 @@ collect_elt_matches (int *found_score, List_T *subs, List_T *indels, List_T *sin
 									Stage3end_sensedir(hit),/*sarrayp*/true));
 	      Intlist_free(&amb_nmismatches);
 	      Intlist_free(&amb_knowni);
-#ifndef LARGE_GENOMES
 	      Uintlist_free(&ambcoords); /* LARGE_GENOMES not possible with suffix array */
-#endif
 
 	      for (k = i; k < j; k++) {
 		hit = hitarray[k];

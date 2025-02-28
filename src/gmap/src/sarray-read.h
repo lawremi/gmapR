@@ -15,7 +15,7 @@ typedef struct T *T;
 /* For benchmarking */
 extern UINT4 *
 Sarray_lcpptrs (Sarray_T this);
-extern Univcoord_T *
+extern UINT4 *
 Sarray_lcpcomp (Sarray_T this);
 Univcoord_T
 Sarray_size (Sarray_T this);
