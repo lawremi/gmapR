@@ -16,7 +16,7 @@ static char rcsid[] = "$Id: bitpack64-access.c 110000 2013-10-04 00:22:51Z twu $
 
 
 static UINT4 *lcpptrs;
-static UINT4 *lcpcomp;
+static Univcoord_T *lcpcomp;
 #define BLOCKSIZE 64
 
 /* Vertical access is slightly more efficient than horizontal */
@@ -29,7 +29,7 @@ static UINT4 *lcpcomp;
 
 
 void
-Bitpack64_access_setup (UINT4 *lcpptrs_in, UINT4 *lcpcomp_in) {
+Bitpack64_access_setup (UINT4 *lcpptrs_in, Univcoord_T *lcpcomp_in) {
   lcpptrs = lcpptrs_in;
   lcpcomp = lcpcomp_in;
   return;

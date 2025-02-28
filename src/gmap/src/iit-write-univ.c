@@ -86,7 +86,7 @@ is_right_split (int i, int j, int r, Univcoord_T value, int *sigmas,
 }  
 
 static bool
-is_sorted (int array[], int i, int j, Univcoord_T (*endpoint)(), struct Univinterval_T *intervals) {
+is_sorted (int array[], int i, int j, Univcoord_T (*endpoint)(struct Univinterval_T *, int), struct Univinterval_T *intervals) {
   int lambda;
 
   for (lambda = i; lambda <= j - 1; lambda++) {

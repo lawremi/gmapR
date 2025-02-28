@@ -28,7 +28,8 @@ R_Bamtally_iit (SEXP bamreader_R, SEXP genome_dir_R, SEXP db_R,
 
 SEXP
 R_tally_iit_parse(SEXP tally_iit_R, SEXP cycle_breaks_R,
-                  SEXP high_base_quality, SEXP which_R);
+                  SEXP which_R, SEXP read_length_R, SEXP xs_R,
+		  SEXP high_nm_score_R);
 
 SEXP
 R_Genome_getSeq (SEXP genome_dir_R, SEXP db_R,

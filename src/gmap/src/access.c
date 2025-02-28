@@ -51,41 +51,21 @@ static char rcsid[] = "$Id: access.c 109572 2013-09-30 22:57:27Z twu $";
 
 bool
 Access_file_exists_p (char *filename) {
-#if defined(HAVE_STRUCT_STAT64) && !defined(__APPLE__)
-  struct stat64 sb;
-#else
   struct stat sb;
-#endif
 
-#if defined(HAVE_STAT64) && !defined(__APPLE__)
-  if (stat64(filename,&sb) == 0) {
-    return true;
-  } else {
-    return false;
-  }
-#else
   if (stat(filename,&sb) == 0) {
     return true;
   } else {
     return false;
   }
-#endif
 }
 
 
 off_t
 Access_filesize (char *filename) {
-#if defined(HAVE_STRUCT_STAT64) && !defined(__APPLE__)
-  struct stat64 sb;
-#else
   struct stat sb;
-#endif
 
-#if defined(HAVE_STAT64) && !defined(__APPLE__)
-  stat64(filename,&sb);
-#else
   stat(filename,&sb);
-#endif
   debug(printf("filesize is %lu\n",sb.st_size));
   return sb.st_size;
 }

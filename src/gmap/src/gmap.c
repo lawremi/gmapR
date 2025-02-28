@@ -3241,7 +3241,7 @@ apply_stage3 (bool *mergedp, Chimera_T *chimera, List_T gregions, bool lowidenti
 	    debug2(printf("Checking for middle piece local, starting with list length %d\n",List_length(stage3list)));
 	    stage3list = check_middle_piece_local(&foundp,stage3list,queryseq,queryuc,queryntlength,usersegment,
 						  oligoindices_major,oligoindices_minor,
-						  matchpool,pairpool,diagpool,cellpool,dynprogL,dynprogM,dynprogR);
+						  matchpool,pairpool,cellpool,diagpool,dynprogL,dynprogM,dynprogR);
 	    if (foundp == true) {
 	      /* Iterate */
 	      testchimerap = true;
@@ -3936,7 +3936,7 @@ check_valid_int (char *string) {
       p++;
     }
     if (!isdigit(*p)) {
-      return false;
+      return NULL;
     }
     while (*p != '\0' && isdigit(*p)) {
       p++;

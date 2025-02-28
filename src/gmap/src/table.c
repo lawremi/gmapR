@@ -274,7 +274,7 @@ Table_free (T *table) {
 }
 
 void
-Table_gc (T *table, void (*keyfree)(void **key), void (*valuefree)(void **value)) {
+Table_gc (T *table, void (*keyfree)(const void **key), void (*valuefree)(void **value)) {
   int i;
   struct binding *p, *q;
 

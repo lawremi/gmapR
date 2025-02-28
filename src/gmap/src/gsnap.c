@@ -1255,7 +1255,7 @@ check_valid_int (char *string) {
       p++;
     }
     if (!isdigit(*p)) {
-      return false;
+      return NULL;
     }
     while (*p != '\0' && isdigit(*p)) {
       p++;

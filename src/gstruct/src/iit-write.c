@@ -106,7 +106,7 @@ is_right_split (int i, int j, int r, unsigned int value, int *sigmas,
 }  
 
 static bool
-is_sorted (int array[], int i, int j, unsigned int (*endpoint)(), struct Interval_T *intervals) {
+is_sorted (int array[], int i, int j, unsigned int (*endpoint)(struct Interval_T *, int), struct Interval_T *intervals) {
   int lambda;
 
   for (lambda = i; lambda <= j - 1; lambda++) {
