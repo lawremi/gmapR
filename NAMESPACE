@@ -21,8 +21,8 @@ importMethodsFrom(Rsamtools, asBam)
 importClassesFrom(GenomicFeatures, TxDb)
 importFrom(GenomicFeatures, transcripts, exons, exonsBy)
 importClassesFrom(rtracklayer, RTLFile, FastaFile, RTLFileList)
-importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile,
-           FileForFormat)
+importFrom(rtracklayer, "referenceSequence<-", import, export, FastaFile)
+importFrom(BiocIO, FileForFormat)
 importMethodsFrom(rtracklayer, export)
 importFrom(VariantAnnotation, readVcf, ScanVcfParam, fixed, VRanges, ref, alt,
            "ref<-", "alt<-", altDepth, refDepth, "vcfWhich<-")
