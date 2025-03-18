@@ -50,12 +50,12 @@ formatToExt <- function(x) {
            map_exons="iit", map_ranges="iit", coords="coords")
 }
 
-setAs("GmapOutput", "RTLFileList", function(from) {
+setAs("GmapOutput", "BiocFileList", function(from) {
           as(lapply(paths(from), FileForFormat, formatToExt(from@param@format)),
              "List")
       })
 
-setAs("GmapOutput", "RTLFile", function(from) {
+setAs("GmapOutput", "BiocFile", function(from) {
           p <- paths(from)
           if (length(p) == 0L) {
               stop("no output files at: ", path(from))
@@ -72,7 +72,7 @@ setMethod("import", c("GmapOutput", "missing", "missing"),
               if (con@param@format %in% c("samse", "sampe")) {
                   f <- as(con, "BamFile")
               } else {
-                  f <- as(con, "RTLFile")
+                  f <- as(con, "BiocFile")
               }
               ans <- import(f, ...)
               si <- seqinfo(con@param@genome)

@@ -15,7 +15,7 @@ setClassUnion("IIT_OR_NULL", c("IIT", "NULL"))
 
 setRefClass("IITFile",
             fields=c(iit="IIT_OR_NULL"),
-            contains="RTLFile")
+            contains="BiocFile")
 
 IITFile <- function(resource) {
   new("IITFile", resource = resource)

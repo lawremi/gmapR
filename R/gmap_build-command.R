@@ -26,7 +26,7 @@ setMethod("gmap_build", c("FastaFile", "GmapGenome"), function(x, genome, ...) {
   gmap_build(path(x), genome, ...)
 })
 
-setMethod("gmap_build", c("RTLFile", "GmapGenome"), function(x, genome, ...) {
+setMethod("gmap_build", c("BiocFile", "GmapGenome"), function(x, genome, ...) {
   gmap_build(import(x), genome, ...)
 })
 
