@@ -1,5 +1,5 @@
 Package: gmapR
-Maintainer: Michael Lawrence <michafla@gene.com>
+Maintainer: Michael Lawrence <lawremi@gmail.com>
 License: Artistic-2.0
 Title: An R interface to the GMAP/GSNAP/GSTRUCT suite
 Type: Package
