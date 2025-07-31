@@ -51,8 +51,8 @@ subsetRegion <- function(x, roi, newseqname) {
   if (all(!grepl("^chr", seqlevels(x))))
     seqlevels(roi) <- sub("chr", "", seqlevels(roi))
   x <- shift(subsetByOverlaps(x, roi, ignore.strand=TRUE), 1L - start(roi))
-  x <- renameSeqlevels(x, setNames(newseqname, seqnames(roi)))
-  x <- keepSeqlevels(x, newseqname)
+  x <- GenomeInfoDb::renameSeqlevels(x, setNames(newseqname, seqnames(roi)))
+  x <- GenomeInfoDb::keepSeqlevels(x, newseqname)
   seqlengths(x) <- width(roi)
   x
 }

@@ -88,7 +88,7 @@
       this genome.
     }
     \item{}{\code{genome(x)}: gets the name of this genome.}
-    \item{}{\code{seqinfo(x)}: gets the \code{\link[GenomeInfoDb]{Seqinfo}}
+    \item{}{\code{seqinfo(x)}: gets the \code{\link[Seqinfo]{Seqinfo}}
       for this genome; only sequence names and lengths are available.
     }
   }

@@ -14,7 +14,7 @@ test_BamTallyParam <- function() {
                xs = FALSE, read_pos = FALSE, min_base_quality = 0L,
                noncovered = FALSE, nm = FALSE)
   which <- TP53Which()
-  wicked.which <- renameSeqlevels(which, c(TP53 = "chr1"))
+  wicked.which <- GenomeInfoDb::renameSeqlevels(which, c(TP53 = "chr1"))
   
   checkException(BamTallyParam(), silent = TRUE)
   checkException(BamTallyParam(5), silent = TRUE)
