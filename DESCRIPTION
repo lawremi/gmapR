@@ -9,7 +9,7 @@ Description: GSNAP and GMAP are a pair of tools to align short-read
         methods to work with GMAP and GSNAP from within R. In addition,
         it provides methods to tally alignment results on a
         per-nucleotide basis using the bam_tally tool.
-Version: 1.52.0
+Version: 1.53.0
 Depends: R (>= 2.15.0), methods, Seqinfo,
         GenomicRanges (>= 1.61.1), Rsamtools (>= 1.31.2)
 Imports: S4Vectors (>= 0.17.25), IRanges (>= 2.13.12), BiocGenerics (>= 0.25.1),
