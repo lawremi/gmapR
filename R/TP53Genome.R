@@ -50,7 +50,7 @@ getGeneRoi <- function(txdb, orgdb, gene, extend=1e6) {
 subsetRegion <- function(x, roi, newseqname) {
   if (all(!grepl("^chr", seqlevels(x))))
     seqlevels(roi) <- sub("chr", "", seqlevels(roi))
-  x <- shift(subsetByOverlaps(x, roi, ignore.strand=TRUE), 1L - start(roi))
+  x <- shift(subsetByOverlaps(x, roi, ignore.strand=TRUE, type="within"), 1L - start(roi))
   x <- GenomeInfoDb::renameSeqlevels(x, setNames(newseqname, seqnames(roi)))
   x <- GenomeInfoDb::keepSeqlevels(x, newseqname)
   seqlengths(x) <- width(roi)
