@@ -1,6 +1,6 @@
 test_bam_tally <- function() {
   param <- BamTallyParam(TP53Genome(), TP53Which(), indels = TRUE)
-  bam <- system.file("extdata/H1993.analyzed.bam", 
+  bam <- system.file("extdata/H1993.concordant_uniq.bam", 
                      package="LungCancerLines", mustWork=TRUE)
   tallies <- bam_tally(bam, param)
   variants <- variantSummary(tallies, NULL, 0L)
