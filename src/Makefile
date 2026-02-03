@@ -70,5 +70,6 @@ clean:
 	for dir in $(SUBDIRS); do \
 	  $(MAKE) -C $$dir distclean; \
 	done
+	rm -f samtools/*.o samtools/libbam.a
 	rm -f *.o *.so *.dll
 
